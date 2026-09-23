@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Neighbourhood } from "@/lib/data";
+import LocateButton from "@/components/LocateButton";
 
 type Props = {
   areas: Neighbourhood[];
@@ -57,6 +58,7 @@ export default function SearchClient({ areas, error }: Props) {
         />
         <button type="submit">Search</button>
       </form>
+      <LocateButton />
 
       {error ? (
         <div className="notice">The stored dataset could not be reached, so no fallback results are being fabricated.</div>
