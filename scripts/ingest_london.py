@@ -445,6 +445,7 @@ def persist(
     category_map: dict[str, str],
     unmatched: int,
     checksum: str,
+    boundary_checksum: str,
 ) -> None:
     url = os.environ.get("SUPABASE_URL")
     key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
@@ -454,6 +455,8 @@ def persist(
     db = SupabaseRest(url, key)
     run_id = str(uuid.uuid4())
     period_start = f"{month}-01"
+    year, month_number = (int(part) for part in month.split("-"))
+    period_end = f"{month}-{calendar.monthrange(year, month_number)[1]:02d}"
 
     db.upsert("countries", [{"code": COUNTRY_CODE, "name": "United Kingdom"}], "code")
     db.upsert(
@@ -486,7 +489,12 @@ def persist(
             "row_count": len(rows),
             "matched_row_count": len(rows) - unmatched,
             "checksum": checksum,
-            "diagnostics": {"unmatched_rows": unmatched},
+            "diagnostics": {
+                "unmatched_rows": unmatched,
+                "crime_zip_sha256": checksum,
+                "boundary_zip_sha256": boundary_checksum,
+                "boundary_model": "same_month_police_neighbourhood_archive",
+            },
         }],
         "id",
     )
@@ -551,14 +559,14 @@ def persist(
                         "source_slug": SOURCE_SLUG,
                         "metric_slug": metric_slug,
                         "period_start": period_start,
-                        "period_end": period_start,
+                        "period_end": period_end,
                         "value": value,
                         "unit": "count",
                         "numerator": value,
                         "denominator": None,
                         "provenance": {
                             "source_month": month,
-                            "location_model": "anonymised_point_assigned_to_current_police_neighbourhood_boundary",
+                            "location_model": "anonymised_point_assigned_to_same_month_police_neighbourhood_boundary",
                         },
                     }
                 )
@@ -698,7 +706,7 @@ def main() -> int:
         }, indent=2))
         return 0
 
-    persist(month, rows, areas, aggregates, categories, unmatched, checksum)
+    persist(month, rows, areas, aggregates, categories, unmatched, checksum, boundary_checksum)
     log("Supabase ingest passed")
     return 0
 
