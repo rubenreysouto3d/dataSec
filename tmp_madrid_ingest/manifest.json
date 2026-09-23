@@ -1,0 +1,16 @@
+{
+  "month": "2026-08",
+  "resource_id": "837676-16-incidencias-recibidas-en-la-emisora-central-de-policia-municipal",
+  "source_rows": 43177,
+  "matched_rows": 43001,
+  "unmatched_rows": 176,
+  "unmatched_ratio": 0.004076244296732056,
+  "incident_total": 47084,
+  "districts": 21,
+  "neighbourhoods": 131,
+  "metrics": 46,
+  "observations": 6026,
+  "source_sha256": "6d9b3d06999e26fd55b9c45295ba5464f83a5f10b86f7c91239a18edab56550a",
+  "boundary_sha256": "92a16bbe7c790cb53650ed538aae68fb82da5ec8ac249c400dd2503925920ac7",
+  "run_id": "e94e36be-b423-419d-83e7-ea2bb363d361"
+}
