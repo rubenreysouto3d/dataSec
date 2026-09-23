@@ -8,6 +8,10 @@ export const metadata: Metadata = {
   },
   description:
     "Explore neighbourhood-level urban safety data from official public sources, with transparent methodology and source quality.",
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
