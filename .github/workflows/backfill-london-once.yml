@@ -1,0 +1,38 @@
+name: backfill-london-once
+
+on:
+  push:
+    paths:
+      - ".github/workflows/backfill-london-once.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      SUPABASE_URL: https://pjyaevghxbimhknvmbxb.supabase.co
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Run six-month backfill or validation
+        id: backfill
+        shell: bash
+        run: |
+          if [ -n "$SUPABASE_SECRET_KEY" ] || [ -n "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "mode=persist" >> "$GITHUB_OUTPUT"
+            python scripts/backfill_london.py --count 6
+          else
+            echo "mode=dry-run" >> "$GITHUB_OUTPUT"
+            echo "::warning::No Supabase backend key available; validating six months without writes."
+            python scripts/backfill_london.py --count 6 --dry-run
+          fi
+      - name: Record mode without secrets
+        shell: bash
+        run: echo "London backfill completed in ${{ steps.backfill.outputs.mode }} mode."
