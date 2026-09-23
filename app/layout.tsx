@@ -30,7 +30,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         {children}
         <footer className="site-footer">
           <p>Official data, translated into useful local context.</p>
-          <p>Prototype · London / Metropolitan Police</p>
+          <p>Prototype · London + Madrid</p>
         </footer>
       </body>
     </html>
