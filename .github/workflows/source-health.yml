@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - "scripts/check-police-contract.mjs"
+      - "scripts/check-madrid-contract.mjs"
+      - "data/sources/london.json"
+      - "data/sources/madrid.json"
       - ".github/workflows/source-health.yml"
   workflow_dispatch:
   schedule:
@@ -21,6 +24,17 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
       - name: Validate data.police.uk contract
         run: node scripts/check-police-contract.mjs
+
+  madrid-police-dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Validate datos.madrid.es contract
+        run: node scripts/check-madrid-contract.mjs
