@@ -1,6 +1,11 @@
 name: source-health
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/check-police-contract.mjs"
+      - ".github/workflows/source-health.yml"
   workflow_dispatch:
   schedule:
     - cron: "17 6 * * *"
