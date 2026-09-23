@@ -1,6 +1,8 @@
 name: ingest-madrid
 
 on:
+  schedule:
+    - cron: "47 5 5,20 * *"
   push:
     branches: [main]
     paths:
@@ -25,7 +27,7 @@ permissions:
 
 jobs:
   dry-run:
-    if: github.event_name == 'push' || inputs.persist != true
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.persist != true)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -43,7 +45,7 @@ jobs:
           python scripts/ingest_madrid.py "${args[@]}"
 
   persist:
-    if: github.event_name == 'workflow_dispatch' && inputs.persist == true
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.persist == true)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -55,14 +57,23 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - name: Require backend credential
+      - name: Check backend credential
+        id: credential
         shell: bash
         run: |
           if [ -z "$SUPABASE_SECRET_KEY" ] && [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
-            echo "::error::No Supabase backend key is configured in GitHub Actions."
-            exit 1
+            if [ "${{ github.event_name }}" = "schedule" ]; then
+              echo "available=false" >> "$GITHUB_OUTPUT"
+              echo "::notice::Scheduled Madrid ingest skipped because no Supabase backend key is configured."
+            else
+              echo "::error::Persistent Madrid ingest requires SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY."
+              exit 1
+            fi
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
           fi
       - name: Persist Madrid ingestion
+        if: steps.credential.outputs.available == 'true'
         shell: bash
         run: |
           args=()
