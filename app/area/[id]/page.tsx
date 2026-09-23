@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { boundaryPath } from "@/lib/boundary";
 import {
+  getAreaContext,
   getAreaProfile,
   getBoundaryRings,
   getMonthlySummaries,
@@ -23,13 +24,15 @@ export default async function AreaPage({ params }: Props) {
 
   let area: Awaited<ReturnType<typeof getAreaProfile>> = null;
   let boundary: Awaited<ReturnType<typeof getBoundaryRings>> = null;
+  let context: Awaited<ReturnType<typeof getAreaContext>> = null;
   let monthly: Awaited<ReturnType<typeof getMonthlySummaries>> = [];
 
   try {
     area = await getAreaProfile(id);
     if (area) {
-      [boundary, monthly] = await Promise.all([
+      [boundary, context, monthly] = await Promise.all([
         getBoundaryRings(area.id),
+        getAreaContext(area.id),
         getMonthlySummaries(area.id, 6),
       ]);
     }
@@ -85,6 +88,11 @@ export default async function AreaPage({ params }: Props) {
           <span>Recorded incidents</span>
           <strong>{latest.total.toLocaleString("en-GB")}</strong>
           <small>{monthLabel(latest.month)}</small>
+        </article>
+        <article>
+          <span>Incident density</span>
+          <strong>{context ? `${Math.round(context.incidentsPerKm2).toLocaleString("en-GB")}/km²` : "—"}</strong>
+          <small>{context ? `P${Math.round(context.densityPercentile * 100)} within London NPTs · not risk` : "Context unavailable"}</small>
         </article>
         <article>
           <span>{totals.length >= 2 ? `${totals.length}-month movement` : "Trend history"}</span>
@@ -150,8 +158,9 @@ export default async function AreaPage({ params }: Props) {
             recorded crime is not identical to underlying victimisation or personal risk.
           </p>
           <p>
-            dataSec deliberately does not convert this prototype into a single safety score. Population,
-            footfall and comparable city-wide distributions will be added before relative-risk labels are introduced.
+            dataSec deliberately does not convert this prototype into a single safety score. The density
+            percentile above compares recorded incidents per km² between London police neighbourhoods only;
+            it is not a measure of personal risk and can be heavily affected by footfall, nightlife and transport hubs.
           </p>
           <a href="https://data.police.uk/docs/" target="_blank" rel="noreferrer">Read the official source documentation ↗</a>
         </div>
