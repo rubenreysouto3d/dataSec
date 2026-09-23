@@ -263,7 +263,7 @@ jobs:
             'warning',
             'guindalera_092_source_caveat',
             {q('The official source states that Guindalera includes incidents closed as citizen information at the 092 service address, which creates an apparent local concentration.')},
-            '{"neighbourhood":"Guindalera","source_note":true}'::jsonb
+            {q(json.dumps({"neighbourhood":"Guindalera","source_note":True}, separators=(",", ":")))}::jsonb
           );
           """
           if unmatched:
