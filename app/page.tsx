@@ -23,7 +23,11 @@ export default async function Home() {
         <p className="hero-copy">
           dataSec turns official public-safety data into readable neighbourhood profiles, without pretending that one magic score can define a place.
         </p>
-        <a className="primary" href="#areas">Explore London</a>
+        <form className="search-form" action="/search" method="get">
+          <label className="sr-only" htmlFor="area-search">Search a London neighbourhood</label>
+          <input id="area-search" name="q" placeholder="Search London neighbourhoods…" autoComplete="off" />
+          <button type="submit">Search</button>
+        </form>
         <div className="hero-proof">
           <span><strong>Source</strong> data.police.uk</span>
           <span><strong>Update</strong> monthly</span>

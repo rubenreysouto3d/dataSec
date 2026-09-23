@@ -1,0 +1,74 @@
+const API = "https://data.police.uk/api";
+const FORCE = "metropolitan";
+
+function fail(message, details) {
+  console.error(`CONTRACT_ERROR: ${message}`);
+  if (details !== undefined) console.error(details);
+  process.exit(1);
+}
+
+async function json(path) {
+  const response = await fetch(`${API}${path}`, {
+    headers: { "User-Agent": "dataSec-source-health/0.1" },
+  });
+  if (!response.ok) fail(`${path} returned HTTP ${response.status}`);
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("json")) fail(`${path} did not return JSON`, contentType);
+  return response.json();
+}
+
+function isCoordinate(point) {
+  return point &&
+    typeof point === "object" &&
+    typeof point.latitude === "string" &&
+    typeof point.longitude === "string" &&
+    Number.isFinite(Number(point.latitude)) &&
+    Number.isFinite(Number(point.longitude));
+}
+
+const neighbourhoods = await json(`/${FORCE}/neighbourhoods`);
+if (!Array.isArray(neighbourhoods) || neighbourhoods.length < 10) {
+  fail("Metropolitan neighbourhood list is unexpectedly small or malformed", neighbourhoods?.length);
+}
+
+const sample = neighbourhoods.find((item) =>
+  item && typeof item.id === "string" && typeof item.name === "string" && item.id && item.name
+);
+if (!sample) fail("No valid neighbourhood object found");
+
+const detail = await json(`/${FORCE}/${encodeURIComponent(sample.id)}`);
+if (
+  !detail ||
+  detail.id !== sample.id ||
+  typeof detail.name !== "string" ||
+  !isCoordinate(detail.centre)
+) {
+  fail("Neighbourhood detail contract changed", detail);
+}
+
+const boundary = await json(`/${FORCE}/${encodeURIComponent(sample.id)}/boundary`);
+if (!Array.isArray(boundary) || boundary.length < 3 || !boundary.every(isCoordinate)) {
+  fail("Neighbourhood boundary contract changed", {
+    length: Array.isArray(boundary) ? boundary.length : null,
+    sample: Array.isArray(boundary) ? boundary.slice(0, 2) : boundary,
+  });
+}
+
+const dates = await json("/crimes-street-dates");
+if (
+  !Array.isArray(dates) ||
+  dates.length < 6 ||
+  dates.some((item) => !item || !/^\d{4}-\d{2}$/.test(item.date))
+) {
+  fail("Crime availability date contract changed", dates?.slice?.(0, 5));
+}
+
+console.log(JSON.stringify({
+  ok: true,
+  checked_at: new Date().toISOString(),
+  force: FORCE,
+  neighbourhood_count: neighbourhoods.length,
+  sample_neighbourhood: { id: sample.id, name: sample.name },
+  sample_boundary_points: boundary.length,
+  latest_month: dates[0].date,
+}, null, 2));
