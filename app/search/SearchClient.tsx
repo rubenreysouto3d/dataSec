@@ -43,17 +43,17 @@ export default function SearchClient({ areas, error }: Props) {
 
   return (
     <>
-      <div className="eyebrow">London neighbourhood finder</div>
-      <h1>{query ? <>Results for <em>“{q.trim()}”</em></> : "Browse London"}</h1>
+      <div className="eyebrow">London + Madrid area finder</div>
+      <h1>{query ? <>Results for <em>“{q.trim()}”</em></> : "Browse areas"}</h1>
 
       <form className="search-form search-form-page" onSubmit={submit}>
-        <label className="sr-only" htmlFor="search-again">Search a London neighbourhood</label>
+        <label className="sr-only" htmlFor="search-again">Search an area</label>
         <input
           id="search-again"
           name="q"
           value={value}
           onChange={(event) => setValue(event.target.value)}
-          placeholder="Try Soho, Camden, Brixton…"
+          placeholder="Try Camden, Brixton, Sol, Lavapiés…"
           autoFocus
         />
         <button type="submit">Search</button>
@@ -65,15 +65,15 @@ export default function SearchClient({ areas, error }: Props) {
       ) : (
         <>
           <p className="result-count">
-            {query ? `${results.length} matching police neighbourhood${results.length === 1 ? "" : "s"}` : `Showing ${results.length} neighbourhoods`}
+            {query ? `${results.length} matching area${results.length === 1 ? "" : "s"}` : `Showing ${results.length} areas`}
           </p>
           {results.length === 0 ? (
-            <div className="notice">No Metropolitan Police neighbourhood matched that name. Try a broader spelling or nearby district.</div>
+            <div className="notice">No stored area matched that name. Try a broader spelling or nearby district/neighbourhood.</div>
           ) : (
             <div className="search-results">
               {results.map((area) => (
                 <Link href={`/area/${encodeURIComponent(area.id)}`} key={area.id}>
-                  <span>London</span>
+                  <span>{area.cityName}</span>
                   <strong>{area.name}</strong>
                   <i>Open profile →</i>
                 </Link>
