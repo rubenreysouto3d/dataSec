@@ -1,0 +1,50 @@
+name: backfill-london
+
+on:
+  workflow_dispatch:
+    inputs:
+      count:
+        description: "Number of months ending at the latest published source month"
+        required: true
+        default: "6"
+        type: string
+      dry_run:
+        description: "Process all months without writing to Supabase"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      SUPABASE_URL: https://pjyaevghxbimhknvmbxb.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Check persistence credentials
+        id: credentials
+        shell: bash
+        run: |
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::SUPABASE_SERVICE_ROLE_KEY is not configured; persistent backfill will be skipped."
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Backfill London history
+        if: inputs.dry_run == true || steps.credentials.outputs.available == 'true'
+        shell: bash
+        run: |
+          args=(--count "${{ inputs.count }}")
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            args+=(--dry-run)
+          fi
+          python scripts/backfill_london.py "${args[@]}"
