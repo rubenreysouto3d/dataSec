@@ -12,9 +12,8 @@ import {
 
 type Props = { params: Promise<{ id: string }> };
 
-export const dynamicParams = false;
-
 export async function generateStaticParams() {
+  if (process.env.GITHUB_PAGES !== "true") return [];
   const areas = await getNeighbourhoods();
   return areas.map((area) => ({ id: area.id }));
 }
