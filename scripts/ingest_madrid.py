@@ -653,7 +653,7 @@ def main() -> int:
         area_rows,
         area_fields,
     )
-    _, area_by_code = build_area_index(area_rows)
+    area_index, area_by_code = build_area_index(area_rows)
     if set(boundaries) != set(area_by_code):
         missing = sorted(set(area_by_code) - set(boundaries))
         extra = sorted(set(boundaries) - set(area_by_code))
@@ -662,7 +662,7 @@ def main() -> int:
     source_total = sum(
         int(str(row.get("Incidentes") or "0").strip())
         for row in incident_rows
-        if match_incident_area(row, build_area_index(area_rows)[0]) is not None
+        if match_incident_area(row, area_index) is not None
     )
     aggregate_total = sum(aggregates.values())
     if source_total != aggregate_total:
