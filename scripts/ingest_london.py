@@ -407,9 +407,10 @@ class SupabaseRest:
         headers = {
             "User-Agent": USER_AGENT,
             "apikey": self.key,
-            "Authorization": f"Bearer {self.key}",
             "Content-Type": "application/json",
         }
+        if not self.key.startswith("sb_secret_"):
+            headers["Authorization"] = f"Bearer {self.key}"
         if prefer:
             headers["Prefer"] = prefer
         data = None if payload is None else json.dumps(payload, separators=(",", ":")).encode("utf-8")
@@ -448,9 +449,12 @@ def persist(
     boundary_checksum: str,
 ) -> None:
     url = os.environ.get("SUPABASE_URL")
-    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    key = os.environ.get("SUPABASE_SECRET_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     if not url or not key:
-        raise RuntimeError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required unless --dry-run is used")
+        raise RuntimeError(
+            "SUPABASE_URL and SUPABASE_SECRET_KEY (or legacy SUPABASE_SERVICE_ROLE_KEY) "
+            "are required unless --dry-run is used"
+        )
 
     db = SupabaseRest(url, key)
     run_id = str(uuid.uuid4())
