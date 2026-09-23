@@ -23,6 +23,7 @@ jobs:
     timeout-minutes: 25
     env:
       SUPABASE_URL: https://pjyaevghxbimhknvmbxb.supabase.co
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
       - uses: actions/checkout@v4
@@ -33,9 +34,9 @@ jobs:
         id: credentials
         shell: bash
         run: |
-          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+          if [ -z "$SUPABASE_SECRET_KEY" ] && [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
             echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::SUPABASE_SERVICE_ROLE_KEY is not configured; persistent backfill will be skipped."
+            echo "::warning::Neither SUPABASE_SECRET_KEY nor SUPABASE_SERVICE_ROLE_KEY is configured; persistent backfill will be skipped."
           else
             echo "available=true" >> "$GITHUB_OUTPUT"
           fi
