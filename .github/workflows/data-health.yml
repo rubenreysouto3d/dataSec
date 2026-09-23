@@ -1,0 +1,26 @@
+name: data-health
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 7 * * *"
+  push:
+    paths:
+      - "scripts/check-data-store.mjs"
+      - "lib/public-data-client.ts"
+      - "docs/schema.sql"
+      - ".github/workflows/data-health.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  public-data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: node scripts/check-data-store.mjs
