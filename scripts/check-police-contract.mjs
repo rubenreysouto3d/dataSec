@@ -1,4 +1,5 @@
 const API = "https://data.police.uk/api";
+const BASE = "https://data.police.uk";
 const FORCE = "metropolitan";
 
 function fail(message, details) {
@@ -63,6 +64,20 @@ if (
   fail("Crime availability date contract changed", dates?.slice?.(0, 5));
 }
 
+const latestMonth = dates[0].date;
+const archiveUrl = `${BASE}/data/boundaries/${latestMonth}.zip`;
+const archive = await fetch(archiveUrl, {
+  method: "HEAD",
+  headers: { "User-Agent": "dataSec-source-health/0.1" },
+});
+if (!archive.ok) {
+  fail(`Latest monthly boundary archive returned HTTP ${archive.status}`, archiveUrl);
+}
+const archiveLength = Number(archive.headers.get("content-length") || "0");
+if (archiveLength && archiveLength < 1_000_000) {
+  fail("Latest monthly boundary archive is implausibly small", archiveLength);
+}
+
 console.log(JSON.stringify({
   ok: true,
   checked_at: new Date().toISOString(),
@@ -70,5 +85,9 @@ console.log(JSON.stringify({
   neighbourhood_count: neighbourhoods.length,
   sample_neighbourhood: { id: sample.id, name: sample.name },
   sample_boundary_points: boundary.length,
-  latest_month: dates[0].date,
+  latest_month: latestMonth,
+  monthly_boundary_archive: {
+    url: archiveUrl,
+    content_length: archiveLength || null,
+  },
 }, null, 2));
