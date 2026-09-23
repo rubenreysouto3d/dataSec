@@ -1,10 +1,25 @@
-import type { Point } from "./police";
+export type Point = { latitude: string; longitude: string };
 
-export function boundaryPath(points: Point[], width = 700, height = 360, padding = 24): string {
-  if (points.length < 3) return "";
-  const coords = points.map((p) => ({ x: Number(p.longitude), y: Number(p.latitude) }));
-  const xs = coords.map((p) => p.x);
-  const ys = coords.map((p) => p.y);
+export function boundaryPath(
+  input: Point[] | Point[][],
+  width = 700,
+  height = 360,
+  padding = 24,
+): string {
+  const rings: Point[][] =
+    input.length > 0 && Array.isArray(input[0])
+      ? (input as Point[][])
+      : [input as Point[]];
+
+  const usable = rings.filter((ring) => ring.length >= 3);
+  if (usable.length === 0) return "";
+
+  const all = usable.flat().map((p) => ({
+    x: Number(p.longitude),
+    y: Number(p.latitude),
+  }));
+  const xs = all.map((p) => p.x);
+  const ys = all.map((p) => p.y);
   const minX = Math.min(...xs);
   const maxX = Math.max(...xs);
   const minY = Math.min(...ys);
@@ -18,11 +33,16 @@ export function boundaryPath(points: Point[], width = 700, height = 360, padding
   const usedH = rangeY * scale;
   const ox = (width - usedW) / 2;
   const oy = (height - usedH) / 2;
-  return coords
-    .map((p, index) => {
-      const x = ox + (p.x - minX) * scale;
-      const y = height - (oy + (p.y - minY) * scale);
-      return `${index === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
-    })
-    .join(" ") + " Z";
+
+  return usable
+    .map((ring) =>
+      ring
+        .map((p, index) => {
+          const x = ox + (Number(p.longitude) - minX) * scale;
+          const y = height - (oy + (Number(p.latitude) - minY) * scale);
+          return `${index === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
+        })
+        .join(" ") + " Z",
+    )
+    .join(" ");
 }
