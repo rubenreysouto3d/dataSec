@@ -33,7 +33,6 @@ jobs:
           path: ./out
 
   deploy:
-    continue-on-error: true
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
