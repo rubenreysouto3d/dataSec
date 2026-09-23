@@ -1,13 +1,22 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { boundaryPath } from "@/lib/boundary";
 import {
   getAreaProfile,
   getBoundaryRings,
   getMonthlySummaries,
+  getNeighbourhoods,
   monthLabel,
 } from "@/lib/data";
 
 type Props = { params: Promise<{ id: string }> };
+
+export const dynamicParams = false;
+
+export async function generateStaticParams() {
+  const areas = await getNeighbourhoods();
+  return areas.map((area) => ({ id: area.id }));
+}
 
 export default async function AreaPage({ params }: Props) {
   const { id } = await params;
@@ -28,7 +37,7 @@ export default async function AreaPage({ params }: Props) {
     console.error(error);
     return (
       <main className="area-page">
-        <a className="back" href="/">← London</a>
+        <Link className="back" href="/">← London</Link>
         <section className="error-card">
           <div className="eyebrow">Dataset unavailable</div>
           <h1>We could not load this area right now.</h1>
@@ -53,7 +62,7 @@ export default async function AreaPage({ params }: Props) {
 
   return (
     <main className="area-page">
-      <a className="back" href="/">← London</a>
+      <Link className="back" href="/">← London</Link>
       <section className="area-intro">
         <div>
           <div className="eyebrow">London · Metropolitan Police neighbourhood</div>
