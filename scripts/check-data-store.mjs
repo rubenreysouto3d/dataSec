@@ -31,11 +31,17 @@ const contexts = await request(
 const madridAreas = await request(
   "areas?select=id,source_area_id,name&city_slug=eq.madrid&area_type=eq.municipal_neighbourhood&active=eq.true&limit=1",
 );
+const latestContexts = await request(
+  "latest_area_context?select=area_id,city_slug,period_start,total_incidents&limit=2",
+);
 if (!Array.isArray(contexts) || contexts.length !== 1) {
   throw new Error("Public area_month_context returned no London context");
 }
 if (!Array.isArray(madridAreas) || madridAreas.length !== 1) {
   throw new Error("Public areas endpoint returned no Madrid neighbourhood");
+}
+if (!Array.isArray(latestContexts) || latestContexts.length < 1) {
+  throw new Error("Public latest_area_context returned no rows");
 }
 
 const located = await request("rpc/find_area_at_point", {
@@ -56,6 +62,7 @@ console.log(
       sampleArea: areas[0],
       sampleContext: contexts[0],
       sampleMadridArea: madridAreas[0],
+      sampleLatestContext: latestContexts[0],
       pointLookup: located[0],
     },
     null,
