@@ -33,8 +33,9 @@ CKAN_API = "https://datos.madrid.es/api/3/action"
 DATASET_ID = "837676-0-incidencias-recibidas-en-la-emisora-central-de-policia-municipal"
 AREA_RESOURCE_ID = "300496-4-barrios-madrid"
 BOUNDARY_URL = (
-    "https://geoportal.madrid.es/fsdescargas/IDEAM_WBGEOPORTAL/"
-    "LIMITES_ADMINISTRATIVOS/Barrios/TopoJSON/Barrios.json"
+    "https://sigma.madrid.es/hosted/rest/services/CARTOGRAFIA/"
+    "LIMITES_ADMINISTRATIVOS/MapServer/25/query?"
+    "where=1%3D1&outFields=%2A&returnGeometry=true&outSR=4326&f=geojson"
 )
 SOURCE_SLUG = "madrid-police-dispatch-incidents"
 CITY_SLUG = "madrid"
@@ -219,90 +220,59 @@ def metric_slug(category: str) -> str:
     return f"madrid-dispatch-{slugify(category)}"
 
 
-def decode_topology_arc(
-    encoded_arc: list[list[int | float]],
-    scale: list[float],
-    translate: list[float],
-) -> list[tuple[float, float]]:
-    x = 0.0
-    y = 0.0
-    decoded: list[tuple[float, float]] = []
-    for delta in encoded_arc:
-        if len(delta) < 2:
-            raise RuntimeError("Invalid Madrid TopoJSON arc coordinate")
-        x += float(delta[0])
-        y += float(delta[1])
-        decoded.append((x * scale[0] + translate[0], y * scale[1] + translate[1]))
-    return decoded
-
-
-def topology_arc(topology: dict[str, Any], index: int) -> list[tuple[float, float]]:
-    arcs = topology.get("arcs")
-    transform = topology.get("transform") or {}
-    scale = transform.get("scale")
-    translate = transform.get("translate")
-    if not isinstance(arcs, list) or not isinstance(scale, list) or not isinstance(translate, list):
-        raise RuntimeError("Madrid TopoJSON missing arcs/transform")
-    source_index = index if index >= 0 else ~index
-    points = decode_topology_arc(arcs[source_index], scale, translate)
-    return points if index >= 0 else list(reversed(points))
-
-
-def stitch_ring(topology: dict[str, Any], arc_indices: list[int]) -> list[tuple[float, float]]:
-    ring: list[tuple[float, float]] = []
-    for index in arc_indices:
-        points = topology_arc(topology, int(index))
-        if ring and points and ring[-1] == points[0]:
-            points = points[1:]
-        ring.extend(points)
-    if len(ring) < 3:
-        raise RuntimeError("Madrid TopoJSON produced a degenerate ring")
-    if ring[0] != ring[-1]:
-        ring.append(ring[0])
-    return ring
-
-
-def geometry_polygons(topology: dict[str, Any], geometry: dict[str, Any]) -> list[dict[str, Any]]:
+def geojson_geometry_polygons(geometry: dict[str, Any]) -> list[dict[str, Any]]:
     geometry_type = geometry.get("type")
-    arcs = geometry.get("arcs")
+    coordinates = geometry.get("coordinates")
     if geometry_type == "Polygon":
-        polygon_arcs = [arcs]
+        polygon_coordinates = [coordinates]
     elif geometry_type == "MultiPolygon":
-        polygon_arcs = arcs
+        polygon_coordinates = coordinates
     else:
         raise RuntimeError(f"Unsupported Madrid boundary geometry: {geometry_type}")
 
     polygons: list[dict[str, Any]] = []
-    for polygon in polygon_arcs:
+    for polygon in polygon_coordinates or []:
         if not polygon:
             continue
-        rings = [stitch_ring(topology, [int(index) for index in ring]) for ring in polygon]
-        if not rings:
-            continue
-        polygons.append({"outer": rings[0], "holes": rings[1:]})
+        rings: list[list[tuple[float, float]]] = []
+        for ring in polygon:
+            points = [(float(point[0]), float(point[1])) for point in ring]
+            if len(points) < 4:
+                raise RuntimeError("Madrid GeoJSON produced a degenerate ring")
+            if points[0] != points[-1]:
+                points.append(points[0])
+            for lon, lat in points:
+                if not (-4.5 <= lon <= -3.0 and 39.8 <= lat <= 41.0):
+                    raise RuntimeError(f"Implausible Madrid coordinate: {lon}, {lat}")
+            rings.append(points)
+        if rings:
+            polygons.append({"outer": rings[0], "holes": rings[1:]})
     if not polygons:
         raise RuntimeError("Madrid boundary geometry has no polygons")
     return polygons
 
 
 def fetch_boundaries() -> tuple[dict[str, list[dict[str, Any]]], str]:
-    topology, blob = fetch_json(BOUNDARY_URL)
-    if topology.get("type") != "Topology":
-        raise RuntimeError("Madrid boundary payload is not TopoJSON")
-    geometries = ((topology.get("objects") or {}).get("Barrios") or {}).get("geometries")
-    if not isinstance(geometries, list) or len(geometries) != 131:
-        raise RuntimeError(f"Expected 131 Madrid boundary geometries, got {len(geometries or [])}")
+    collection, blob = fetch_json(BOUNDARY_URL)
+    if collection.get("type") != "FeatureCollection":
+        raise RuntimeError("Madrid boundary payload is not GeoJSON FeatureCollection")
+    features = collection.get("features")
+    if not isinstance(features, list) or len(features) != 131:
+        raise RuntimeError(f"Expected 131 Madrid boundary features, got {len(features or [])}")
 
     by_code: dict[str, list[dict[str, Any]]] = {}
-    for geometry in geometries:
-        code = str((geometry.get("properties") or {}).get("COD_BAR") or "").strip()
+    for feature in features:
+        properties = feature.get("properties") or {}
+        code = str(properties.get("COD_BAR") or properties.get("cod_bar") or "").strip()
         if not code:
-            raise RuntimeError("Madrid boundary geometry missing COD_BAR")
+            raise RuntimeError("Madrid boundary feature missing COD_BAR")
         if code in by_code:
             raise RuntimeError(f"Duplicate Madrid boundary code: {code}")
-        by_code[code] = geometry_polygons(topology, geometry)
+        geometry = feature.get("geometry")
+        if not isinstance(geometry, dict):
+            raise RuntimeError(f"Madrid boundary {code} is missing geometry")
+        by_code[code] = geojson_geometry_polygons(geometry)
     return by_code, hashlib.sha256(blob).hexdigest()
-
 
 def validate_and_aggregate(
     month: str,
@@ -449,7 +419,7 @@ def persist(
                 "resource_id": resource_id,
                 "source_sha256": checksum,
                 "boundary_sha256": boundary_checksum,
-                "boundary_model": "current_madrid_municipal_neighbourhood_topology",
+                "boundary_model": "current_madrid_municipal_neighbourhood_geojson",
             },
         }],
         "id",
