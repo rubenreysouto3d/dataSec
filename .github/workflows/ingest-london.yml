@@ -1,6 +1,8 @@
 name: ingest-london
 
 on:
+  schedule:
+    - cron: "17 5 5,20 * *"
   workflow_dispatch:
     inputs:
       month:
@@ -33,10 +35,22 @@ jobs:
         shell: bash
         run: |
           args=()
-          if [ -n "${{ inputs.month }}" ]; then
-            args+=(--month "${{ inputs.month }}")
+
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            if [ -z "$SUPABASE_SECRET_KEY" ] && [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+              echo "::notice::Scheduled London ingest skipped because no Supabase backend key is configured."
+              exit 0
+            fi
+          else
+            if [ -n "${{ inputs.month }}" ]; then
+              args+=(--month "${{ inputs.month }}")
+            fi
+            if [ "${{ inputs.dry_run }}" = "true" ]; then
+              args+=(--dry-run)
+            elif [ -z "$SUPABASE_SECRET_KEY" ] && [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+              echo "::error::Persistent London ingest requires SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY."
+              exit 1
+            fi
           fi
-          if [ "${{ inputs.dry_run }}" = "true" ]; then
-            args+=(--dry-run)
-          fi
+
           python scripts/ingest_london.py "${args[@]}"
