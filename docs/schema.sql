@@ -258,9 +258,25 @@ from public, anon, authenticated;
 grant execute on function public.find_area_at_point(double precision, double precision)
 to anon, authenticated, service_role;
 
+
+create or replace view public.latest_area_context
+with (security_invoker = true)
+as
+select distinct on (area_id)
+  area_id,
+  city_slug,
+  period_start,
+  total_incidents,
+  area_km2,
+  incidents_per_km2,
+  density_percentile
+from public.area_month_context
+order by area_id, period_start desc;
+
 grant select on public.latest_area_boundaries,
   public.latest_area_boundaries_geojson,
-  public.area_month_context
+  public.area_month_context,
+  public.latest_area_context
 to anon, authenticated, service_role;
 
 -- Backend ingestion may write via the service role.
