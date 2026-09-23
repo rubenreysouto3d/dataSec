@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -19,10 +20,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en">
       <body>
         <header className="site-header">
-          <a className="brand" href="/">data<span>Sec</span></a>
+          <Link className="brand" href="/">data<span>Sec</span></Link>
           <nav>
-            <a href="/#areas">Explore</a>
-            <a href="/methodology">Methodology</a>
+            <Link href="/#areas">Explore</Link>
+            <Link href="/methodology">Methodology</Link>
           </nav>
         </header>
         {children}
