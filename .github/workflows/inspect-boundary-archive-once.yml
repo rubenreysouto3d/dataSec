@@ -1,0 +1,41 @@
+name: inspect-boundary-archive-once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/inspect-boundary-archive-once.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Download and inspect July 2026 boundary archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --connect-timeout 20 \
+            https://data.police.uk/data/boundaries/2026-07.zip \
+            -o boundaries.zip
+          python - <<'PY'
+          import zipfile
+          from pathlib import Path
+          with zipfile.ZipFile("boundaries.zip") as z:
+              names = z.namelist()
+              print("FILES", len(names))
+              for name in names[:80]:
+                  print("FILE", name)
+              metro = [n for n in names if "metropolitan" in n.lower()]
+              print("METROPOLITAN_MATCHES", metro)
+              if not metro:
+                  raise SystemExit("No Metropolitan file in archive")
+              data = z.read(metro[0]).decode("utf-8", errors="replace")
+              print("METROPOLITAN_BYTES", len(data.encode("utf-8")))
+              print("KML_HEAD_BEGIN")
+              print(data[:12000])
+              print("KML_HEAD_END")
+          PY
