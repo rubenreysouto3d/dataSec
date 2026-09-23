@@ -2,6 +2,8 @@ import io
 import unittest
 import zipfile
 
+from scripts.backfill_london import shift_month
+
 from scripts.ingest_london import (
     build_grid,
     locate_area,
@@ -100,6 +102,14 @@ class SpatialTests(unittest.TestCase):
         polygons = areas[0]["polygons"]
         self.assertEqual(len(polygons), 1)
         self.assertEqual(len(polygons[0]["holes"]), 1)
+
+
+class BackfillTests(unittest.TestCase):
+    def test_shift_month_within_year(self):
+        self.assertEqual(shift_month("2026-07", -5), "2026-02")
+
+    def test_shift_month_across_year(self):
+        self.assertEqual(shift_month("2026-01", -1), "2025-12")
 
 
 if __name__ == "__main__":
