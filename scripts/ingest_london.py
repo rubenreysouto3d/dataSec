@@ -212,12 +212,7 @@ def parse_kml_ring(text: str) -> list[tuple[float, float]]:
     return ring
 
 
-def fetch_neighbourhoods(month: str) -> tuple[list[dict[str, object]], str]:
-    url = f"{BASE}/data/boundaries/{month}.zip"
-    log(f"Downloading monthly NPT boundary archive: {url}")
-    blob = request_bytes(url, attempts=4)
-    checksum = hashlib.sha256(blob).hexdigest()
-
+def parse_boundary_archive(blob: bytes, month: str) -> list[dict[str, object]]:
     areas: list[dict[str, object]] = []
     prefix = f"{month}/{FORCE}/"
 
@@ -226,10 +221,6 @@ def fetch_neighbourhoods(month: str) -> tuple[list[dict[str, object]], str]:
             name for name in archive.namelist()
             if name.startswith(prefix) and name.lower().endswith(".kml")
         ]
-        if len(members) < 10:
-            raise RuntimeError(
-                f"Boundary archive has too few Metropolitan KML files for {month}: {len(members)}"
-            )
 
         for member in members:
             root = ET.fromstring(archive.read(member))
@@ -283,6 +274,21 @@ def fetch_neighbourhoods(month: str) -> tuple[list[dict[str, object]], str]:
                     "bbox": (min(xs), min(ys), max(xs), max(ys)),
                 }
             )
+
+    return areas
+
+
+def fetch_neighbourhoods(month: str) -> tuple[list[dict[str, object]], str]:
+    url = f"{BASE}/data/boundaries/{month}.zip"
+    log(f"Downloading monthly NPT boundary archive: {url}")
+    blob = request_bytes(url, attempts=4)
+    checksum = hashlib.sha256(blob).hexdigest()
+    areas = parse_boundary_archive(blob, month)
+
+    if len(areas) < 10:
+        raise RuntimeError(
+            f"Boundary archive has too few Metropolitan KML files for {month}: {len(areas)}"
+        )
 
     log(f"Loaded {len(areas)} Metropolitan NPT boundaries from monthly archive")
     return areas, checksum

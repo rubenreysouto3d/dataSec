@@ -30,15 +30,22 @@ public read-only API / Next.js
 
 The interactive prototype can read `data.police.uk` directly.
 
-The persistent pipeline uses the official custom CSV download for one Metropolitan Police month at a time. Raw anonymised points are spatially assigned to current neighbourhood-policing boundaries in memory, then discarded. Only monthly aggregates are persisted.
+The persistent pipeline uses two official resources for the same month:
 
-This prevents the product database from becoming a duplicate warehouse of millions of raw crime rows.
+1. a custom Metropolitan Police street-crime CSV download;
+2. the monthly NPT boundary archive from `/data/boundaries/YYYY-MM.zip`.
+
+Each Metropolitan KML file contains the force-specific neighbourhood ID, human-readable name and polygon geometry for that month. Raw anonymised crime points are spatially assigned to those contemporaneous boundaries in memory, then discarded. Only monthly aggregates and the versioned boundaries are persisted.
+
+This avoids hundreds of per-neighbourhood API calls, supports historically correct backfills and prevents the product database from becoming a duplicate warehouse of millions of raw crime rows.
 
 ## Geography
 
-`areas` stores stable identities.
+`areas` stores stable source identities.
 
-`area_boundaries` stores a boundary version by month. A neighbourhood name or polygon may change without losing older observations.
+`area_boundaries` stores a boundary version by month. A neighbourhood name or polygon may change without losing older observations. The parser supports multiple polygons and inner rings (holes).
+
+The police neighbourhood geography is a source layer, not necessarily the user-facing place vocabulary. A later place/address layer can map searches such as Soho or a hotel address onto the relevant official area without altering source observations.
 
 Cross-country comparisons are not permitted merely because two sources both use the word “crime”. Each importer declares what its source actually measures.
 
@@ -56,7 +63,9 @@ A source update is publishable only when:
 
 - the source contract still matches;
 - the requested month exists;
-- expected columns are present;
+- expected CSV columns are present;
+- the matching monthly boundary archive exists;
+- KML IDs agree with their filenames;
 - enough rows are returned to be plausible;
 - source categories map to known metrics;
 - unmatched spatial rows stay below the source-specific threshold;
