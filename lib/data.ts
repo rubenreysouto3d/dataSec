@@ -222,10 +222,10 @@ export async function getBoundaryRings(areaId: string): Promise<{ month: string;
 let areaContextPromise: Promise<Array<AreaContext & { areaId: string; citySlug: CitySlug }>> | null = null;
 
 async function getAllAreaContexts(): Promise<Array<AreaContext & { areaId: string; citySlug: CitySlug }>> {
-  areaContextPromise ??= rest<AreaContextRow[]>("area_month_context", {
+  areaContextPromise ??= rest<AreaContextRow[]>("latest_area_context", {
     select: "area_id,city_slug,period_start,total_incidents,area_km2,incidents_per_km2,density_percentile",
-    order: "period_start.desc",
-    limit: "5000",
+    order: "city_slug.asc,area_id.asc",
+    limit: "2000",
   }).then((rows) =>
     rows.map((row) => ({
       areaId: row.area_id,
