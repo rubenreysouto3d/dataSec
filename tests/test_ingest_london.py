@@ -1,10 +1,12 @@
 import io
 import unittest
+from unittest.mock import patch
 import zipfile
 
 from scripts.backfill_london import shift_month
 
 from scripts.ingest_london import (
+    SupabaseRest,
     build_grid,
     locate_area,
     multipolygon_wkt,
@@ -102,6 +104,29 @@ class SpatialTests(unittest.TestCase):
         polygons = areas[0]["polygons"]
         self.assertEqual(len(polygons), 1)
         self.assertEqual(len(polygons[0]["holes"]), 1)
+
+
+class SupabaseAuthTests(unittest.TestCase):
+    def test_secret_key_uses_apikey_without_bearer(self):
+        client = SupabaseRest("https://example.supabase.co", "sb_secret_test")
+        with patch("scripts.ingest_london.urllib.request.urlopen") as urlopen:
+            response = urlopen.return_value.__enter__.return_value
+            response.read.return_value = b"[]"
+            client.request("areas")
+        request = urlopen.call_args.args[0]
+        headers = {key.lower(): value for key, value in request.header_items()}
+        self.assertEqual(headers["apikey"], "sb_secret_test")
+        self.assertNotIn("authorization", headers)
+
+    def test_legacy_service_role_keeps_bearer_header(self):
+        client = SupabaseRest("https://example.supabase.co", "legacy-jwt")
+        with patch("scripts.ingest_london.urllib.request.urlopen") as urlopen:
+            response = urlopen.return_value.__enter__.return_value
+            response.read.return_value = b"[]"
+            client.request("areas")
+        request = urlopen.call_args.args[0]
+        headers = {key.lower(): value for key, value in request.header_items()}
+        self.assertEqual(headers["authorization"], "Bearer legacy-jwt")
 
 
 class BackfillTests(unittest.TestCase):
