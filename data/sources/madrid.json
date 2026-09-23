@@ -9,8 +9,8 @@
   "update_frequency": "monthly",
   "coverage_start": "2026-01",
   "geography": "Madrid municipal neighbourhoods",
-  "boundary_dataset": "300496-0-barrios-madrid",
-  "boundary_resource": "300496-0-barrios-madrid",
+  "boundary_dataset": "900012-0-limites-administrativos-mapas",
+  "boundary_resource": "https://geoportal.madrid.es/fsdescargas/IDEAM_WBGEOPORTAL/LIMITES_ADMINISTRATIVOS/Barrios/TopoJSON/Barrios.json",
   "area_catalog_resource": "300496-4-barrios-madrid",
   "status": "prototype",
   "measurement": "incidents handled by the Municipal Police central dispatch",
@@ -18,6 +18,7 @@
     "The source contains operational incidents from citizen reports, patrol communications and alerts from other agencies or emergency services; it is not a crime-only dataset.",
     "Rows are already assigned to official district and neighbourhood names, so no point-to-polygon crime assignment is required.",
     "The source warns that Guindalera includes cases closed as citizen information at the 092 service address, creating an apparent concentration that must not be interpreted as local demand alone.",
-    "Madrid neighbourhood boundaries and codes come from the municipal open-data / Geoportal datasets."
+    "Madrid neighbourhood boundaries and codes come from the municipal open-data / Geoportal datasets.",
+    "Current municipal neighbourhood geometry is sourced from Madrid Geoportal TopoJSON and carries the official COD_BAR identifiers."
   ]
 }
