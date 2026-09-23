@@ -1,4 +1,4 @@
-import { getNeighbourhoods } from "@/lib/police";
+import { getNeighbourhoods } from "@/lib/data";
 
 export default async function Home() {
   let areas = [] as Awaited<ReturnType<typeof getNeighbourhoods>>;
@@ -31,7 +31,7 @@ export default async function Home() {
         <div className="hero-proof">
           <span><strong>Source</strong> data.police.uk</span>
           <span><strong>Update</strong> monthly</span>
-          <span><strong>Method</strong> transparent</span>
+          <span><strong>Storage</strong> validated snapshots</span>
         </div>
       </section>
 
@@ -44,10 +44,10 @@ export default async function Home() {
       <section className="areas-section" id="areas">
         <div className="section-heading">
           <div><div className="eyebrow">Prototype city</div><h2>London</h2></div>
-          <p>Metropolitan Police neighbourhoods. Pick an area to load its latest official crime data.</p>
+          <p>Metropolitan Police neighbourhoods backed by monthly official snapshots stored in dataSec.</p>
         </div>
         {error ? (
-          <div className="notice">The official API is temporarily unavailable. The site fails closed rather than showing stale or invented figures.</div>
+          <div className="notice">The data store is temporarily unavailable. dataSec fails closed rather than inventing figures.</div>
         ) : (
           <div className="area-grid">
             {visible.map((area) => (
