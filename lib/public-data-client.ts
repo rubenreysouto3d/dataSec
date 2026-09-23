@@ -142,3 +142,55 @@ export async function locateAreaByCoordinates(
     ? { id: row.source_area_id, name: row.name, citySlug: row.city_slug }
     : null;
 }
+
+
+type NominatimResult = {
+  lat: string;
+  lon: string;
+  display_name: string;
+};
+
+const GEOCODER_URL = "https://nominatim.openstreetmap.org/search";
+
+export async function resolvePlaceToArea(
+  query: string,
+): Promise<{
+  id: string;
+  name: string;
+  citySlug: "london" | "madrid";
+  matchedPlace: string;
+} | null> {
+  const params = new URLSearchParams({
+    q: query,
+    format: "jsonv2",
+    limit: "5",
+    countrycodes: "gb,es",
+    addressdetails: "0",
+  });
+
+  const response = await fetch(`${GEOCODER_URL}?${params.toString()}`, {
+    headers: {
+      Accept: "application/json",
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`Geocoder HTTP ${response.status}`);
+  }
+
+  const results = (await response.json()) as NominatimResult[];
+  for (const result of results) {
+    const latitude = Number(result.lat);
+    const longitude = Number(result.lon);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
+
+    const area = await locateAreaByCoordinates(latitude, longitude);
+    if (area) {
+      return {
+        ...area,
+        matchedPlace: result.display_name,
+      };
+    }
+  }
+
+  return null;
+}
