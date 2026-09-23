@@ -121,33 +121,37 @@ if (categories.length < 5) {
   throw new Error(`Implausibly low Madrid category count: ${categories.length}`);
 }
 
-const boundaryResponse = await fetch(
-  "https://geoportal.madrid.es/fsdescargas/IDEAM_WBGEOPORTAL/LIMITES_ADMINISTRATIVOS/Barrios/TopoJSON/Barrios.json",
-  { headers: { "User-Agent": "dataSec-source-health/0.1" } },
+const boundaryUrl = new URL(
+  "https://sigma.madrid.es/hosted/rest/services/CARTOGRAFIA/LIMITES_ADMINISTRATIVOS/MapServer/25/query"
 );
+boundaryUrl.searchParams.set("where", "1=1");
+boundaryUrl.searchParams.set("outFields", "*");
+boundaryUrl.searchParams.set("returnGeometry", "true");
+boundaryUrl.searchParams.set("outSR", "4326");
+boundaryUrl.searchParams.set("f", "geojson");
+
+const boundaryResponse = await fetch(boundaryUrl, {
+  headers: { "User-Agent": "dataSec-source-health/0.1" },
+});
 if (!boundaryResponse.ok) {
-  throw new Error(`Madrid neighbourhood TopoJSON ${boundaryResponse.status}`);
+  throw new Error(`Madrid neighbourhood GeoJSON ${boundaryResponse.status}`);
 }
-const topology = await boundaryResponse.json();
-if (topology.type !== "Topology") {
-  throw new Error(`Expected Madrid boundary Topology, got ${topology.type}`);
+const boundaryGeojson = await boundaryResponse.json();
+if (boundaryGeojson.type !== "FeatureCollection") {
+  throw new Error(`Expected Madrid FeatureCollection, got ${boundaryGeojson.type}`);
 }
-if (!Array.isArray(topology.transform?.scale) || !Array.isArray(topology.transform?.translate)) {
-  throw new Error("Madrid TopoJSON is missing transform metadata");
-}
-const boundaryGeometries = topology.objects?.Barrios?.geometries;
-if (!Array.isArray(boundaryGeometries) || boundaryGeometries.length !== 131) {
+if (!Array.isArray(boundaryGeojson.features) || boundaryGeojson.features.length !== 131) {
   throw new Error(
-    `Expected 131 Madrid boundary geometries, got ${boundaryGeometries?.length ?? "missing"}`
+    `Expected 131 Madrid GeoJSON features, got ${boundaryGeojson.features?.length ?? "missing"}`
   );
 }
 const boundaryCodes = new Set();
-for (const geometry of boundaryGeometries) {
-  if (!["Polygon", "MultiPolygon"].includes(geometry.type)) {
-    throw new Error(`Unsupported Madrid boundary geometry: ${geometry.type}`);
+for (const feature of boundaryGeojson.features) {
+  if (!["Polygon", "MultiPolygon"].includes(feature.geometry?.type)) {
+    throw new Error(`Unsupported Madrid GeoJSON geometry: ${feature.geometry?.type}`);
   }
-  const code = String(geometry.properties?.COD_BAR ?? "").trim();
-  if (!code) throw new Error("Madrid boundary geometry missing COD_BAR");
+  const code = String(feature.properties?.COD_BAR ?? feature.properties?.cod_bar ?? "").trim();
+  if (!code) throw new Error("Madrid GeoJSON feature missing COD_BAR");
   boundaryCodes.add(code);
 }
 if (boundaryCodes.size !== 131) {
@@ -160,7 +164,7 @@ console.log(JSON.stringify({
   latestResourceId: latest.id,
   rowCount: sample.total,
   areaCount: areaSample.total,
-  boundaryCount: boundaryGeometries.length,
+  boundaryCount: boundaryGeojson.features.length,
   categoryCount: categories.length,
   categories,
 }, null, 2));
