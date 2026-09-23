@@ -89,3 +89,36 @@ export async function getCompareProfile(sourceAreaId: string): Promise<ComparePr
       .sort((a, b) => b.count - a.count),
   };
 }
+
+
+type PointAreaRow = {
+  area_id: string;
+  source_area_id: string;
+  name: string;
+};
+
+export async function locateAreaByCoordinates(
+  latitude: number,
+  longitude: number,
+): Promise<{ id: string; name: string } | null> {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/find_area_at_point`, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_PUBLISHABLE_KEY,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      p_city_slug: "london",
+      p_lon: longitude,
+      p_lat: latitude,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Supabase RPC ${response.status}: find_area_at_point`);
+  }
+
+  const rows = (await response.json()) as PointAreaRow[];
+  const row = rows[0];
+  return row ? { id: row.source_area_id, name: row.name } : null;
+}
