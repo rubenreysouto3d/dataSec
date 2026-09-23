@@ -4,7 +4,7 @@ import { getNeighbourhoods } from "@/lib/data";
 import SearchClient from "./SearchClient";
 
 export const metadata = {
-  title: "Search London neighbourhoods",
+  title: "Search areas",
 };
 
 export const dynamic = "force-static";
