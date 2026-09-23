@@ -1,0 +1,311 @@
+name: stage-madrid-ingest-once
+
+on:
+  push:
+    paths:
+      - ".github/workflows/ingest-madrid-once.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Generate Madrid SQL staging
+        shell: bash
+        run: |
+          rm -rf tmp_madrid_ingest
+          mkdir -p tmp_madrid_ingest
+          python - <<'PY'
+          import calendar
+          import json
+          import pathlib
+          import uuid
+
+          from scripts.ingest_london import multipolygon_wkt, slugify
+          from scripts.ingest_madrid import (
+              AREA_RESOURCE_ID,
+              SOURCE_SLUG,
+              build_area_index,
+              canonical_checksum,
+              fetch_boundaries,
+              fetch_datastore_rows,
+              monthly_resources,
+              validate_and_aggregate,
+          )
+
+          out = pathlib.Path("tmp_madrid_ingest")
+
+          def q(value):
+              if value is None:
+                  return "null"
+              return "'" + str(value).replace("'", "''") + "'"
+
+          def write(name, sql):
+              (out / name).write_text("begin;\n" + sql + "\ncommit;\n", encoding="utf-8")
+
+          resources = monthly_resources()
+          month = max(resources)
+          resource_id = str(resources[month]["id"])
+          incident_rows, incident_fields = fetch_datastore_rows(resource_id)
+          area_rows, area_fields = fetch_datastore_rows(AREA_RESOURCE_ID, page_size=200)
+          boundaries, boundary_checksum = fetch_boundaries()
+          aggregates, categories, unmatched, unmatched_labels = validate_and_aggregate(
+              month, incident_rows, incident_fields, area_rows, area_fields
+          )
+          _, area_by_code = build_area_index(area_rows)
+          if set(boundaries) != set(area_by_code):
+              raise RuntimeError("Madrid catalog/topology code mismatch")
+
+          checksum = canonical_checksum(incident_rows, resource_id)
+          year, month_no = map(int, month.split("-"))
+          period_start = f"{month}-01"
+          period_end = f"{month}-{calendar.monthrange(year, month_no)[1]:02d}"
+          run_id = str(uuid.uuid4())
+
+          seed = """
+          insert into public.countries(code,name) values ('ES','Spain')
+          on conflict(code) do update set name=excluded.name;
+
+          insert into public.cities(slug,country_code,name,timezone)
+          values ('madrid','ES','Madrid','Europe/Madrid')
+          on conflict(slug) do update set
+            country_code=excluded.country_code,
+            name=excluded.name,
+            timezone=excluded.timezone;
+
+          insert into public.sources(
+            slug,authority,source_url,licence,update_frequency,source_type,granularity,notes
+          ) values (
+            'madrid-police-dispatch-incidents',
+            'Dirección General de la Policía Municipal de Madrid',
+            'https://datos.madrid.es/dataset/837676-0-incidencias-recibidas-en-la-emisora-central-de-policia-municipal',
+            'Creative Commons Attribution 4.0 International (CC BY 4.0)',
+            'monthly',
+            'municipal police central-dispatch incidents',
+            'official municipal neighbourhood',
+            'Operational incidents include citizen reports, patrol communications and alerts from other agencies; they are not equivalent to crime.'
+          )
+          on conflict(slug) do update set
+            authority=excluded.authority,
+            source_url=excluded.source_url,
+            licence=excluded.licence,
+            update_frequency=excluded.update_frequency,
+            source_type=excluded.source_type,
+            granularity=excluded.granularity,
+            notes=excluded.notes;
+          """
+          metric_values = []
+          for category, slug in sorted(categories.items()):
+              metric_values.append(
+                  f"({q(slug)},{q(category)},'municipal_police_dispatch',"
+                  f"{q('Incident handled by Madrid Municipal Police central dispatch; this source is broader than crime.')},null)"
+              )
+          seed += """
+          insert into public.metrics(slug,label,family,description,higher_is_worse) values
+          """ + ",\n".join(metric_values) + """
+          on conflict(slug) do update set
+            label=excluded.label,
+            family=excluded.family,
+            description=excluded.description,
+            higher_is_worse=excluded.higher_is_worse;
+          """
+          write("000_seed.sql", seed)
+
+          seen_districts = set()
+          districts = []
+          neighbourhoods = []
+          for row in area_rows:
+              district_code = str(row["COD_DIS_TX"]).strip()
+              district_name = str(row["NOMDIS"]).strip()
+              district_id = f"es-madrid-district:{district_code}"
+              if district_code not in seen_districts:
+                  seen_districts.add(district_code)
+                  districts.append(
+                      f"({q(district_id)},'madrid','madrid-police-dispatch-incidents',"
+                      f"{q('district:'+district_code)},null,'municipal_district',"
+                      f"{q(slugify(district_name))},{q(district_name)},null,true)"
+                  )
+              code = str(row["COD_BAR"]).strip()
+              name = str(row["NOMBRE"]).strip()
+              area_id = f"es-madrid-neighbourhood:{code}"
+              neighbourhoods.append(
+                  f"({q(area_id)},'madrid','madrid-police-dispatch-incidents',"
+                  f"{q('neighbourhood:'+code)},{q(district_id)},'municipal_neighbourhood',"
+                  f"{q(slugify(name))},{q(name)},null,true)"
+              )
+
+          if len(districts) != 21 or len(neighbourhoods) != 131:
+              raise RuntimeError("Madrid area count changed during SQL staging")
+
+          area_cols = "(id,city_slug,source_slug,source_area_id,parent_area_id,area_type,slug,name,population,active)"
+          write(
+              "100_districts.sql",
+              "insert into public.areas" + area_cols + " values\n" + ",\n".join(districts) + """
+              on conflict(id) do update set
+                city_slug=excluded.city_slug,
+                source_slug=excluded.source_slug,
+                source_area_id=excluded.source_area_id,
+                parent_area_id=excluded.parent_area_id,
+                area_type=excluded.area_type,
+                slug=excluded.slug,
+                name=excluded.name,
+                population=excluded.population,
+                active=excluded.active;
+              """
+          )
+          write(
+              "110_neighbourhoods.sql",
+              "insert into public.areas" + area_cols + " values\n" + ",\n".join(neighbourhoods) + """
+              on conflict(id) do update set
+                city_slug=excluded.city_slug,
+                source_slug=excluded.source_slug,
+                source_area_id=excluded.source_area_id,
+                parent_area_id=excluded.parent_area_id,
+                area_type=excluded.area_type,
+                slug=excluded.slug,
+                name=excluded.name,
+                population=excluded.population,
+                active=excluded.active;
+              """
+          )
+
+          boundary_values = []
+          for row in area_rows:
+              code = str(row["COD_BAR"]).strip()
+              area_id = f"es-madrid-neighbourhood:{code}"
+              wkt = multipolygon_wkt(boundaries[code])
+              import hashlib
+              source_hash = hashlib.sha256(wkt.encode("utf-8")).hexdigest()
+              boundary_values.append(
+                  f"({q(area_id)},'madrid-police-dispatch-incidents',{q(period_start)},"
+                  f"extensions.ST_GeomFromText({q(wkt)},4326),{q(source_hash)})"
+              )
+          for batch_no, start in enumerate(range(0, len(boundary_values), 15), 1):
+              vals = boundary_values[start:start+15]
+              write(
+                  f"2{batch_no:02d}_boundaries.sql",
+                  """
+                  insert into public.area_boundaries(area_id,source_slug,period_start,geometry,source_hash) values
+                  """ + ",\n".join(vals) + """
+                  on conflict(area_id,period_start) do update set
+                    source_slug=excluded.source_slug,
+                    geometry=excluded.geometry,
+                    source_hash=excluded.source_hash;
+                  """
+              )
+
+          metric_slugs = sorted(set(categories.values()))
+          provenance = json.dumps({
+              "source_month": month,
+              "resource_id": resource_id,
+              "measurement": "municipal_police_central_dispatch_incidents",
+              "geography_model": "source_assigned_neighbourhood_current_official_boundary"
+          }, ensure_ascii=False, separators=(",", ":"))
+          observations = []
+          for row in area_rows:
+              code = str(row["COD_BAR"]).strip()
+              area_id = f"es-madrid-neighbourhood:{code}"
+              for slug in metric_slugs:
+                  value = aggregates.get((code, slug), 0)
+                  observations.append(
+                      f"({q(area_id)},'madrid-police-dispatch-incidents',{q(slug)},"
+                      f"{q(period_start)},{q(period_end)},{value},'count',{value},null,"
+                      f"{q(provenance)}::jsonb)"
+                  )
+          for batch_no, start in enumerate(range(0, len(observations), 500), 1):
+              vals = observations[start:start+500]
+              write(
+                  f"3{batch_no:02d}_observations.sql",
+                  """
+                  insert into public.observations(
+                    area_id,source_slug,metric_slug,period_start,period_end,value,unit,numerator,denominator,provenance
+                  ) values
+                  """ + ",\n".join(vals) + """
+                  on conflict(area_id,source_slug,metric_slug,period_start,period_end,unit) do update set
+                    value=excluded.value,
+                    numerator=excluded.numerator,
+                    denominator=excluded.denominator,
+                    provenance=excluded.provenance;
+                  """
+              )
+
+          diagnostics = json.dumps({
+              "unmatched_rows": unmatched,
+              "resource_id": resource_id,
+              "source_sha256": checksum,
+              "boundary_sha256": boundary_checksum,
+              "boundary_model": "current_madrid_municipal_neighbourhood_topology"
+          }, ensure_ascii=False, separators=(",", ":"))
+          details = json.dumps({
+              "ratio": unmatched / max(len(incident_rows), 1),
+              "top_unmatched": unmatched_labels.most_common(10)
+          }, ensure_ascii=False, separators=(",", ":"))
+
+          final_sql = f"""
+          insert into public.ingestion_runs(
+            id,source_slug,started_at,finished_at,status,source_version,row_count,matched_row_count,checksum,diagnostics
+          ) values (
+            {q(run_id)},'madrid-police-dispatch-incidents',now(),now(),'passed',{q(month)},
+            {len(incident_rows)},{len(incident_rows)-unmatched},{q(checksum)},{q(diagnostics)}::jsonb
+          )
+          on conflict(id) do nothing;
+
+          insert into public.data_quality_flags(ingestion_run_id,severity,code,message,details)
+          values (
+            {q(run_id)},
+            'warning',
+            'guindalera_092_source_caveat',
+            {q('The official source states that Guindalera includes incidents closed as citizen information at the 092 service address, which creates an apparent local concentration.')},
+            '{"neighbourhood":"Guindalera","source_note":true}'::jsonb
+          );
+          """
+          if unmatched:
+              final_sql += f"""
+              insert into public.data_quality_flags(ingestion_run_id,severity,code,message,details)
+              values (
+                {q(run_id)},
+                'warning',
+                'unmatched_madrid_rows',
+                {q(str(unmatched)+' Madrid source rows could not be matched to the official neighbourhood catalog.')},
+                {q(details)}::jsonb
+              );
+              """
+          write("999_finalize.sql", final_sql)
+
+          manifest = {
+              "month": month,
+              "resource_id": resource_id,
+              "source_rows": len(incident_rows),
+              "matched_rows": len(incident_rows) - unmatched,
+              "unmatched_rows": unmatched,
+              "unmatched_ratio": unmatched / max(len(incident_rows), 1),
+              "incident_total": sum(aggregates.values()),
+              "districts": len(districts),
+              "neighbourhoods": len(neighbourhoods),
+              "metrics": len(metric_slugs),
+              "observations": len(observations),
+              "source_sha256": checksum,
+              "boundary_sha256": boundary_checksum,
+              "run_id": run_id,
+          }
+          (out / "manifest.json").write_text(
+              json.dumps(manifest, ensure_ascii=False, indent=2),
+              encoding="utf-8"
+          )
+          print(json.dumps(manifest, ensure_ascii=False, indent=2))
+          PY
+      - name: Commit public staging files
+        shell: bash
+        run: |
+          git config user.name "dataSec ingest bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tmp_madrid_ingest
+          git commit -m "chore: stage Madrid ingest data"
+          git push
