@@ -48,7 +48,9 @@ async function rest<T>(table: string, params: Record<string, string>): Promise<T
       apikey: SUPABASE_PUBLISHABLE_KEY,
       "User-Agent": "dataSec/0.2 (+https://github.com/rubenreysouto3d/dataSec)",
     },
-    next: { revalidate: 60 * 60 * 12 },
+    ...(process.env.GITHUB_PAGES === "true"
+      ? { cache: "force-cache" as const }
+      : { next: { revalidate: 60 * 60 * 12 } }),
   });
 
   if (!response.ok) {
