@@ -25,13 +25,13 @@ export default function LocateButton() {
           const area = await locateAreaByCoordinates(coords.latitude, coords.longitude);
           if (!area) {
             setStatus("error");
-            setMessage("Your location is outside the current London coverage.");
+            setMessage("Your location is outside the current dataSec coverage.");
             return;
           }
           router.push(`/area/${encodeURIComponent(area.id)}`);
         } catch {
           setStatus("error");
-          setMessage("We could not match your location to the stored London boundaries.");
+          setMessage("We could not match your location to a stored official boundary.");
         }
       },
       () => {
