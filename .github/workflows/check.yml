@@ -5,7 +5,7 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   python:
@@ -25,10 +25,16 @@ jobs:
         with:
           node-version: 22
       - run: npm install --ignore-scripts
-      - uses: actions/upload-artifact@v4
-        with:
-          name: npm-lock
-          path: package-lock.json
-          retention-days: 1
+      - name: Commit generated lockfile once
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          if [ -n "$(git status --porcelain -- package-lock.json)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add package-lock.json
+            git commit -m "chore: pin npm dependency tree"
+            git push origin HEAD:main
+          fi
       - run: npm run typecheck
       - run: npm run build
