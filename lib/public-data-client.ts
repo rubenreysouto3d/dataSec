@@ -1,0 +1,91 @@
+const SUPABASE_URL = "https://pjyaevghxbimhknvmbxb.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_C5PkZoLjbXCuItBfzftrkw_KMLJB8E3";
+
+type AreaRow = { id: string; source_area_id: string; name: string };
+type ContextRow = {
+  period_start: string;
+  total_incidents: number | string;
+  area_km2: number | string;
+  incidents_per_km2: number | string;
+  density_percentile: number | string;
+};
+type ObservationRow = { metric_slug: string; period_start: string; value: number | string };
+type MetricRow = { slug: string; label: string };
+
+export type CompareProfile = {
+  sourceAreaId: string;
+  name: string;
+  month: string;
+  total: number;
+  areaKm2: number;
+  incidentsPerKm2: number;
+  densityPercentile: number;
+  categories: Array<{ slug: string; label: string; count: number }>;
+};
+
+async function rest<T>(table: string, params: Record<string, string>): Promise<T> {
+  const query = new URLSearchParams(params);
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query.toString()}`, {
+    headers: { apikey: SUPABASE_PUBLISHABLE_KEY },
+  });
+  if (!response.ok) throw new Error(`Supabase Data API ${response.status}: ${table}`);
+  return response.json() as Promise<T>;
+}
+
+let metricsPromise: Promise<MetricRow[]> | null = null;
+
+function getMetrics() {
+  metricsPromise ??= rest<MetricRow[]>("metrics", {
+    select: "slug,label",
+    family: "eq.recorded_crime",
+  });
+  return metricsPromise;
+}
+
+export async function getCompareProfile(sourceAreaId: string): Promise<CompareProfile | null> {
+  const areas = await rest<AreaRow[]>("areas", {
+    select: "id,source_area_id,name",
+    source_area_id: `eq.${sourceAreaId}`,
+    city_slug: "eq.london",
+    limit: "1",
+  });
+  const area = areas[0];
+  if (!area) return null;
+
+  const [contexts, metrics] = await Promise.all([
+    rest<ContextRow[]>("area_month_context", {
+      select: "period_start,total_incidents,area_km2,incidents_per_km2,density_percentile",
+      area_id: `eq.${area.id}`,
+      order: "period_start.desc",
+      limit: "1",
+    }),
+    getMetrics(),
+  ]);
+  const context = contexts[0];
+  if (!context) return null;
+
+  const observations = await rest<ObservationRow[]>("observations", {
+    select: "metric_slug,period_start,value",
+    area_id: `eq.${area.id}`,
+    period_start: `eq.${context.period_start}`,
+    order: "value.desc",
+  });
+
+  const labels = new Map(metrics.map((metric) => [metric.slug, metric.label]));
+  return {
+    sourceAreaId: area.source_area_id,
+    name: area.name,
+    month: context.period_start.slice(0, 7),
+    total: Number(context.total_incidents),
+    areaKm2: Number(context.area_km2),
+    incidentsPerKm2: Number(context.incidents_per_km2),
+    densityPercentile: Number(context.density_percentile),
+    categories: observations
+      .map((row) => ({
+        slug: row.metric_slug,
+        label: labels.get(row.metric_slug) ?? row.metric_slug,
+        count: Number(row.value),
+      }))
+      .sort((a, b) => b.count - a.count),
+  };
+}
