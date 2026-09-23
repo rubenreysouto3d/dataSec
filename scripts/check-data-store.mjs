@@ -40,7 +40,7 @@ const located = await request("rpc/find_area_at_point", {
     p_lat: 51.5079,
   }),
 });
-if (!Array.isArray(located) || located.length !== 1 || !located[0]?.source_area_id) {
+if (!Array.isArray(located) || located.length !== 1 || !located[0]?.source_area_id || located[0]?.city_slug !== "london") {
   throw new Error(`Point lookup did not resolve central London: ${JSON.stringify(located)}`);
 }
 
