@@ -1,38 +1,23 @@
--- dataSec universal data model (design draft; applied to Supabase only after project creation)
-create extension if not exists postgis;
+-- dataSec universal model
+-- Designed for Supabase/Postgres 17 + PostGIS.
+-- Public tables are read-only to anon/authenticated; writes are reserved for service_role.
 
-create table if not exists countries (
-  id bigserial primary key,
-  code text not null unique,
+create extension if not exists postgis with schema extensions;
+
+create table if not exists public.countries (
+  code text primary key check (char_length(code) = 2),
   name text not null
 );
 
-create table if not exists cities (
-  id bigserial primary key,
-  country_id bigint not null references countries(id),
-  slug text not null unique,
+create table if not exists public.cities (
+  slug text primary key,
+  country_code text not null references public.countries(code),
   name text not null,
   timezone text not null
 );
 
-create table if not exists areas (
-  id bigserial primary key,
-  city_id bigint not null references cities(id),
-  parent_area_id bigint references areas(id),
-  source_area_id text not null,
-  slug text not null,
-  name text not null,
-  population integer,
-  geometry geometry(MultiPolygon, 4326),
-  valid_from date,
-  valid_to date,
-  unique(city_id, source_area_id, valid_from)
-);
-create index if not exists areas_geometry_gix on areas using gist (geometry);
-
-create table if not exists sources (
-  id bigserial primary key,
-  slug text not null unique,
+create table if not exists public.sources (
+  slug text primary key,
   authority text not null,
   source_url text not null,
   licence text,
@@ -42,52 +27,148 @@ create table if not exists sources (
   notes text
 );
 
-create table if not exists metrics (
-  id bigserial primary key,
-  slug text not null unique,
+create table if not exists public.areas (
+  id text primary key,
+  city_slug text not null references public.cities(slug),
+  source_slug text not null references public.sources(slug),
+  source_area_id text not null,
+  parent_area_id text references public.areas(id),
+  area_type text not null,
+  slug text not null,
+  name text not null,
+  population integer,
+  active boolean not null default true,
+  unique (city_slug, source_slug, source_area_id)
+);
+
+create table if not exists public.area_boundaries (
+  area_id text not null references public.areas(id) on delete cascade,
+  source_slug text not null references public.sources(slug),
+  period_start date not null,
+  geometry extensions.geometry(MultiPolygon, 4326) not null,
+  source_hash text,
+  primary key (area_id, period_start)
+);
+
+create index if not exists area_boundaries_geometry_gix
+  on public.area_boundaries using gist (geometry);
+
+create table if not exists public.metrics (
+  slug text primary key,
   label text not null,
   family text not null,
-  description text
+  description text,
+  higher_is_worse boolean
 );
 
-create table if not exists source_metric_mappings (
-  id bigserial primary key,
-  source_id bigint not null references sources(id),
-  source_key text not null,
-  metric_id bigint not null references metrics(id),
-  unique(source_id, source_key)
-);
-
-create table if not exists observations (
-  id bigserial primary key,
-  area_id bigint not null references areas(id),
-  source_id bigint not null references sources(id),
-  metric_id bigint not null references metrics(id),
+create table if not exists public.observations (
+  area_id text not null references public.areas(id) on delete cascade,
+  source_slug text not null references public.sources(slug),
+  metric_slug text not null references public.metrics(slug),
   period_start date not null,
   period_end date not null,
   value numeric not null,
   unit text not null,
-  raw_metadata jsonb not null default '{}'::jsonb,
-  unique(area_id, source_id, metric_id, period_start, period_end, unit)
+  numerator numeric,
+  denominator numeric,
+  provenance jsonb not null default '{}'::jsonb,
+  primary key (area_id, source_slug, metric_slug, period_start, period_end, unit)
 );
 
-create table if not exists ingestion_runs (
-  id bigserial primary key,
-  source_id bigint not null references sources(id),
+create index if not exists observations_area_period_idx
+  on public.observations (area_id, period_start desc);
+
+create index if not exists observations_metric_period_idx
+  on public.observations (metric_slug, period_start desc);
+
+create table if not exists public.ingestion_runs (
+  id text primary key,
+  source_slug text not null references public.sources(slug),
   started_at timestamptz not null default now(),
   finished_at timestamptz,
   status text not null check (status in ('running','passed','failed','quarantined')),
   source_version text,
   row_count integer,
+  matched_row_count integer,
   checksum text,
   diagnostics jsonb not null default '{}'::jsonb
 );
 
-create table if not exists data_quality_flags (
-  id bigserial primary key,
-  ingestion_run_id bigint not null references ingestion_runs(id),
+create table if not exists public.data_quality_flags (
+  id bigint generated by default as identity primary key,
+  ingestion_run_id text not null references public.ingestion_runs(id) on delete cascade,
   severity text not null check (severity in ('info','warning','error')),
   code text not null,
   message text not null,
   details jsonb not null default '{}'::jsonb
 );
+
+create or replace view public.latest_area_boundaries
+with (security_invoker = true)
+as
+select distinct on (area_id)
+  area_id,
+  source_slug,
+  period_start,
+  geometry,
+  source_hash
+from public.area_boundaries
+order by area_id, period_start desc;
+
+-- Supabase no longer automatically grants Data API access to new tables.
+-- Public product data: read-only from the browser.
+grant usage on schema public to anon, authenticated, service_role;
+grant select on public.countries, public.cities, public.sources, public.areas,
+  public.area_boundaries, public.metrics, public.observations
+to anon, authenticated;
+
+grant select on public.latest_area_boundaries to anon, authenticated;
+
+-- Backend ingestion may write via the service role.
+grant select, insert, update, delete on public.countries, public.cities, public.sources,
+  public.areas, public.area_boundaries, public.metrics, public.observations,
+  public.ingestion_runs, public.data_quality_flags
+to service_role;
+
+grant usage, select on all sequences in schema public to service_role;
+
+-- Internal pipeline tables remain invisible to browser roles.
+revoke all on public.ingestion_runs, public.data_quality_flags from anon, authenticated;
+
+alter table public.countries enable row level security;
+alter table public.cities enable row level security;
+alter table public.sources enable row level security;
+alter table public.areas enable row level security;
+alter table public.area_boundaries enable row level security;
+alter table public.metrics enable row level security;
+alter table public.observations enable row level security;
+alter table public.ingestion_runs enable row level security;
+alter table public.data_quality_flags enable row level security;
+
+drop policy if exists "countries public read" on public.countries;
+create policy "countries public read"
+on public.countries for select to anon, authenticated using (true);
+
+drop policy if exists "cities public read" on public.cities;
+create policy "cities public read"
+on public.cities for select to anon, authenticated using (true);
+
+drop policy if exists "sources public read" on public.sources;
+create policy "sources public read"
+on public.sources for select to anon, authenticated using (true);
+
+drop policy if exists "areas public read" on public.areas;
+create policy "areas public read"
+on public.areas for select to anon, authenticated using (true);
+
+drop policy if exists "area boundaries public read" on public.area_boundaries;
+create policy "area boundaries public read"
+on public.area_boundaries for select to anon, authenticated using (true);
+
+drop policy if exists "metrics public read" on public.metrics;
+create policy "metrics public read"
+on public.metrics for select to anon, authenticated using (true);
+
+drop policy if exists "observations public read" on public.observations;
+create policy "observations public read"
+on public.observations for select to anon, authenticated using (true);
