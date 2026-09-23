@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getNeighbourhoods } from "@/lib/data";
 
 export default async function Home() {
@@ -14,6 +15,7 @@ export default async function Home() {
     .map((name) => areas.find((area) => area.name.toLowerCase().includes(name.toLowerCase())))
     .filter(Boolean) as typeof areas;
   const visible = picks.length >= 3 ? picks : areas.slice(0, 12);
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
   return (
     <main>
@@ -23,7 +25,7 @@ export default async function Home() {
         <p className="hero-copy">
           dataSec turns official public-safety data into readable neighbourhood profiles, without pretending that one magic score can define a place.
         </p>
-        <form className="search-form" action="/search" method="get">
+        <form className="search-form" action={`${basePath}/search`} method="get">
           <label className="sr-only" htmlFor="area-search">Search a London neighbourhood</label>
           <input id="area-search" name="q" placeholder="Search London neighbourhoods…" autoComplete="off" />
           <button type="submit">Search</button>
@@ -51,11 +53,11 @@ export default async function Home() {
         ) : (
           <div className="area-grid">
             {visible.map((area) => (
-              <a className="area-card" href={`/area/${encodeURIComponent(area.id)}`} key={area.id}>
+              <Link className="area-card" href={`/area/${encodeURIComponent(area.id)}`} key={area.id}>
                 <span className="area-city">London</span>
                 <h3>{area.name}</h3>
                 <span className="arrow">View profile →</span>
-              </a>
+              </Link>
             ))}
           </div>
         )}
