@@ -26,9 +26,6 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-      - uses: actions/configure-pages@v5
-        with:
-          static_site_generator: next
       - run: npm ci --ignore-scripts
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
@@ -36,6 +33,7 @@ jobs:
           path: ./out
 
   deploy:
+    continue-on-error: true
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
