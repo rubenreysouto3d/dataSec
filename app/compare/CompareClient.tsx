@@ -22,10 +22,16 @@ export default function CompareClient({ areas, sourceError }: Props) {
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
 
+  const byId = useMemo(() => new Map(areas.map((area) => [area.id, area])), [areas]);
+  const sameCity =
+    !left || !right || byId.get(left)?.citySlug === byId.get(right)?.citySlug;
+
   useEffect(() => {
     setLeft(a);
     setRight(b);
-    if (!a || !b) {
+    const leftArea = byId.get(a);
+    const rightArea = byId.get(b);
+    if (!a || !b || !leftArea || !rightArea || leftArea.citySlug !== rightArea.citySlug) {
       setProfiles([null, null]);
       return;
     }
@@ -46,19 +52,40 @@ export default function CompareClient({ areas, sourceError }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [a, b]);
+  }, [a, b, byId]);
 
-  const sorted = useMemo(() => areas.slice().sort((x, y) => x.name.localeCompare(y.name)), [areas]);
+  const grouped = useMemo(() => {
+    const result = new Map<string, Neighbourhood[]>();
+    for (const area of areas.slice().sort((x, y) => x.name.localeCompare(y.name))) {
+      const bucket = result.get(area.cityName) ?? [];
+      bucket.push(area);
+      result.set(area.cityName, bucket);
+    }
+    return result;
+  }, [areas]);
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!left || !right) return;
+    if (!left || !right || left === right || !sameCity) return;
     router.push(`/compare?a=${encodeURIComponent(left)}&b=${encodeURIComponent(right)}`);
   }
 
   if (sourceError) {
-    return <div className="notice">The stored London area list could not be loaded.</div>;
+    return <div className="notice">The stored area list could not be loaded.</div>;
   }
+
+  const options = (placeholder: string) => (
+    <>
+      <option value="">{placeholder}</option>
+      {[...grouped.entries()].map(([city, cityAreas]) => (
+        <optgroup label={city} key={city}>
+          {cityAreas.map((area) => (
+            <option value={area.id} key={area.stableId}>{area.name}</option>
+          ))}
+        </optgroup>
+      ))}
+    </>
+  );
 
   return (
     <>
@@ -66,22 +93,25 @@ export default function CompareClient({ areas, sourceError }: Props) {
         <label>
           <span>Area A</span>
           <select value={left} onChange={(event) => setLeft(event.target.value)}>
-            <option value="">Choose neighbourhood…</option>
-            {sorted.map((area) => <option value={area.id} key={area.id}>{area.name}</option>)}
+            {options("Choose area…")}
           </select>
         </label>
         <div className="compare-vs">VS</div>
         <label>
           <span>Area B</span>
           <select value={right} onChange={(event) => setRight(event.target.value)}>
-            <option value="">Choose neighbourhood…</option>
-            {sorted.map((area) => <option value={area.id} key={area.id}>{area.name}</option>)}
+            {options("Choose area…")}
           </select>
         </label>
-        <button type="submit" disabled={!left || !right || left === right}>Compare</button>
+        <button type="submit" disabled={!left || !right || left === right || !sameCity}>Compare</button>
       </form>
 
-      {left === right && left ? <div className="notice">Choose two different neighbourhoods.</div> : null}
+      {left === right && left ? <div className="notice">Choose two different areas.</div> : null}
+      {!sameCity ? (
+        <div className="notice">
+          Cross-city comparison is deliberately disabled: London and Madrid currently use different official source definitions.
+        </div>
+      ) : null}
       {loading ? <div className="notice">Loading official comparison…</div> : null}
       {failed ? <div className="notice">The comparison data could not be loaded.</div> : null}
 
@@ -106,23 +136,28 @@ function Comparison({ left, right }: { left: CompareProfile; right: CompareProfi
   const valueFor = (profile: CompareProfile, slug: string) =>
     profile.categories.find((item) => item.slug === slug)?.count ?? 0;
 
+  const densityContext =
+    left.citySlug === "london"
+      ? "police neighbourhoods"
+      : "municipal neighbourhoods";
+
   return (
     <section className="compare-results">
       <div className="compare-head">
         <div>
-          <span>AREA A</span>
+          <span>AREA A · {left.cityName}</span>
           <h2>{left.name}</h2>
           <Link href={`/area/${encodeURIComponent(left.sourceAreaId)}`}>Open full profile →</Link>
         </div>
         <div>
-          <span>AREA B</span>
+          <span>AREA B · {right.cityName}</span>
           <h2>{right.name}</h2>
           <Link href={`/area/${encodeURIComponent(right.sourceAreaId)}`}>Open full profile →</Link>
         </div>
       </div>
 
       <div className="compare-metrics">
-        <Metric label="Recorded incidents" left={left.total.toLocaleString("en-GB")} right={right.total.toLocaleString("en-GB")} />
+        <Metric label="Source incidents" left={left.total.toLocaleString("en-GB")} right={right.total.toLocaleString("en-GB")} />
         <Metric label="Area" left={`${left.areaKm2.toFixed(2)} km²`} right={`${right.areaKm2.toFixed(2)} km²`} />
         <Metric label="Incidents / km²" left={Math.round(left.incidentsPerKm2).toLocaleString("en-GB")} right={Math.round(right.incidentsPerKm2).toLocaleString("en-GB")} />
         <Metric label="Density percentile" left={`P${Math.round(left.densityPercentile * 100)}`} right={`P${Math.round(right.densityPercentile * 100)}`} />
@@ -142,8 +177,8 @@ function Comparison({ left, right }: { left: CompareProfile; right: CompareProfi
       </div>
 
       <p className="compare-note">
-        Percentiles compare recorded incidents per km² across Metropolitan Police neighbourhoods for the same month.
-        Central areas, nightlife and transport hubs can rank high because of footfall. This is not a personal-risk score.
+        Percentiles compare source incidents per km² across {left.cityName} {densityContext} for the same snapshot.
+        This is descriptive local context, not a personal-risk score or a cross-city ranking.
       </p>
     </section>
   );
