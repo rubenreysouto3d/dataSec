@@ -2,12 +2,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { boundaryPath } from "@/lib/boundary";
 import {
+  areaTypeLabel,
+  dataLabel,
   getAreaContext,
   getAreaProfile,
   getBoundaryRings,
   getMonthlySummaries,
   getNeighbourhoods,
   monthLabel,
+  sourceExplanation,
 } from "@/lib/data";
 
 type Props = { params: Promise<{ id: string }> };
@@ -39,7 +42,7 @@ export default async function AreaPage({ params }: Props) {
     console.error(error);
     return (
       <main className="area-page">
-        <Link className="back" href="/">← London</Link>
+        <Link className="back" href="/">← Home</Link>
         <section className="error-card">
           <div className="eyebrow">Dataset unavailable</div>
           <h1>We could not load this area right now.</h1>
@@ -61,42 +64,41 @@ export default async function AreaPage({ params }: Props) {
   const trend = totals.length < 2 || first === 0 ? null : Math.round(((last - first) / first) * 100);
   const max = Math.max(...totals.map((item) => item.total), 1);
   const path = boundaryPath(boundary.rings);
+  const cityContext = area.citySlug === "london" ? "London police neighbourhoods" : "Madrid municipal neighbourhoods";
 
   return (
     <main className="area-page">
-      <Link className="back" href="/">← London</Link>
+      <Link className="back" href="/">← {area.cityName}</Link>
       <section className="area-intro">
         <div>
-          <div className="eyebrow">London · Metropolitan Police neighbourhood</div>
+          <div className="eyebrow">{area.cityName} · {areaTypeLabel(area)}</div>
           <h1>{area.name}</h1>
           <p>
-            Latest stored month: <strong>{monthLabel(latest.month)}</strong>. Figures below are
-            police-recorded street-level incidents assigned to the official neighbourhood boundary
-            published for the same month.
+            Latest stored month: <strong>{monthLabel(latest.month)}</strong>. {sourceExplanation(area)}
           </p>
         </div>
         <div className="freshness">
           <span>DATA STATUS</span>
           <strong>Official / stored</strong>
-          <small>Validated monthly snapshot</small>
+          <small>Validated source snapshot</small>
         </div>
       </section>
 
       <section className="stat-strip">
         <article>
-          <span>Recorded incidents</span>
+          <span>{dataLabel(area.citySlug)}</span>
           <strong>{latest.total.toLocaleString("en-GB")}</strong>
           <small>{monthLabel(latest.month)}</small>
         </article>
         <article>
           <span>Incident density</span>
           <strong>{context ? `${Math.round(context.incidentsPerKm2).toLocaleString("en-GB")}/km²` : "—"}</strong>
-          <small>{context ? `P${Math.round(context.densityPercentile * 100)} within London NPTs · not risk` : "Context unavailable"}</small>
+          <small>{context ? `P${Math.round(context.densityPercentile * 100)} within ${cityContext} · not risk` : "Context unavailable"}</small>
         </article>
         <article>
           <span>{totals.length >= 2 ? `${totals.length}-month movement` : "Trend history"}</span>
           <strong>{trend === null ? "—" : `${trend > 0 ? "+" : ""}${trend}%`}</strong>
-          <small>{totals.length >= 2 ? "Not a risk score" : "Builds with each monthly ingest"}</small>
+          <small>{totals.length >= 2 ? "Not a risk score" : "Builds with each source ingest"}</small>
         </article>
         <article>
           <span>Largest category</span>
@@ -108,19 +110,19 @@ export default async function AreaPage({ params }: Props) {
       <div className="content-grid">
         <section className="panel map-panel">
           <div className="panel-head">
-            <div><span>AREA</span><h2>Police boundary</h2></div>
+            <div><span>AREA</span><h2>Official boundary</h2></div>
             <small>Not a street-risk heatmap</small>
           </div>
           <svg className="boundary" viewBox="0 0 700 360" role="img" aria-label={`Boundary of ${area.name}`}>
             <path d={path} />
           </svg>
           <p className="caption">
-            Boundaries are versioned by source month. Published crime locations are deliberately approximate.
+            Boundaries are stored with the source snapshot and are used to keep geographic comparisons internally consistent.
           </p>
         </section>
 
         <section className="panel">
-          <div className="panel-head"><div><span>LATEST MONTH</span><h2>Incident mix</h2></div></div>
+          <div className="panel-head"><div><span>LATEST SNAPSHOT</span><h2>Incident mix</h2></div></div>
           <div className="category-list">
             {top.map((item) => (
               <div className="category-row" key={item.category}>
@@ -133,8 +135,8 @@ export default async function AreaPage({ params }: Props) {
 
         <section className="panel wide">
           <div className="panel-head">
-            <div><span>HISTORY</span><h2>Stored monthly snapshots</h2></div>
-            <small>Raw recorded incidents</small>
+            <div><span>HISTORY</span><h2>Stored snapshots</h2></div>
+            <small>Raw source incident counts</small>
           </div>
           <div className="trend-chart">
             {totals.map((item) => (
@@ -151,17 +153,29 @@ export default async function AreaPage({ params }: Props) {
       <section className="source-box">
         <div><div className="eyebrow">Source & limitations</div><h2>What this page actually says</h2></div>
         <div>
+          {area.citySlug === "london" ? (
+            <>
+              <p>
+                These are police-recorded street-level incidents supplied through UK Police open data. Published source locations are approximate, and recorded crime is not identical to underlying victimisation or personal risk.
+              </p>
+              <p>
+                Density compares recorded incidents per km² between London policing neighbourhoods for the same month. Central areas, nightlife and transport hubs can appear high because of footfall.
+              </p>
+            </>
+          ) : (
+            <>
+              <p>
+                These are incidents handled by Madrid Municipal Police central dispatch. The dataset is broader than crime: it also includes traffic, public-space, assistance, administrative and other police responses.
+              </p>
+              <p>
+                Density compares source incidents per km² between Madrid municipal neighbourhoods for the same snapshot. It must not be interpreted as a crime rate or personal-risk score.
+              </p>
+            </>
+          )}
           <p>
-            These are police-recorded street-level incidents supplied by data.police.uk and stored by
-            dataSec as a validated monthly snapshot. Published source locations are approximate, and
-            recorded crime is not identical to underlying victimisation or personal risk.
+            dataSec deliberately keeps each city&apos;s official definitions separate instead of forcing unlike datasets into one Europe-wide score.
           </p>
-          <p>
-            dataSec deliberately does not convert this prototype into a single safety score. The density
-            percentile above compares recorded incidents per km² between London police neighbourhoods only;
-            it is not a measure of personal risk and can be heavily affected by footfall, nightlife and transport hubs.
-          </p>
-          <a href="https://data.police.uk/docs/" target="_blank" rel="noreferrer">Read the official source documentation ↗</a>
+          <a href={area.sourceUrl} target="_blank" rel="noreferrer">Open the official source ↗</a>
         </div>
       </section>
     </main>
