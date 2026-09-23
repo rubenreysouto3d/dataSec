@@ -51,8 +51,18 @@ const located = await request("rpc/find_area_at_point", {
     p_lat: 51.5079,
   }),
 });
+const madridLocated = await request("rpc/find_area_at_point", {
+  method: "POST",
+  body: JSON.stringify({
+    p_lon: -3.7038,
+    p_lat: 40.4168,
+  }),
+});
 if (!Array.isArray(located) || located.length !== 1 || !located[0]?.source_area_id || located[0]?.city_slug !== "london") {
   throw new Error(`Point lookup did not resolve central London: ${JSON.stringify(located)}`);
+}
+if (!Array.isArray(madridLocated) || madridLocated.length !== 1 || !madridLocated[0]?.source_area_id || madridLocated[0]?.city_slug !== "madrid") {
+  throw new Error(`Point lookup did not resolve central Madrid: ${JSON.stringify(madridLocated)}`);
 }
 
 console.log(
@@ -63,7 +73,8 @@ console.log(
       sampleContext: contexts[0],
       sampleMadridArea: madridAreas[0],
       sampleLatestContext: latestContexts[0],
-      pointLookup: located[0],
+      londonPointLookup: located[0],
+      madridPointLookup: madridLocated[0],
     },
     null,
     2,
