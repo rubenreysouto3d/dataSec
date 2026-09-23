@@ -121,24 +121,37 @@ if (categories.length < 5) {
   throw new Error(`Implausibly low Madrid category count: ${categories.length}`);
 }
 
-const kmlResponse = await fetch(
-  "https://datos.madrid.es/dataset/300496-0-barrios-madrid/resource/300496-0-barrios-madrid/download/300496-0-barrios-madrid.kml",
+const boundaryResponse = await fetch(
+  "https://geoportal.madrid.es/fsdescargas/IDEAM_WBGEOPORTAL/LIMITES_ADMINISTRATIVOS/Barrios/TopoJSON/Barrios.json",
   { headers: { "User-Agent": "dataSec-source-health/0.1" } },
 );
-if (!kmlResponse.ok) {
-  throw new Error(`Madrid neighbourhood KML ${kmlResponse.status}`);
+if (!boundaryResponse.ok) {
+  throw new Error(`Madrid neighbourhood TopoJSON ${boundaryResponse.status}`);
 }
-const kmlBytes = new Uint8Array(await kmlResponse.arrayBuffer());
-const kml = new TextDecoder("utf-8").decode(kmlBytes);
-const placemarkCount = (kml.match(/<(?:[A-Za-z0-9_]+:)?Placemark\\b/g) ?? []).length;
-if (placemarkCount !== 131) {
-  const prefix = Array.from(kmlBytes.slice(0, 24))
-    .map((value) => value.toString(16).padStart(2, "0"))
-    .join("");
+const topology = await boundaryResponse.json();
+if (topology.type !== "Topology") {
+  throw new Error(`Expected Madrid boundary Topology, got ${topology.type}`);
+}
+if (!Array.isArray(topology.transform?.scale) || !Array.isArray(topology.transform?.translate)) {
+  throw new Error("Madrid TopoJSON is missing transform metadata");
+}
+const boundaryGeometries = topology.objects?.Barrios?.geometries;
+if (!Array.isArray(boundaryGeometries) || boundaryGeometries.length !== 131) {
   throw new Error(
-    `Expected 131 Madrid KML placemarks, got ${placemarkCount}; ` +
-    `content-type=${kmlResponse.headers.get("content-type")}; bytes=${kmlBytes.length}; prefix=${prefix}`
+    `Expected 131 Madrid boundary geometries, got ${boundaryGeometries?.length ?? "missing"}`
   );
+}
+const boundaryCodes = new Set();
+for (const geometry of boundaryGeometries) {
+  if (!["Polygon", "MultiPolygon"].includes(geometry.type)) {
+    throw new Error(`Unsupported Madrid boundary geometry: ${geometry.type}`);
+  }
+  const code = String(geometry.properties?.COD_BAR ?? "").trim();
+  if (!code) throw new Error("Madrid boundary geometry missing COD_BAR");
+  boundaryCodes.add(code);
+}
+if (boundaryCodes.size !== 131) {
+  throw new Error(`Expected 131 unique Madrid boundary codes, got ${boundaryCodes.size}`);
 }
 
 console.log(JSON.stringify({
@@ -147,7 +160,7 @@ console.log(JSON.stringify({
   latestResourceId: latest.id,
   rowCount: sample.total,
   areaCount: areaSample.total,
-  boundaryPlacemarkCount: placemarkCount,
+  boundaryCount: boundaryGeometries.length,
   categoryCount: categories.length,
   categories,
 }, null, 2));
