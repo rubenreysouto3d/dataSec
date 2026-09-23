@@ -1,7 +1,12 @@
 const SUPABASE_URL = "https://pjyaevghxbimhknvmbxb.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_C5PkZoLjbXCuItBfzftrkw_KMLJB8E3";
 
-type AreaRow = { id: string; source_area_id: string; name: string };
+type AreaRow = {
+  id: string;
+  source_area_id: string;
+  name: string;
+  city_slug: "london" | "madrid";
+};
 type ContextRow = {
   period_start: string;
   total_incidents: number | string;
@@ -11,10 +16,13 @@ type ContextRow = {
 };
 type ObservationRow = { metric_slug: string; period_start: string; value: number | string };
 type MetricRow = { slug: string; label: string };
+type CityRow = { slug: "london" | "madrid"; name: string };
 
 export type CompareProfile = {
   sourceAreaId: string;
   name: string;
+  citySlug: "london" | "madrid";
+  cityName: string;
   month: string;
   total: number;
   areaKm2: number;
@@ -33,26 +41,33 @@ async function rest<T>(table: string, params: Record<string, string>): Promise<T
 }
 
 let metricsPromise: Promise<MetricRow[]> | null = null;
-
 function getMetrics() {
   metricsPromise ??= rest<MetricRow[]>("metrics", {
     select: "slug,label",
-    family: "eq.recorded_crime",
+    limit: "500",
   });
   return metricsPromise;
 }
 
+let citiesPromise: Promise<Map<string, string>> | null = null;
+function getCities() {
+  citiesPromise ??= rest<CityRow[]>("cities", { select: "slug,name" }).then(
+    (rows) => new Map(rows.map((row) => [row.slug, row.name])),
+  );
+  return citiesPromise;
+}
+
 export async function getCompareProfile(sourceAreaId: string): Promise<CompareProfile | null> {
   const areas = await rest<AreaRow[]>("areas", {
-    select: "id,source_area_id,name",
+    select: "id,source_area_id,name,city_slug",
     source_area_id: `eq.${sourceAreaId}`,
-    city_slug: "eq.london",
-    limit: "1",
+    active: "eq.true",
+    limit: "2",
   });
   const area = areas[0];
   if (!area) return null;
 
-  const [contexts, metrics] = await Promise.all([
+  const [contexts, metrics, cities] = await Promise.all([
     rest<ContextRow[]>("area_month_context", {
       select: "period_start,total_incidents,area_km2,incidents_per_km2,density_percentile",
       area_id: `eq.${area.id}`,
@@ -60,6 +75,7 @@ export async function getCompareProfile(sourceAreaId: string): Promise<ComparePr
       limit: "1",
     }),
     getMetrics(),
+    getCities(),
   ]);
   const context = contexts[0];
   if (!context) return null;
@@ -69,12 +85,15 @@ export async function getCompareProfile(sourceAreaId: string): Promise<ComparePr
     area_id: `eq.${area.id}`,
     period_start: `eq.${context.period_start}`,
     order: "value.desc",
+    limit: "200",
   });
 
   const labels = new Map(metrics.map((metric) => [metric.slug, metric.label]));
   return {
     sourceAreaId: area.source_area_id,
     name: area.name,
+    citySlug: area.city_slug,
+    cityName: cities.get(area.city_slug) ?? area.city_slug,
     month: context.period_start.slice(0, 7),
     total: Number(context.total_incidents),
     areaKm2: Number(context.area_km2),
@@ -90,17 +109,17 @@ export async function getCompareProfile(sourceAreaId: string): Promise<ComparePr
   };
 }
 
-
 type PointAreaRow = {
   area_id: string;
   source_area_id: string;
   name: string;
+  city_slug: "london" | "madrid";
 };
 
 export async function locateAreaByCoordinates(
   latitude: number,
   longitude: number,
-): Promise<{ id: string; name: string } | null> {
+): Promise<{ id: string; name: string; citySlug: "london" | "madrid" } | null> {
   const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/find_area_at_point`, {
     method: "POST",
     headers: {
@@ -108,7 +127,6 @@ export async function locateAreaByCoordinates(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      p_city_slug: "london",
       p_lon: longitude,
       p_lat: latitude,
     }),
@@ -120,5 +138,7 @@ export async function locateAreaByCoordinates(
 
   const rows = (await response.json()) as PointAreaRow[];
   const row = rows[0];
-  return row ? { id: row.source_area_id, name: row.name } : null;
+  return row
+    ? { id: row.source_area_id, name: row.name, citySlug: row.city_slug }
+    : null;
 }
