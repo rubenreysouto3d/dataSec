@@ -151,6 +151,61 @@ select distinct on (area_id)
 from public.area_boundaries
 order by area_id, period_start desc;
 
+
+create or replace view public.latest_area_boundaries_geojson
+with (security_invoker = true)
+as
+select
+  area_id,
+  source_slug,
+  period_start,
+  extensions.ST_AsGeoJSON(geometry)::jsonb as geojson,
+  source_hash
+from public.latest_area_boundaries;
+
+create or replace view public.area_month_context
+with (security_invoker = true)
+as
+with totals as (
+  select
+    a.id as area_id,
+    a.city_slug,
+    o.period_start,
+    sum(o.value)::numeric as total_incidents,
+    extensions.ST_Area(b.geometry::extensions.geography) / 1000000.0 as area_km2
+  from public.observations o
+  join public.areas a on a.id = o.area_id
+  join public.area_boundaries b
+    on b.area_id = o.area_id
+   and b.period_start = o.period_start
+  group by
+    a.id,
+    a.city_slug,
+    o.period_start,
+    b.geometry
+),
+density as (
+  select
+    *,
+    case
+      when area_km2 > 0 then total_incidents / area_km2
+      else null
+    end as incidents_per_km2
+  from totals
+)
+select
+  area_id,
+  city_slug,
+  period_start,
+  total_incidents,
+  area_km2,
+  incidents_per_km2,
+  percent_rank() over (
+    partition by city_slug, period_start
+    order by incidents_per_km2 nulls last
+  ) as density_percentile
+from density;
+
 grant usage on schema public to anon, authenticated, service_role;
 
 -- Remove any project-level implicit grants before defining the public API surface.
@@ -163,7 +218,10 @@ grant select on public.countries, public.cities, public.sources, public.areas,
   public.area_boundaries, public.metrics, public.observations
 to anon, authenticated;
 
-grant select on public.latest_area_boundaries to anon, authenticated, service_role;
+grant select on public.latest_area_boundaries,
+  public.latest_area_boundaries_geojson,
+  public.area_month_context
+to anon, authenticated, service_role;
 
 -- Backend ingestion may write via the service role.
 grant select, insert, update, delete on public.countries, public.cities, public.sources,
