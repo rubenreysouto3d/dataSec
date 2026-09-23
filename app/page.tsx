@@ -55,7 +55,7 @@ export default async function Home() {
 
       <section className="areas-section" id="areas">
         <div className="section-heading">
-          <div><div className="eyebrow">Live city</div><h2>London</h2></div>
+          <div><div className="eyebrow">Live city</div><h2><Link href="/city/london">London</Link></h2></div>
           <p>Metropolitan Police neighbourhoods backed by monthly police-recorded street-level crime snapshots.</p>
         </div>
         {error ? (
@@ -75,7 +75,7 @@ export default async function Home() {
 
       <section className="areas-section city-secondary">
         <div className="section-heading">
-          <div><div className="eyebrow">Live city</div><h2>Madrid</h2></div>
+          <div><div className="eyebrow">Live city</div><h2><Link href="/city/madrid">Madrid</Link></h2></div>
           <p>Official municipal neighbourhoods using incidents handled by Madrid Municipal Police central dispatch. This source is broader than crime.</p>
         </div>
         {!error ? (
