@@ -128,10 +128,17 @@ const kmlResponse = await fetch(
 if (!kmlResponse.ok) {
   throw new Error(`Madrid neighbourhood KML ${kmlResponse.status}`);
 }
-const kml = await kmlResponse.text();
-const placemarkCount = (kml.match(/<Placemark\\b/g) ?? []).length;
+const kmlBytes = new Uint8Array(await kmlResponse.arrayBuffer());
+const kml = new TextDecoder("utf-8").decode(kmlBytes);
+const placemarkCount = (kml.match(/<(?:[A-Za-z0-9_]+:)?Placemark\\b/g) ?? []).length;
 if (placemarkCount !== 131) {
-  throw new Error(`Expected 131 Madrid KML placemarks, got ${placemarkCount}`);
+  const prefix = Array.from(kmlBytes.slice(0, 24))
+    .map((value) => value.toString(16).padStart(2, "0"))
+    .join("");
+  throw new Error(
+    `Expected 131 Madrid KML placemarks, got ${placemarkCount}; ` +
+    `content-type=${kmlResponse.headers.get("content-type")}; bytes=${kmlBytes.length}; prefix=${prefix}`
+  );
 }
 
 console.log(JSON.stringify({
