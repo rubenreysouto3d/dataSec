@@ -72,3 +72,18 @@ A source update is publishable only when:
 - the pipeline completes before marking an ingestion run `passed`.
 
 Failed imports leave the previous good observations intact.
+
+
+## Place and address lookup
+
+The prototype resolves free-text places in two stages:
+
+1. Search stored official area names locally first.
+2. Only after an explicit user action, send one search request to the public OpenStreetMap Nominatim service, then pass the returned coordinate to dataSec's PostGIS `find_area_at_point` RPC.
+
+Constraints:
+- no autocomplete or background geocoding;
+- direct user-triggered requests only;
+- OpenStreetMap attribution is shown next to the lookup;
+- the geocoder endpoint is isolated in `lib/public-data-client.ts` so it can be replaced without changing the area model;
+- production-scale or monetised traffic must move to a suitable hosted/self-hosted geocoder rather than relying on the public Nominatim capacity.
