@@ -220,14 +220,14 @@ to anon, authenticated;
 
 
 create or replace function public.find_area_at_point(
-  p_city_slug text,
   p_lon double precision,
   p_lat double precision
 )
 returns table (
   area_id text,
   source_area_id text,
-  name text
+  name text,
+  city_slug text
 )
 language sql
 stable
@@ -237,22 +237,25 @@ as $$
   select
     a.id as area_id,
     a.source_area_id,
-    a.name
+    a.name,
+    a.city_slug
   from public.latest_area_boundaries b
   join public.areas a on a.id = b.area_id
-  where a.city_slug = p_city_slug
-    and a.active = true
+  where a.active = true
     and extensions.ST_Covers(
       b.geometry,
       extensions.ST_SetSRID(extensions.ST_Point(p_lon, p_lat), 4326)
     )
+  order by
+    case when a.area_type like '%neighbourhood%' then 0 else 1 end,
+    extensions.ST_Area(b.geometry::extensions.geography) asc
   limit 1;
 $$;
 
-revoke all on function public.find_area_at_point(text, double precision, double precision)
+revoke all on function public.find_area_at_point(double precision, double precision)
 from public, anon, authenticated;
 
-grant execute on function public.find_area_at_point(text, double precision, double precision)
+grant execute on function public.find_area_at_point(double precision, double precision)
 to anon, authenticated, service_role;
 
 grant select on public.latest_area_boundaries,
