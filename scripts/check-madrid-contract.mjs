@@ -94,23 +94,44 @@ for (const field of expectedAreaFields) {
   if (!areaFields.has(field)) throw new Error(`Missing Madrid area field: ${field}`);
 }
 
-const distinctSql = `
-  SELECT "Descripcion tipo de apertura" AS category,
-         SUM(CAST("Incidentes" AS INTEGER)) AS incidents
-  FROM "${latest.id}"
-  GROUP BY 1
-  ORDER BY 2 DESC
-`;
-const categoryResult = await action("datastore_search_sql", {
-  sql: distinctSql,
-});
-const categories = categoryResult.records.map((row) => ({
-  category: row.category,
-  incidents: Number(row.incidents),
-}));
+const categoryCounts = new Map();
+const pageSize = 5_000;
+for (let offset = 0; offset < sample.total; offset += pageSize) {
+  const page = await action("datastore_search", {
+    resource_id: latest.id,
+    limit: String(pageSize),
+    offset: String(offset),
+  });
+  for (const row of page.records) {
+    const category = String(row["Descripcion tipo de apertura"] ?? "").trim();
+    const incidents = Number(row.Incidentes);
+    if (!category) throw new Error("Madrid row with empty incident category");
+    if (!Number.isFinite(incidents) || incidents < 0) {
+      throw new Error(`Invalid Madrid incident count: ${row.Incidentes}`);
+    }
+    categoryCounts.set(category, (categoryCounts.get(category) ?? 0) + incidents);
+  }
+}
+
+const categories = [...categoryCounts.entries()]
+  .map(([category, incidents]) => ({ category, incidents }))
+  .sort((a, b) => b.incidents - a.incidents || a.category.localeCompare(b.category));
 
 if (categories.length < 5) {
   throw new Error(`Implausibly low Madrid category count: ${categories.length}`);
+}
+
+const kmlResponse = await fetch(
+  "https://datos.madrid.es/dataset/300496-0-barrios-madrid/resource/300496-0-barrios-madrid/download/300496-0-barrios-madrid.kml",
+  { headers: { "User-Agent": "dataSec-source-health/0.1" } },
+);
+if (!kmlResponse.ok) {
+  throw new Error(`Madrid neighbourhood KML ${kmlResponse.status}`);
+}
+const kml = await kmlResponse.text();
+const placemarkCount = (kml.match(/<Placemark\\b/g) ?? []).length;
+if (placemarkCount !== 131) {
+  throw new Error(`Expected 131 Madrid KML placemarks, got ${placemarkCount}`);
 }
 
 console.log(JSON.stringify({
@@ -119,6 +140,7 @@ console.log(JSON.stringify({
   latestResourceId: latest.id,
   rowCount: sample.total,
   areaCount: areaSample.total,
+  boundaryPlacemarkCount: placemarkCount,
   categoryCount: categories.length,
   categories,
 }, null, 2));
