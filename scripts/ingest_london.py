@@ -536,9 +536,19 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true", help="Do everything except Supabase writes")
     args = parser.parse_args()
 
-    month = args.month or latest_month()
+    current_month = latest_month()
+    month = args.month or current_month
     if not re.fullmatch(r"\d{4}-\d{2}", month):
         raise SystemExit("--month must be YYYY-MM")
+
+    # The neighbourhood API exposes today's policing boundaries, not an
+    # arbitrary historical boundary snapshot. A persisted backfill would
+    # therefore mislabel old incidents with modern geography.
+    if not args.dry_run and month != current_month:
+        raise RuntimeError(
+            f"Persisted backfill for {month} is disabled: the live boundary API currently "
+            f"represents {current_month}. Add archived boundary ingestion before backfilling."
+        )
 
     log(f"dataSec London ingest: {month}")
     blob = custom_download(month)

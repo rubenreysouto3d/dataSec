@@ -73,7 +73,13 @@ export async function getCrimesForBoundary(boundary: Point[], date: string): Pro
   });
 
   if (!response.ok) throw new Error(`Police crime API ${response.status} for ${date}`);
-  return response.json() as Promise<Crime[]>;
+  const crimes = (await response.json()) as Crime[];
+  if (crimes.length === 10_000) {
+    throw new Error(
+      `Police crime API reached its 10,000-result cap for ${date}; refusing to present a truncated count as exact`,
+    );
+  }
+  return crimes;
 }
 
 export function humanCategory(category: string): string {
