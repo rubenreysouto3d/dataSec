@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Neighbourhood } from "@/lib/data";
 import LocateButton from "@/components/LocateButton";
+import { resolvePlaceToArea } from "@/lib/public-data-client";
 
 type Props = {
   areas: Neighbourhood[];
@@ -16,6 +17,8 @@ export default function SearchClient({ areas, error }: Props) {
   const searchParams = useSearchParams();
   const q = searchParams.get("q") ?? "";
   const [value, setValue] = useState(q);
+  const [placeLoading, setPlaceLoading] = useState(false);
+  const [placeError, setPlaceError] = useState("");
 
   useEffect(() => setValue(q), [q]);
 
@@ -41,6 +44,26 @@ export default function SearchClient({ areas, error }: Props) {
     router.push(next ? `/search?q=${encodeURIComponent(next)}` : "/search");
   }
 
+  async function findPlace() {
+    const text = q.trim();
+    if (!text || placeLoading) return;
+
+    setPlaceLoading(true);
+    setPlaceError("");
+    try {
+      const area = await resolvePlaceToArea(text);
+      if (!area) {
+        setPlaceError("That place could not be matched to current London or Madrid coverage.");
+        return;
+      }
+      router.push(`/area/${encodeURIComponent(area.id)}`);
+    } catch {
+      setPlaceError("Place lookup is temporarily unavailable.");
+    } finally {
+      setPlaceLoading(false);
+    }
+  }
+
   return (
     <>
       <div className="eyebrow">London + Madrid area finder</div>
@@ -59,6 +82,18 @@ export default function SearchClient({ areas, error }: Props) {
         <button type="submit">Search</button>
       </form>
       <LocateButton />
+      {query ? (
+        <div className="place-lookup">
+          <button type="button" onClick={findPlace} disabled={placeLoading}>
+            {placeLoading ? "Matching place…" : "Find this place or address"}
+          </button>
+          <span>
+            Uses OpenStreetMap Nominatim only when you click this button, then matches the result to dataSec&apos;s stored official boundary.
+            {" "}<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a>
+          </span>
+          {placeError ? <small>{placeError}</small> : null}
+        </div>
+      ) : null}
 
       {error ? (
         <div className="notice">The stored dataset could not be reached, so no fallback results are being fabricated.</div>
