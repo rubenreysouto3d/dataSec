@@ -8,7 +8,10 @@ import pathlib
 import subprocess
 import sys
 
-from scripts.ingest_london import latest_month
+try:
+    from .ingest_london import latest_month
+except ImportError:
+    from ingest_london import latest_month
 
 
 def shift_month(month: str, delta: int) -> str:
