@@ -1,0 +1,72 @@
+name: ingest-madrid
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/ingest_madrid.py"
+      - "tests/test_ingest_madrid.py"
+      - "data/sources/madrid.json"
+      - ".github/workflows/ingest-madrid.yml"
+  workflow_dispatch:
+    inputs:
+      month:
+        description: "Month to ingest (YYYY-MM); blank uses latest"
+        required: false
+        type: string
+      persist:
+        description: "Persist validated data to Supabase"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  dry-run:
+    if: github.event_name == 'push' || inputs.persist != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Validate Madrid ingestion end to end
+        shell: bash
+        run: |
+          args=(--dry-run)
+          if [ -n "${{ inputs.month }}" ]; then
+            args+=(--month "${{ inputs.month }}")
+          fi
+          python scripts/ingest_madrid.py "${args[@]}"
+
+  persist:
+    if: github.event_name == 'workflow_dispatch' && inputs.persist == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: https://pjyaevghxbimhknvmbxb.supabase.co
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Require backend credential
+        shell: bash
+        run: |
+          if [ -z "$SUPABASE_SECRET_KEY" ] && [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::error::No Supabase backend key is configured in GitHub Actions."
+            exit 1
+          fi
+      - name: Persist Madrid ingestion
+        shell: bash
+        run: |
+          args=()
+          if [ -n "${{ inputs.month }}" ]; then
+            args+=(--month "${{ inputs.month }}")
+          fi
+          python scripts/ingest_madrid.py "${args[@]}"
