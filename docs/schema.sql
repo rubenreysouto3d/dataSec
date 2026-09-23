@@ -218,6 +218,43 @@ grant select on public.countries, public.cities, public.sources, public.areas,
   public.area_boundaries, public.metrics, public.observations
 to anon, authenticated;
 
+
+create or replace function public.find_area_at_point(
+  p_city_slug text,
+  p_lon double precision,
+  p_lat double precision
+)
+returns table (
+  area_id text,
+  source_area_id text,
+  name text
+)
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  select
+    a.id as area_id,
+    a.source_area_id,
+    a.name
+  from public.latest_area_boundaries b
+  join public.areas a on a.id = b.area_id
+  where a.city_slug = p_city_slug
+    and a.active = true
+    and extensions.ST_Covers(
+      b.geometry,
+      extensions.ST_SetSRID(extensions.ST_Point(p_lon, p_lat), 4326)
+    )
+  limit 1;
+$$;
+
+revoke all on function public.find_area_at_point(text, double precision, double precision)
+from public, anon, authenticated;
+
+grant execute on function public.find_area_at_point(text, double precision, double precision)
+to anon, authenticated, service_role;
+
 grant select on public.latest_area_boundaries,
   public.latest_area_boundaries_geojson,
   public.area_month_context
