@@ -144,7 +144,9 @@ export async function getNeighbourhoods(citySlug?: CitySlug): Promise<Neighbourh
   if (citySlug) params.city_slug = `eq.${citySlug}`;
 
   const [rows, cities] = await Promise.all([rest<AreaRow[]>("areas", params), getCityMap()]);
-  return rows.map((row) => ({
+  return rows
+    .filter((row) => row.city_slug !== "madrid" || row.area_type === "municipal_neighbourhood")
+    .map((row) => ({
     id: row.source_area_id,
     stableId: row.id,
     name: row.name,
