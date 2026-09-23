@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getNeighbourhoods } from "@/lib/data";
+import LocateButton from "@/components/LocateButton";
 
 export default async function Home() {
   let areas = [] as Awaited<ReturnType<typeof getNeighbourhoods>>;
@@ -30,6 +31,7 @@ export default async function Home() {
           <input id="area-search" name="q" placeholder="Search London neighbourhoods…" autoComplete="off" />
           <button type="submit">Search</button>
         </form>
+        <LocateButton />
         <div className="hero-proof">
           <span><strong>Source</strong> data.police.uk</span>
           <span><strong>Update</strong> monthly</span>
