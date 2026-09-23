@@ -6,7 +6,7 @@ No third-party Python packages required.
 Flow:
 1. ask data.police.uk for the latest month (or --month YYYY-MM)
 2. drive its CSRF-protected custom-download form for Metropolitan Police
-3. fetch current neighbourhood boundaries from the official API
+3. download the official monthly NPT boundary archive for the same month
 4. spatially assign each anonymised crime point to a neighbourhood in memory
 5. aggregate counts by neighbourhood/category
 6. optionally upsert only boundaries + aggregates to Supabase
@@ -32,6 +32,7 @@ import urllib.parse
 import urllib.request
 import uuid
 import zipfile
+import xml.etree.ElementTree as ET
 from collections import Counter, defaultdict
 from http.cookiejar import CookieJar
 
@@ -194,34 +195,97 @@ def parse_crime_zip(blob: bytes, month: str) -> list[dict[str, str]]:
     return rows
 
 
-def fetch_neighbourhoods() -> list[dict[str, object]]:
-    raw = get_json(f"{API}/{FORCE}/neighbourhoods")
-    if not isinstance(raw, list) or len(raw) < 10:
-        raise RuntimeError("Unexpected Metropolitan neighbourhood list")
+KML_NS = "{http://www.opengis.net/kml/2.2}"
+
+
+def parse_kml_ring(text: str) -> list[tuple[float, float]]:
+    ring: list[tuple[float, float]] = []
+    for token in text.split():
+        parts = token.split(",")
+        if len(parts) < 2:
+            continue
+        ring.append((float(parts[0]), float(parts[1])))
+    if len(ring) < 3:
+        raise RuntimeError("KML ring has fewer than three coordinates")
+    if ring[0] != ring[-1]:
+        ring.append(ring[0])
+    return ring
+
+
+def fetch_neighbourhoods(month: str) -> tuple[list[dict[str, object]], str]:
+    url = f"{BASE}/data/boundaries/{month}.zip"
+    log(f"Downloading monthly NPT boundary archive: {url}")
+    blob = request_bytes(url, attempts=4)
+    checksum = hashlib.sha256(blob).hexdigest()
 
     areas: list[dict[str, object]] = []
-    for index, item in enumerate(raw, 1):
-        area_id = str(item["id"])
-        boundary = get_json(f"{API}/{FORCE}/{urllib.parse.quote(area_id)}/boundary")
-        if not isinstance(boundary, list) or len(boundary) < 3:
-            raise RuntimeError(f"Malformed boundary for {area_id}")
-        ring = [(float(p["longitude"]), float(p["latitude"])) for p in boundary]
-        if ring[0] != ring[-1]:
-            ring.append(ring[0])
-        xs = [p[0] for p in ring]
-        ys = [p[1] for p in ring]
-        areas.append(
-            {
-                "source_area_id": area_id,
-                "name": str(item["name"]),
-                "ring": ring,
-                "bbox": (min(xs), min(ys), max(xs), max(ys)),
-            }
-        )
-        if index % 75 == 0:
-            log(f"Fetched {index}/{len(raw)} neighbourhood boundaries")
-        time.sleep(0.075)
-    return areas
+    prefix = f"{month}/{FORCE}/"
+
+    with zipfile.ZipFile(io.BytesIO(blob)) as archive:
+        members = [
+            name for name in archive.namelist()
+            if name.startswith(prefix) and name.lower().endswith(".kml")
+        ]
+        if len(members) < 10:
+            raise RuntimeError(
+                f"Boundary archive has too few Metropolitan KML files for {month}: {len(members)}"
+            )
+
+        for member in members:
+            root = ET.fromstring(archive.read(member))
+            placemark = root.find(f".//{KML_NS}Placemark")
+            if placemark is None:
+                raise RuntimeError(f"No Placemark in {member}")
+
+            source_area_id = member.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+            name_node = placemark.find(f"{KML_NS}name")
+            description_node = placemark.find(f"{KML_NS}description")
+            kml_id = (name_node.text or "").strip() if name_node is not None else ""
+            if kml_id and kml_id != source_area_id:
+                raise RuntimeError(
+                    f"KML ID mismatch in {member}: filename={source_area_id}, name={kml_id}"
+                )
+            display_name = (
+                (description_node.text or "").strip()
+                if description_node is not None
+                else source_area_id
+            ) or source_area_id
+
+            polygons: list[dict[str, object]] = []
+            all_outer_points: list[tuple[float, float]] = []
+
+            for polygon in placemark.findall(f".//{KML_NS}Polygon"):
+                outer_node = polygon.find(
+                    f"./{KML_NS}outerBoundaryIs/{KML_NS}LinearRing/{KML_NS}coordinates"
+                )
+                if outer_node is None or not (outer_node.text or "").strip():
+                    continue
+                outer = parse_kml_ring(outer_node.text or "")
+                holes: list[list[tuple[float, float]]] = []
+                for hole_node in polygon.findall(
+                    f"./{KML_NS}innerBoundaryIs/{KML_NS}LinearRing/{KML_NS}coordinates"
+                ):
+                    if (hole_node.text or "").strip():
+                        holes.append(parse_kml_ring(hole_node.text or ""))
+                polygons.append({"outer": outer, "holes": holes})
+                all_outer_points.extend(outer)
+
+            if not polygons or not all_outer_points:
+                raise RuntimeError(f"No polygon geometry in {member}")
+
+            xs = [point[0] for point in all_outer_points]
+            ys = [point[1] for point in all_outer_points]
+            areas.append(
+                {
+                    "source_area_id": source_area_id,
+                    "name": display_name,
+                    "polygons": polygons,
+                    "bbox": (min(xs), min(ys), max(xs), max(ys)),
+                }
+            )
+
+    log(f"Loaded {len(areas)} Metropolitan NPT boundaries from monthly archive")
+    return areas, checksum
 
 
 def grid_cell(lon: float, lat: float) -> tuple[int, int]:
@@ -276,9 +340,14 @@ def locate_area(
         minx, miny, maxx, maxy = area["bbox"]  # type: ignore[misc]
         if not (float(minx) <= lon <= float(maxx) and float(miny) <= lat <= float(maxy)):
             continue
-        ring = area["ring"]  # type: ignore[assignment]
-        if point_in_ring(lon, lat, ring):
-            return str(area["source_area_id"])
+        polygons = area["polygons"]  # type: ignore[assignment]
+        for polygon in polygons:
+            outer = polygon["outer"]
+            holes = polygon["holes"]
+            if point_in_ring(lon, lat, outer) and not any(
+                point_in_ring(lon, lat, hole) for hole in holes
+            ):
+                return str(area["source_area_id"])
     return None
 
 
@@ -300,9 +369,16 @@ def source_categories(month: str) -> dict[str, str]:
     return mapping
 
 
-def polygon_wkt(ring: list[tuple[float, float]]) -> str:
-    coords = ", ".join(f"{lon:.7f} {lat:.7f}" for lon, lat in ring)
-    return f"MULTIPOLYGON((({coords})))"
+def multipolygon_wkt(polygons: list[dict[str, object]]) -> str:
+    parts: list[str] = []
+    for polygon in polygons:
+        rings = [polygon["outer"], *polygon["holes"]]  # type: ignore[list-item]
+        rendered_rings: list[str] = []
+        for ring in rings:
+            coords = ", ".join(f"{lon:.7f} {lat:.7f}" for lon, lat in ring)
+            rendered_rings.append(f"({coords})")
+        parts.append(f"({', '.join(rendered_rings)})")
+    return f"MULTIPOLYGON({', '.join(parts)})"
 
 
 class SupabaseRest:
@@ -442,8 +518,8 @@ def persist(
                     "active": True,
                 }
             )
-            ring = area["ring"]  # type: ignore[assignment]
-            wkt = polygon_wkt(ring)
+            polygons = area["polygons"]  # type: ignore[assignment]
+            wkt = multipolygon_wkt(polygons)
             boundary_rows.append(
                 {
                     "area_id": area_id,
@@ -536,19 +612,9 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true", help="Do everything except Supabase writes")
     args = parser.parse_args()
 
-    current_month = latest_month()
-    month = args.month or current_month
+    month = args.month or latest_month()
     if not re.fullmatch(r"\d{4}-\d{2}", month):
         raise SystemExit("--month must be YYYY-MM")
-
-    # The neighbourhood API exposes today's policing boundaries, not an
-    # arbitrary historical boundary snapshot. A persisted backfill would
-    # therefore mislabel old incidents with modern geography.
-    if not args.dry_run and month != current_month:
-        raise RuntimeError(
-            f"Persisted backfill for {month} is disabled: the live boundary API currently "
-            f"represents {current_month}. Add archived boundary ingestion before backfilling."
-        )
 
     log(f"dataSec London ingest: {month}")
     blob = custom_download(month)
@@ -557,7 +623,7 @@ def main() -> int:
     log(f"Loaded {len(rows):,} Metropolitan street-crime rows")
 
     categories = source_categories(month)
-    areas = fetch_neighbourhoods()
+    areas, boundary_checksum = fetch_neighbourhoods(month)
     grid = build_grid(areas)
     log(f"Built spatial index for {len(areas)} neighbourhoods")
 
@@ -621,7 +687,8 @@ def main() -> int:
             "neighbourhoods": len(areas),
             "aggregate_cells": len(aggregates),
             "top_area_metric_counts": busiest,
-            "source_zip_sha256": checksum,
+            "crime_zip_sha256": checksum,
+            "boundary_zip_sha256": boundary_checksum,
         }, indent=2))
         return 0
 
