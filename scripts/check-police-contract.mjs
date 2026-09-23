@@ -8,9 +8,46 @@ function fail(message, details) {
   process.exit(1);
 }
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function retryable(status) {
+  return status === 429 || status >= 500;
+}
+
+async function fetchWithRetry(url, init = {}, attempts = 4) {
+  let lastResponse = null;
+  let lastError = null;
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      const response = await fetch(url, init);
+      lastResponse = response;
+      if (response.ok || !retryable(response.status) || attempt === attempts - 1) {
+        return response;
+      }
+
+      const retryAfter = Number(response.headers.get("retry-after") || "0");
+      const delay = retryAfter > 0
+        ? Math.min(retryAfter * 1000, 10_000)
+        : 1_500 * 2 ** attempt;
+      console.warn(`Transient HTTP ${response.status} for ${url}; retrying in ${delay}ms`);
+      await sleep(delay);
+    } catch (error) {
+      lastError = error;
+      if (attempt === attempts - 1) throw error;
+      const delay = 1_500 * 2 ** attempt;
+      console.warn(`Transient fetch failure for ${url}; retrying in ${delay}ms`);
+      await sleep(delay);
+    }
+  }
+
+  if (lastResponse) return lastResponse;
+  throw lastError ?? new Error(`Failed to fetch ${url}`);
+}
+
 async function json(path) {
-  const response = await fetch(`${API}${path}`, {
-    headers: { "User-Agent": "dataSec-source-health/0.1" },
+  const response = await fetchWithRetry(`${API}${path}`, {
+    headers: { "User-Agent": "dataSec-source-health/0.2" },
   });
   if (!response.ok) fail(`${path} returned HTTP ${response.status}`);
   const contentType = response.headers.get("content-type") || "";
@@ -66,9 +103,9 @@ if (
 
 const latestMonth = dates[0].date;
 const archiveUrl = `${BASE}/data/boundaries/${latestMonth}.zip`;
-const archive = await fetch(archiveUrl, {
+const archive = await fetchWithRetry(archiveUrl, {
   method: "HEAD",
-  headers: { "User-Agent": "dataSec-source-health/0.1" },
+  headers: { "User-Agent": "dataSec-source-health/0.2" },
 });
 if (!archive.ok) {
   fail(`Latest monthly boundary archive returned HTTP ${archive.status}`, archiveUrl);
