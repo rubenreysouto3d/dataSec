@@ -1,4 +1,4 @@
-import { getNeighbourhoods } from "@/lib/police";
+import { getNeighbourhoods } from "@/lib/data";
 
 type Props = {
   searchParams: Promise<{ q?: string }>;
@@ -45,7 +45,7 @@ export default async function SearchPage({ searchParams }: Props) {
       </form>
 
       {error ? (
-        <div className="notice">The official source could not be reached, so no fallback results are being fabricated.</div>
+        <div className="notice">The stored dataset could not be reached, so no fallback results are being fabricated.</div>
       ) : (
         <>
           <p className="result-count">
