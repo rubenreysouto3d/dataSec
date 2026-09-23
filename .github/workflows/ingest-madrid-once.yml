@@ -241,7 +241,7 @@ jobs:
               "resource_id": resource_id,
               "source_sha256": checksum,
               "boundary_sha256": boundary_checksum,
-              "boundary_model": "current_madrid_municipal_neighbourhood_topology"
+              "boundary_model": "current_madrid_municipal_neighbourhood_geojson"
           }, ensure_ascii=False, separators=(",", ":"))
           details = json.dumps({
               "ratio": unmatched / max(len(incident_rows), 1),
