@@ -35,6 +35,22 @@ type ObservationRow = {
   value: number | string;
 };
 
+type AreaContextRow = {
+  period_start: string;
+  total_incidents: number | string;
+  area_km2: number | string;
+  incidents_per_km2: number | string;
+  density_percentile: number | string;
+};
+
+export type AreaContext = {
+  month: string;
+  totalIncidents: number;
+  areaKm2: number;
+  incidentsPerKm2: number;
+  densityPercentile: number;
+};
+
 export type MonthlySummary = {
   month: string;
   total: number;
@@ -105,6 +121,25 @@ export async function getBoundaryRings(areaId: string): Promise<{ month: string;
     );
 
   return { month: row.period_start.slice(0, 7), rings };
+}
+
+export async function getAreaContext(areaId: string): Promise<AreaContext | null> {
+  const rows = await rest<AreaContextRow[]>("area_month_context", {
+    select: "period_start,total_incidents,area_km2,incidents_per_km2,density_percentile",
+    area_id: `eq.${areaId}`,
+    order: "period_start.desc",
+    limit: "1",
+  });
+  const row = rows[0];
+  if (!row) return null;
+
+  return {
+    month: row.period_start.slice(0, 7),
+    totalIncidents: Number(row.total_incidents),
+    areaKm2: Number(row.area_km2),
+    incidentsPerKm2: Number(row.incidents_per_km2),
+    densityPercentile: Number(row.density_percentile),
+  };
 }
 
 export async function getMonthlySummaries(areaId: string, maxMonths = 6): Promise<MonthlySummary[]> {
