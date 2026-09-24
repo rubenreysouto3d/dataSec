@@ -25,6 +25,8 @@ type LayerKey =
   | "theft-resident"
   | "crime-related-resident";
 
+type Bounds = [[number, number], [number, number]];
+
 type MapLibreModule = {
   Map: new (options: Record<string, unknown>) => any;
   Popup: new (options?: Record<string, unknown>) => any;
@@ -47,7 +49,7 @@ const layerCopy: Record<LayerKey, { label: string; note: string }> = {
   },
   "crime-related": {
     label: "Crime-related",
-    note: "Crime-related source categories per km²; excludes Madrid's non-crime dispatch activity.",
+    note: "Crime-related source categories per km². London anti-social behaviour and Madrid non-crime dispatch activity are excluded.",
   },
   activity: {
     label: "All source activity",
@@ -139,6 +141,31 @@ async function loadMapLibre(): Promise<MapLibreModule> {
   return dynamicImport(MAPLIBRE_URL);
 }
 
+function boundaryBounds(boundary: CityBoundary): Bounds | null {
+  let minLng = Number.POSITIVE_INFINITY;
+  let minLat = Number.POSITIVE_INFINITY;
+  let maxLng = Number.NEGATIVE_INFINITY;
+  let maxLat = Number.NEGATIVE_INFINITY;
+
+  for (const ring of boundary.rings) {
+    for (const point of ring) {
+      const lng = Number(point.longitude);
+      const lat = Number(point.latitude);
+      if (lng < minLng) minLng = lng;
+      if (lng > maxLng) maxLng = lng;
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+    }
+  }
+
+  return Number.isFinite(minLng) ? [[minLng, minLat], [maxLng, maxLat]] : null;
+}
+
+function formatMetric(value: number | null, unit: string) {
+  if (value === null || !Number.isFinite(value)) return "No value";
+  return value.toLocaleString("en-GB", { maximumFractionDigits: 1 }) + unit;
+}
+
 export default function CityMap({ citySlug, areas, boundaries, metrics }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
@@ -148,6 +175,8 @@ export default function CityMap({ citySlug, areas, boundaries, metrics }: Props)
   const residentCoverage = metrics.filter((metric) => metric.population !== null).length;
   const hasResidentLayer = residentCoverage >= Math.max(1, Math.floor(areas.length * 0.8));
   const [layer, setLayer] = useState<LayerKey>("violence-property");
+  const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
+  const [areaSearch, setAreaSearch] = useState("");
 
   const areaById = useMemo(
     () => new Map(areas.map((area) => [area.id, area])),
@@ -156,6 +185,10 @@ export default function CityMap({ citySlug, areas, boundaries, metrics }: Props)
   const metricById = useMemo(
     () => new Map(metrics.map((metric) => [metric.areaId, metric])),
     [metrics],
+  );
+  const boundaryById = useMemo(
+    () => new Map(boundaries.map((boundary) => [boundary.areaId, boundary])),
+    [boundaries],
   );
 
   const bounds = useMemo(() => {
@@ -212,8 +245,37 @@ export default function CityMap({ citySlug, areas, boundaries, metrics }: Props)
     return { type: "FeatureCollection", features };
   }, [areaById, boundaries, layer, metricById]);
 
+  const selectedArea = selectedAreaId ? areaById.get(selectedAreaId) ?? null : null;
+  const selectedBaseMetric = selectedAreaId ? metricById.get(selectedAreaId) : undefined;
+  const selectedMetric = metricForLayer(selectedBaseMetric, layer);
+
+  function focusArea(areaId: string) {
+    const boundary = boundaryById.get(areaId);
+    const area = areaById.get(areaId);
+    if (!boundary || !area || !mapRef.current) return;
+    const itemBounds = boundaryBounds(boundary);
+    if (!itemBounds) return;
+    setSelectedAreaId(areaId);
+    setAreaSearch(area.name);
+    mapRef.current.fitBounds(itemBounds, {
+      padding: 90,
+      duration: 500,
+      maxZoom: 14,
+    });
+  }
+
+  function findArea() {
+    const needle = areaSearch.trim().toLocaleLowerCase();
+    if (!needle) return;
+    const exact = areas.find((area) => area.name.toLocaleLowerCase() === needle);
+    const partial = areas.find((area) => area.name.toLocaleLowerCase().includes(needle));
+    const match = exact ?? partial;
+    if (match) focusArea(match.id);
+  }
+
   function fitToCity() {
     if (!mapRef.current || !bounds) return;
+    setSelectedAreaId(null);
     mapRef.current.fitBounds(bounds, {
       padding: 42,
       duration: 450,
@@ -273,11 +335,11 @@ export default function CityMap({ citySlug, areas, boundaries, metrics }: Props)
                   "interpolate",
                   ["linear"],
                   ["to-number", ["get", "percentile"]],
-                  0, "#4f9f72",
-                  0.25, "#a9bd72",
-                  0.5, "#e2b45d",
-                  0.75, "#de754d",
-                  1, "#b93632",
+                  0, "#e6edf1",
+                  0.25, "#c3d4df",
+                  0.5, "#88a8bc",
+                  0.75, "#567c96",
+                  1, "#25495f",
                 ],
               ],
               "fill-opacity": 0.46,
@@ -297,6 +359,17 @@ export default function CityMap({ citySlug, areas, boundaries, metrics }: Props)
                 12, 1.25,
                 15, 2,
               ],
+            },
+          }, firstLabelLayer);
+
+          map.addLayer({
+            id: "datasec-selected-line",
+            type: "line",
+            source: "datasec-areas",
+            filter: ["==", ["get", "id"], ""],
+            paint: {
+              "line-color": "#11110f",
+              "line-width": 3,
             },
           }, firstLabelLayer);
 
@@ -320,7 +393,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics }: Props)
               : "";
             detail.textContent = `${valueText}${percentileText}`;
             const hint = document.createElement("small");
-            hint.textContent = "Click for full profile";
+            hint.textContent = "Click to inspect this area";
             card.append(title, detail, hint);
             popupRef.current
               ?.setLngLat(event.lngLat)
@@ -334,10 +407,11 @@ export default function CityMap({ citySlug, areas, boundaries, metrics }: Props)
           });
 
           map.on("click", "datasec-areas-fill", (event: any) => {
-            const href = event.features?.[0]?.properties?.href;
-            if (!href) return;
-            const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
-            window.location.assign(`${basePath}${href}`);
+            const areaId = event.features?.[0]?.properties?.id;
+            if (!areaId) return;
+            setSelectedAreaId(String(areaId));
+            const area = areaById.get(String(areaId));
+            if (area) setAreaSearch(area.name);
           });
 
           map.fitBounds(bounds, {
@@ -367,6 +441,14 @@ export default function CityMap({ citySlug, areas, boundaries, metrics }: Props)
     const source = mapRef.current?.getSource?.("datasec-areas");
     source?.setData?.(geojson);
   }, [geojson]);
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current?.getLayer?.("datasec-selected-line")) return;
+    mapRef.current.setFilter(
+      "datasec-selected-line",
+      ["==", ["get", "id"], selectedAreaId ?? ""],
+    );
+  }, [mapReady, selectedAreaId]);
 
   const layers: Array<{ key: LayerKey; label: string }> = [
     { key: "violence-property", label: "Violence & property · density" },
@@ -411,23 +493,89 @@ export default function CityMap({ citySlug, areas, boundaries, metrics }: Props)
 
       <div className="interactive-map-wrap">
         <div ref={containerRef} className="interactive-city-map" />
+
+        <div className="map-area-finder">
+          <label htmlFor="area-map-search">Find an area</label>
+          <div>
+            <input
+              id="area-map-search"
+              list="area-map-options"
+              value={areaSearch}
+              onChange={(event) => setAreaSearch(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  findArea();
+                }
+              }}
+              placeholder="Neighbourhood name"
+            />
+            <button type="button" onClick={findArea} disabled={!mapReady}>Find</button>
+          </div>
+          <datalist id="area-map-options">
+            {areas.map((area) => <option value={area.name} key={area.id} />)}
+          </datalist>
+        </div>
+
+        {selectedArea ? (
+          <aside className="map-selection-card">
+            <button
+              type="button"
+              className="map-selection-close"
+              onClick={() => setSelectedAreaId(null)}
+              aria-label="Close selected area"
+            >
+              ×
+            </button>
+            <span>{citySlug === "madrid" ? "Municipal neighbourhood" : "Police neighbourhood"}</span>
+            <h3>{selectedArea.name}</h3>
+            <div className="map-selection-metric">
+              <strong>{formatMetric(selectedMetric.value, selectedMetric.unit)}</strong>
+              <small>
+                {selectedMetric.percentile !== null
+                  ? "P" + Math.round(selectedMetric.percentile * 100) + " within this city"
+                  : "No percentile available"}
+              </small>
+            </div>
+            <dl>
+              <div>
+                <dt>Recorded in layer</dt>
+                <dd>{selectedMetric.count?.toLocaleString("en-GB") ?? "—"}</dd>
+              </div>
+              {selectedBaseMetric?.population ? (
+                <div>
+                  <dt>Registered residents</dt>
+                  <dd>{selectedBaseMetric.population.toLocaleString("en-GB")}</dd>
+                </div>
+              ) : null}
+              <div>
+                <dt>Snapshot</dt>
+                <dd>{selectedBaseMetric?.month ?? "—"}</dd>
+              </div>
+            </dl>
+            <a className="map-selection-link" href={areaHref(selectedArea.id)}>
+              Open full area profile →
+            </a>
+          </aside>
+        ) : null}
+
         {!mapReady && !mapError ? <div className="map-loading">Loading map…</div> : null}
         {mapError ? <div className="map-loading map-error">{mapError}</div> : null}
       </div>
 
       <div className="map-legend map-legend-interactive" aria-label="Map legend">
-        <span>Lower within this city</span>
+        <span>Lower recorded level</span>
         <i className="legend-1" />
         <i className="legend-2" />
         <i className="legend-3" />
         <i className="legend-4" />
         <i className="legend-5" />
-        <span>Higher within this city</span>
+        <span>Higher recorded level</span>
       </div>
 
       <p className="density-caution map-method-note">
         Colour shows the percentile for the selected source-derived metric within this city and snapshot.
-        It is not a personal-risk score. The basemap is © OpenStreetMap contributors, rendered via OpenFreeMap.
+        Darker does not mean “dangerous” and lighter does not mean “safe”. The basemap is © OpenStreetMap contributors, rendered via OpenFreeMap.
         {hasResidentLayer
           ? layer.endsWith("-resident")
             ? " This resident-normalised view uses registered population; central visitor/nightlife areas can look artificially high because visitors are not in that denominator."
