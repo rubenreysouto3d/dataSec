@@ -18,6 +18,8 @@ type Props = {
   activityContexts: CityActivityContext[];
 };
 
+type MetricKey = "violence-property" | "theft" | "crime-related" | "activity";
+type NormalizationKey = "density" | "resident";
 type LayerKey =
   | "violence-property"
   | "theft"
@@ -40,36 +42,43 @@ const MAPLIBRE_URL = "https://unpkg.com/maplibre-gl@6.11.1/dist/maplibre-gl.mjs"
 const MAPLIBRE_CSS = "https://unpkg.com/maplibre-gl@6.11.1/dist/maplibre-gl.css";
 const MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
 
-const layerCopy: Record<LayerKey, { label: string; note: string }> = {
+const metricCopy: Record<MetricKey, { label: string; short: string; note: string }> = {
   "violence-property": {
     label: "Violence & property",
-    note: "Selected violence and property-related source categories per km².",
+    short: "Violence + property",
+    note: "Selected violence and property-related source categories.",
   },
   theft: {
     label: "Theft & robbery",
-    note: "Theft, robbery and vehicle/property-theft categories per km².",
+    short: "Theft + robbery",
+    note: "Theft, robbery and vehicle/property-theft source categories.",
   },
   "crime-related": {
-    label: "Crime-related",
-    note: "Crime-related source categories per km². London anti-social behaviour and Madrid non-crime dispatch activity are excluded.",
+    label: "All crime-related",
+    short: "All crime-related",
+    note: "Crime-related source categories. London anti-social behaviour and Madrid non-crime dispatch activity are excluded.",
   },
   activity: {
     label: "All source activity",
-    note: "All source incidents per km², including non-crime Madrid police dispatch activity.",
-  },
-  "violence-property-resident": {
-    label: "Violence & property / 10k residents",
-    note: "Selected violence and property-related categories per 10,000 registered residents. Visitor-heavy centres can be overstated.",
-  },
-  "theft-resident": {
-    label: "Theft & robbery / 10k residents",
-    note: "Theft, robbery and vehicle/property-theft categories per 10,000 registered residents. Visitor-heavy centres can be overstated.",
-  },
-  "crime-related-resident": {
-    label: "Crime-related / 10k residents",
-    note: "Crime-related source categories per 10,000 registered residents. Visitor-heavy centres can be overstated.",
+    short: "All activity",
+    note: "Everything in the source, including non-crime Madrid police dispatch activity.",
   },
 };
+
+function metricKeyForLayer(layer: LayerKey): MetricKey {
+  return layer.replace("-resident", "") as MetricKey;
+}
+
+function normalizationForLayer(layer: LayerKey): NormalizationKey {
+  return layer.endsWith("-resident") ? "resident" : "density";
+}
+
+function layerFor(metric: MetricKey, normalization: NormalizationKey): LayerKey {
+  if (normalization === "resident" && metric !== "activity") {
+    return `${metric}-resident` as LayerKey;
+  }
+  return metric;
+}
 
 function metricForLayer(metric: CityMapMetric | undefined, layer: LayerKey) {
   if (!metric) return { percentile: null, value: null, count: null, unit: "" };
@@ -128,7 +137,7 @@ function metricForLayer(metric: CityMapMetric | undefined, layer: LayerKey) {
 }
 
 function ensureMapLibreCss() {
-  if (document.querySelector(`link[data-datasec-maplibre]`)) return;
+  if (document.querySelector("link[data-datasec-maplibre]")) return;
   const link = document.createElement("link");
   link.rel = "stylesheet";
   link.href = MAPLIBRE_CSS;
@@ -168,6 +177,24 @@ function formatMetric(value: number | null, unit: string) {
   return value.toLocaleString("en-GB", { maximumFractionDigits: 1 }) + unit;
 }
 
+function formatMonth(month: string | undefined) {
+  if (!month) return "Latest snapshot";
+  const [year, value] = month.split("-").map(Number);
+  if (!year || !value) return month;
+  return new Intl.DateTimeFormat("en-GB", { month: "short", year: "numeric" }).format(
+    new Date(Date.UTC(year, value - 1, 1)),
+  );
+}
+
+function relativeBand(percentile: number | null) {
+  if (percentile === null || !Number.isFinite(percentile)) return "No city comparison";
+  if (percentile < 0.2) return "Lowest 20% of areas";
+  if (percentile < 0.4) return "Lower than most areas";
+  if (percentile < 0.6) return "Around the middle";
+  if (percentile < 0.8) return "Higher than most areas";
+  return "Highest 20% of areas";
+}
+
 export default function CityMap({ citySlug, areas, boundaries, metrics, activityContexts }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
@@ -179,6 +206,14 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
   const [layer, setLayer] = useState<LayerKey>("violence-property");
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
   const [areaSearch, setAreaSearch] = useState("");
+
+  const cityName = citySlug === "madrid" ? "Madrid" : "London";
+  const metricKey = metricKeyForLayer(layer);
+  const normalization = normalizationForLayer(layer);
+  const latestMonth = metrics.reduce(
+    (latest, metric) => (!latest || metric.month > latest ? metric.month : latest),
+    "",
+  );
 
   const areaById = useMemo(
     () => new Map(areas.map((area) => [area.id, area])),
@@ -255,6 +290,23 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
   const selectedBaseMetric = selectedAreaId ? metricById.get(selectedAreaId) : undefined;
   const selectedActivity = selectedAreaId ? activityById.get(selectedAreaId) : undefined;
   const selectedMetric = metricForLayer(selectedBaseMetric, layer);
+  const selectedPercentile =
+    selectedMetric.percentile !== null && Number.isFinite(selectedMetric.percentile)
+      ? Math.round(selectedMetric.percentile * 100)
+      : null;
+
+  function chooseMetric(nextMetric: MetricKey) {
+    const nextNormalization =
+      normalization === "resident" && nextMetric !== "activity" && hasResidentLayer
+        ? "resident"
+        : "density";
+    setLayer(layerFor(nextMetric, nextNormalization));
+  }
+
+  function chooseNormalization(nextNormalization: NormalizationKey) {
+    if (nextNormalization === "resident" && (!hasResidentLayer || metricKey === "activity")) return;
+    setLayer(layerFor(metricKey, nextNormalization));
+  }
 
   function focusArea(areaId: string) {
     const boundary = boundaryById.get(areaId);
@@ -283,6 +335,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
   function fitToCity() {
     if (!mapRef.current || !bounds) return;
     setSelectedAreaId(null);
+    setAreaSearch("");
     mapRef.current.fitBounds(bounds, {
       padding: 42,
       duration: 450,
@@ -327,7 +380,9 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
             data: geojson,
             promoteId: "id",
           });
-          const firstLabelLayer = map.getStyle().layers?.find((styleLayer: any) => styleLayer.type === "symbol")?.id;
+          const firstLabelLayer = map.getStyle().layers?.find(
+            (styleLayer: any) => styleLayer.type === "symbol",
+          )?.id;
 
           map.addLayer({
             id: "datasec-areas-fill",
@@ -337,27 +392,27 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
               "fill-color": [
                 "case",
                 ["==", ["get", "percentile"], null],
-                "#b8b6af",
+                "#c8c6bf",
                 [
-                  "interpolate",
-                  ["linear"],
+                  "step",
                   ["to-number", ["get", "percentile"]],
-                  0, "#dce9f2",
-                  0.25, "#9ecae1",
-                  0.5, "#4292c6",
-                  0.75, "#1361a8",
-                  1, "#08306b",
+                  "#eaf2f7",
+                  0.2, "#cbddea",
+                  0.4, "#9abdd3",
+                  0.6, "#5d91b4",
+                  0.8, "#225f86",
                 ],
               ],
-              "fill-opacity": 0.7,
+              "fill-opacity": 0.74,
             },
           }, firstLabelLayer);
+
           map.addLayer({
             id: "datasec-areas-line",
             type: "line",
             source: "datasec-areas",
             paint: {
-              "line-color": "rgba(255,255,255,.92)",
+              "line-color": "rgba(255,255,255,.88)",
               "line-width": [
                 "interpolate",
                 ["linear"],
@@ -387,21 +442,26 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
             const props = feature.properties ?? {};
             const card = document.createElement("div");
             card.className = "datasec-map-tooltip";
+
             const title = document.createElement("strong");
             title.textContent = String(props.name ?? "");
+
             const detail = document.createElement("span");
             const value = Number(props.value);
             const percentile = Number(props.percentile);
-            const valueText = Number.isFinite(value)
+            detail.textContent = Number.isFinite(value)
               ? `${value.toLocaleString("en-GB", { maximumFractionDigits: 1 })}${props.unit ?? ""}`
               : "No value";
-            const percentileText = Number.isFinite(percentile)
-              ? ` · P${Math.round(percentile * 100)}`
-              : "";
-            detail.textContent = `${valueText}${percentileText}`;
+
+            const context = document.createElement("small");
+            context.textContent = Number.isFinite(percentile)
+              ? `Higher than about ${Math.round(percentile * 100)}% of ${cityName} areas`
+              : "No city comparison available";
+
             const hint = document.createElement("small");
-            hint.textContent = "Click to inspect this area";
-            card.append(title, detail, hint);
+            hint.textContent = "Click for details";
+
+            card.append(title, detail, context, hint);
             popupRef.current
               ?.setLngLat(event.lngLat)
               .setDOMContent(card)
@@ -457,52 +517,95 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
     );
   }, [mapReady, selectedAreaId]);
 
-  const layers: Array<{ key: LayerKey; label: string }> = [
-    { key: "violence-property", label: "Violence & property · density" },
-    { key: "theft", label: "Theft & robbery · density" },
-    { key: "crime-related", label: "Crime-related · density" },
-    { key: "activity", label: "All source activity · density" },
+  const metricOptions: Array<{ key: MetricKey; label: string }> = [
+    { key: "violence-property", label: "Violence + property" },
+    { key: "theft", label: "Theft + robbery" },
+    { key: "crime-related", label: "All crime-related" },
+    { key: "activity", label: citySlug === "madrid" ? "All police activity" : "All source activity" },
   ];
-
-  if (hasResidentLayer) {
-    layers.unshift(
-      { key: "violence-property-resident", label: "Violence & property · residents" },
-      { key: "theft-resident", label: "Theft & robbery · residents" },
-      { key: "crime-related-resident", label: "Crime-related · residents" },
-    );
-  }
 
   return (
     <section className="city-map-panel interactive-map-panel">
-      <div className="panel-head map-panel-head">
-        <div>
-          <span>INTERACTIVE MAP</span>
-          <h2>{layerCopy[layer].label}</h2>
-          <p>{layerCopy[layer].note}</p>
+      <div className="map-understand-head">
+        <div className="map-title-block">
+          <span>INTERACTIVE MAP · {formatMonth(latestMonth)}</span>
+          <h2>{metricCopy[metricKey].label}</h2>
+          <p>{metricCopy[metricKey].note}</p>
         </div>
-        <div className="map-layer-tools">
-          <label>
-            <span>Map layer</span>
-            <select
-              value={layer}
-              onChange={(event) => setLayer(event.target.value as LayerKey)}
+
+        <div className="map-reading-card">
+          <strong>How to read this map</strong>
+          <p>
+            Darker areas recorded more of the selected metric than most other {cityName} areas
+            in the same snapshot. It is a relative comparison, not a “safe / dangerous” score.
+          </p>
+        </div>
+      </div>
+
+      <div className="map-controls-grid">
+        <div className="map-control-group">
+          <span className="map-control-kicker">1 · What do you want to compare?</span>
+          <div className="map-choice-row" role="group" aria-label="Incident type">
+            {metricOptions.map((item) => (
+              <button
+                type="button"
+                key={item.key}
+                className={metricKey === item.key ? "is-active" : ""}
+                aria-pressed={metricKey === item.key}
+                onClick={() => chooseMetric(item.key)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="map-control-group">
+          <span className="map-control-kicker">2 · How should areas be compared?</span>
+          <div className="map-choice-row map-normalization-row" role="group" aria-label="Comparison basis">
+            <button
+              type="button"
+              className={normalization === "density" ? "is-active" : ""}
+              aria-pressed={normalization === "density"}
+              onClick={() => chooseNormalization("density")}
             >
-              {layers.map((item) => (
-                <option value={item.key} key={item.key}>{item.label}</option>
-              ))}
-            </select>
-          </label>
-          <button type="button" onClick={fitToCity} disabled={!mapReady}>
-            Reset view
-          </button>
+              <strong>By area</strong>
+              <small>incidents per km²</small>
+            </button>
+            <button
+              type="button"
+              className={normalization === "resident" ? "is-active" : ""}
+              aria-pressed={normalization === "resident"}
+              disabled={!hasResidentLayer || metricKey === "activity"}
+              onClick={() => chooseNormalization("resident")}
+            >
+              <strong>By residents</strong>
+              <small>per 10,000 registered residents</small>
+            </button>
+          </div>
+          {metricKey === "activity" ? (
+            <p className="map-control-help">All source activity is only available by area density.</p>
+          ) : normalization === "resident" ? (
+            <p className="map-control-help">
+              Useful for residential context, but visitor-heavy centres can look artificially high.
+            </p>
+          ) : (
+            <p className="map-control-help">
+              Shows how concentrated recorded incidents are geographically, regardless of population.
+            </p>
+          )}
         </div>
+
+        <button className="map-reset-button" type="button" onClick={fitToCity} disabled={!mapReady}>
+          Show whole {cityName}
+        </button>
       </div>
 
       <div className="interactive-map-wrap">
         <div ref={containerRef} className="interactive-city-map" />
 
         <div className="map-area-finder">
-          <label htmlFor="area-map-search">Find an area</label>
+          <label htmlFor="area-map-search">Find a neighbourhood</label>
           <div>
             <input
               id="area-map-search"
@@ -515,7 +618,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
                   findArea();
                 }
               }}
-              placeholder="Neighbourhood name"
+              placeholder="e.g. Sol, Lavapiés, Camden…"
             />
             <button type="button" onClick={findArea} disabled={!mapReady}>Find</button>
           </div>
@@ -523,6 +626,8 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
             {areas.map((area) => <option value={area.name} key={area.id} />)}
           </datalist>
         </div>
+
+        <div className="map-tap-hint">Tap or click an area for details</div>
 
         {selectedArea ? (
           <aside className="map-selection-card">
@@ -536,17 +641,32 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
             </button>
             <span>{citySlug === "madrid" ? "Municipal neighbourhood" : "Police neighbourhood"}</span>
             <h3>{selectedArea.name}</h3>
-            <div className="map-selection-metric">
-              <strong>{formatMetric(selectedMetric.value, selectedMetric.unit)}</strong>
-              <small>
-                {selectedMetric.percentile !== null
-                  ? "P" + Math.round(selectedMetric.percentile * 100) + " within this city"
-                  : "No percentile available"}
-              </small>
+
+            <div className="map-selection-summary">
+              <strong>{relativeBand(selectedMetric.percentile)}</strong>
+              <p>
+                {selectedPercentile !== null
+                  ? `Higher recorded level than about ${selectedPercentile}% of ${cityName} areas for this metric.`
+                  : "There is no comparable city percentile for this area."}
+              </p>
             </div>
+
+            {selectedPercentile !== null ? (
+              <div className="map-relative-scale" aria-label={`Relative position: ${selectedPercentile}%`}>
+                <div className="map-relative-track">
+                  <i style={{ left: `${Math.min(100, Math.max(0, selectedPercentile))}%` }} />
+                </div>
+                <div><span>Lower</span><span>Higher</span></div>
+              </div>
+            ) : null}
+
             <dl>
               <div>
-                <dt>Recorded in layer</dt>
+                <dt>Selected rate</dt>
+                <dd>{formatMetric(selectedMetric.value, selectedMetric.unit)}</dd>
+              </div>
+              <div>
+                <dt>Recorded incidents</dt>
                 <dd>{selectedMetric.count?.toLocaleString("en-GB") ?? "—"}</dd>
               </div>
               {selectedBaseMetric?.population ? (
@@ -556,27 +676,23 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
                 </div>
               ) : null}
               {selectedActivity ? (
-                <>
-                  <div>
-                    <dt>Open premises</dt>
-                    <dd>{selectedActivity.openPremises.toLocaleString("en-GB")}</dd>
-                  </div>
-                  <div>
-                    <dt>Open hostelry</dt>
-                    <dd>{selectedActivity.openHostelry.toLocaleString("en-GB")}</dd>
-                  </div>
-                </>
+                <div>
+                  <dt>Open premises</dt>
+                  <dd>{selectedActivity.openPremises.toLocaleString("en-GB")}</dd>
+                </div>
               ) : null}
               <div>
                 <dt>Snapshot</dt>
-                <dd>{selectedBaseMetric?.month ?? "—"}</dd>
+                <dd>{formatMonth(selectedBaseMetric?.month)}</dd>
               </div>
             </dl>
+
             {selectedActivity ? (
               <p className="map-context-note">
-                Commercial census · context only, not a risk denominator.
+                Commercial census is shown only as local context; it is not used as a risk denominator.
               </p>
             ) : null}
+
             <a className="map-selection-link" href={areaHref(selectedArea.id)}>
               Open full area profile →
             </a>
@@ -588,28 +704,37 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
       </div>
 
       <div className="map-legend-block" aria-label="Map legend">
-        <div className="map-legend map-legend-interactive">
-          <span>Lower recorded level</span>
-          <div className="map-legend-gradient" aria-hidden="true" />
-          <span>Higher recorded level</span>
+        <div className="map-legend-title">
+          <strong>Relative recorded level in {cityName}</strong>
+          <span>Same metric · same snapshot</span>
         </div>
-        <div className="map-legend-percentiles" aria-hidden="true">
-          <span>P0</span>
-          <span>P25</span>
-          <span>P50</span>
-          <span>P75</span>
-          <span>P100</span>
+        <div className="map-legend-bands">
+          <div><i className="legend-q1" /><span>Lowest 20%</span></div>
+          <div><i className="legend-q2" /><span>Lower</span></div>
+          <div><i className="legend-q3" /><span>Middle</span></div>
+          <div><i className="legend-q4" /><span>Higher</span></div>
+          <div><i className="legend-q5" /><span>Highest 20%</span></div>
+        </div>
+      </div>
+
+      <div className="map-meaning-strip">
+        <div>
+          <strong>Darker ≠ more dangerous</strong>
+          <span>It only means a higher recorded level for the selected metric.</span>
+        </div>
+        <div>
+          <strong>Compare within the city</strong>
+          <span>Colours are recalculated against other {cityName} areas, not against another city.</span>
+        </div>
+        <div>
+          <strong>Use the profile for context</strong>
+          <span>Open an area to see category mix, trend, source and limitations.</span>
         </div>
       </div>
 
       <p className="density-caution map-method-note">
-        Colour shows the percentile for the selected source-derived metric within this city and snapshot.
-        Darker does not mean “dangerous” and lighter does not mean “safe”. The basemap is © OpenStreetMap contributors, rendered via OpenFreeMap.
-        {hasResidentLayer
-          ? layer.endsWith("-resident")
-            ? " This resident-normalised view uses registered population; central visitor/nightlife areas can look artificially high because visitors are not in that denominator."
-            : " Resident-normalised alternatives are available in the layer selector."
-          : " Resident-normalised layers will appear when matched population data is available."}
+        The map uses official source data and a neutral five-band relative scale. It is descriptive, not a personal-risk prediction.
+        The basemap is © OpenStreetMap contributors, rendered via OpenFreeMap.
       </p>
     </section>
   );
