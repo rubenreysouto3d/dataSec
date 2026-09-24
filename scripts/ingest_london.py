@@ -504,6 +504,24 @@ def persist(
     )
 
     try:
+        unmatched_ratio = unmatched / max(len(rows), 1)
+        if unmatched:
+            severity = "warning" if unmatched_ratio <= 0.05 else "error"
+            db.request(
+                "data_quality_flags",
+                method="POST",
+                payload=[{
+                    "ingestion_run_id": run_id,
+                    "severity": severity,
+                    "code": "unmatched_crime_points",
+                    "message": f"{unmatched} source rows could not be assigned to a Metropolitan Police neighbourhood.",
+                    "details": {"ratio": unmatched_ratio},
+                }],
+                prefer="return=minimal",
+            )
+        if unmatched_ratio > 0.05:
+            raise RuntimeError(f"Unmatched-row ratio {unmatched_ratio:.2%} exceeds 5% quality gate")
+
         metric_rows = [
             {
                 "slug": slug,
@@ -579,24 +597,6 @@ def persist(
             observation_rows,
             "area_id,source_slug,metric_slug,period_start,period_end,unit",
         )
-
-        unmatched_ratio = unmatched / max(len(rows), 1)
-        if unmatched:
-            severity = "warning" if unmatched_ratio <= 0.05 else "error"
-            db.request(
-                "data_quality_flags",
-                method="POST",
-                payload=[{
-                    "ingestion_run_id": run_id,
-                    "severity": severity,
-                    "code": "unmatched_crime_points",
-                    "message": f"{unmatched} source rows could not be assigned to a Metropolitan Police neighbourhood.",
-                    "details": {"ratio": unmatched_ratio},
-                }],
-                prefer="return=minimal",
-            )
-        if unmatched_ratio > 0.05:
-            raise RuntimeError(f"Unmatched-row ratio {unmatched_ratio:.2%} exceeds 5% quality gate")
 
         patch_query = urllib.parse.urlencode({"id": f"eq.{run_id}"})
         db.request(
