@@ -5,11 +5,13 @@ import {
   type CitySlug,
   cityNames,
   getCityAreaContexts,
+  getCityBoundaries,
   getCitySnapshot,
   getNeighbourhoods,
   monthLabel,
 } from "@/lib/data";
 import CityAreaExplorer from "./CityAreaExplorer";
+import CityMap from "./CityMap";
 
 type Props = { params: Promise<{ city: string }> };
 
@@ -64,13 +66,15 @@ export default async function CityPage({ params }: Props) {
   let areas: Awaited<ReturnType<typeof getNeighbourhoods>> = [];
   let snapshot: Awaited<ReturnType<typeof getCitySnapshot>> = null;
   let contexts: Awaited<ReturnType<typeof getCityAreaContexts>> = [];
+  let boundaries: Awaited<ReturnType<typeof getCityBoundaries>> = [];
   let error = false;
   try {
     areas = await getNeighbourhoods(city);
     const areaIds = areas.map((area) => area.id);
-    [snapshot, contexts] = await Promise.all([
+    [snapshot, contexts, boundaries] = await Promise.all([
       getCitySnapshot(city, areaIds),
       getCityAreaContexts(city, areaIds),
+      getCityBoundaries(areaIds),
     ]);
   } catch {
     error = true;
@@ -121,6 +125,12 @@ export default async function CityPage({ params }: Props) {
             <strong>{Math.round((snapshot.coveredAreaCount / snapshot.areaCount) * 100)}%</strong>
             <small>{snapshot.coveredAreaCount} of {snapshot.areaCount} areas on the latest month</small>
           </article>
+        </section>
+      ) : null}
+
+      {!error ? (
+        <section className="city-map-section">
+          <CityMap areas={areas} boundaries={boundaries} contexts={contexts} />
         </section>
       ) : null}
 
