@@ -21,6 +21,7 @@ Two structurally different official sources are live in the data model:
 - category mix and stored history
 - within-city incident-density context
 - monthly registered-population context for resident-normalised map layers
+- monthly open-premises and hostelry context, clearly separated from risk metrics
 
 Madrid's source is broader than crime and includes traffic, assistance, public-space and other police responses. dataSec therefore does **not** compare London and Madrid as though both datasets measured the same thing.
 
@@ -34,6 +35,7 @@ Madrid's source is broader than crime and includes traffic, assistance, public-s
 - same-city area comparison
 - interactive OpenFreeMap/OpenStreetMap city maps with zoom, pan, tooltips and selectable analytical layers
 - Madrid resident-normalised alternatives using the matched monthly municipal register
+- Madrid commercial-activity context in selected-area map cards (context only, never a risk denominator)
 - source links and methodology notes
 - stable dataSec area identities, independent of source-local IDs
 - automated source-contract, ingestion and data-health workflows

@@ -123,6 +123,19 @@ create table if not exists public.area_population_snapshots (
 create index if not exists area_population_snapshots_area_period_idx
   on public.area_population_snapshots (area_id, period_start desc);
 
+create table if not exists public.area_activity_context_snapshots (
+  area_id text not null references public.areas(id) on delete cascade,
+  source_slug text not null references public.sources(slug),
+  period_start date not null,
+  open_premises integer not null check (open_premises >= 0),
+  open_hostelry integer not null check (open_hostelry >= 0),
+  provenance jsonb not null default '{}'::jsonb,
+  primary key (area_id, source_slug, period_start)
+);
+
+create index if not exists area_activity_context_area_period_idx
+  on public.area_activity_context_snapshots (area_id, period_start desc);
+
 create table if not exists public.ingestion_runs (
   id text primary key,
   source_slug text not null references public.sources(slug),
@@ -309,6 +322,19 @@ select distinct on (area_id)
 from public.area_population_snapshots
 order by area_id, period_start desc;
 
+create or replace view public.latest_area_activity_context
+with (security_invoker = true)
+as
+select distinct on (area_id)
+  area_id,
+  source_slug,
+  period_start,
+  open_premises,
+  open_hostelry,
+  provenance
+from public.area_activity_context_snapshots
+order by area_id, period_start desc;
+
 create or replace view public.latest_area_map_metrics
 with (security_invoker = true)
 as
@@ -419,13 +445,15 @@ grant select on public.latest_area_boundaries,
   public.area_month_context,
   public.latest_area_context,
   public.latest_area_population,
+  public.latest_area_activity_context,
   public.latest_area_map_metrics
 to anon, authenticated, service_role;
 
 -- Backend ingestion may write via the service role.
 grant select, insert, update, delete on public.countries, public.cities, public.sources,
   public.areas, public.area_boundaries, public.metrics, public.observations,
-  public.area_population_snapshots, public.ingestion_runs, public.data_quality_flags
+  public.area_population_snapshots, public.area_activity_context_snapshots,
+  public.ingestion_runs, public.data_quality_flags
 to service_role;
 
 grant usage, select on all sequences in schema public to service_role;
@@ -441,6 +469,7 @@ alter table public.area_boundaries enable row level security;
 alter table public.metrics enable row level security;
 alter table public.observations enable row level security;
 alter table public.area_population_snapshots enable row level security;
+alter table public.area_activity_context_snapshots enable row level security;
 alter table public.ingestion_runs enable row level security;
 alter table public.data_quality_flags enable row level security;
 
@@ -478,6 +507,12 @@ create policy "area population public read"
 on public.area_population_snapshots for select to anon, authenticated using (true);
 
 grant select on public.area_population_snapshots to anon, authenticated;
+
+drop policy if exists "area activity context public read" on public.area_activity_context_snapshots;
+create policy "area activity context public read"
+on public.area_activity_context_snapshots for select to anon, authenticated using (true);
+
+grant select on public.area_activity_context_snapshots to anon, authenticated;
 
 
 -- Run-scoped internal staging. Importers may upload validated product rows in

@@ -184,12 +184,80 @@ if (
   throw new Error(`Point lookup did not resolve central Madrid to a stable area: ${JSON.stringify(madridLocated)}`);
 }
 
+
+const [madridMapMetrics, madridPopulation, madridActivity] = await Promise.all([
+  request(
+    "latest_area_map_metrics?select=area_id,period_start,population,violence_property_density_percentile,violence_property_resident_percentile&city_slug=eq.madrid&limit=500",
+  ),
+  request(
+    "latest_area_population?select=area_id,period_start,population&area_id=like.es-madrid-neighbourhood:*&limit=500",
+  ),
+  request(
+    "latest_area_activity_context?select=area_id,period_start,open_premises,open_hostelry&area_id=like.es-madrid-neighbourhood:*&limit=500",
+  ),
+]);
+
+if (!Array.isArray(madridMapMetrics) || madridMapMetrics.length < 120) {
+  throw new Error(`Madrid map metrics coverage is too low: ${madridMapMetrics?.length ?? "missing"}`);
+}
+for (const row of madridMapMetrics) {
+  const densityPercentile = asFinite(
+    row.violence_property_density_percentile,
+    "Madrid violence/property density percentile",
+  );
+  if (densityPercentile < 0 || densityPercentile > 1) {
+    throw new Error(`Out-of-range Madrid map percentile: ${densityPercentile}`);
+  }
+  if (row.population !== null) {
+    const residentPercentile = asFinite(
+      row.violence_property_resident_percentile,
+      "Madrid violence/property resident percentile",
+    );
+    if (residentPercentile < 0 || residentPercentile > 1) {
+      throw new Error(`Out-of-range Madrid resident percentile: ${residentPercentile}`);
+    }
+  }
+}
+
+function checkContextCoverage(rows, label, maxAgeMonths) {
+  if (!Array.isArray(rows) || rows.length < 120) {
+    throw new Error(`${label} coverage is too low: ${rows?.length ?? "missing"}`);
+  }
+  const latest = rows
+    .map((row) => String(row.period_start ?? "").slice(0, 7))
+    .sort()
+    .at(-1);
+  if (!latest) throw new Error(`Could not determine latest ${label} month`);
+  const age = monthAge(latest);
+  if (age < 0 || age > maxAgeMonths) {
+    throw new Error(`${label} is stale or future-dated: ${latest} (age ${age} months)`);
+  }
+  return latest;
+}
+
+const madridPopulationMonth = checkContextCoverage(madridPopulation, "Madrid population context", 3);
+const madridActivityMonth = checkContextCoverage(madridActivity, "Madrid commercial context", 4);
+
+for (const row of madridActivity) {
+  const openPremises = asFinite(row.open_premises, "Madrid open premises");
+  const openHostelry = asFinite(row.open_hostelry, "Madrid open hostelry");
+  if (openPremises < 0 || openHostelry < 0 || openHostelry > openPremises) {
+    throw new Error(`Implausible Madrid commercial context: ${JSON.stringify(row)}`);
+  }
+}
+
 console.log(
   JSON.stringify(
     {
       ok: true,
       checkedAt: new Date().toISOString(),
       cities: [london, madrid],
+      madridContext: {
+        populationMonth: madridPopulationMonth,
+        populationCoverage: madridPopulation.length,
+        commercialMonth: madridActivityMonth,
+        commercialCoverage: madridActivity.length,
+      },
       pointLookup: {
         london: {
           areaId: located[0].area_id,
