@@ -59,6 +59,8 @@ Pipeline diagnostics are writable only by the backend `service_role` and have no
 
 The service-role key must never be shipped to the Next.js client.
 
+Scheduled ingestion does not store a Supabase secret in GitHub. GitHub Actions requests a short-lived OIDC token only when publication begins. The `github-ingest` Supabase Edge Function verifies the token issuer, custom audience, repository ID, owner ID, `main` ref and an allow-list of ingestion workflow files before proxying a narrowly allow-listed set of backend writes. The Edge Function keeps Supabase backend credentials inside Supabase itself.
+
 ## Quality gates
 
 A source update is publishable only when:

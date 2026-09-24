@@ -39,6 +39,7 @@ Madrid's source is broader than crime and includes traffic, assistance, public-s
 - source links and methodology notes
 - stable dataSec area identities, independent of source-local IDs
 - automated source-contract, ingestion and data-health workflows
+- secretless scheduled publishing from GitHub Actions through short-lived GitHub OIDC
 
 ## Data architecture
 
@@ -85,7 +86,7 @@ The public prototype is deployed through Vercel from `main`. GitHub Pages remain
 2. improve exposure context (visitor/footfall where reliable official data exists)
 3. add a third city only after its source can be represented without pretending unlike datasets are directly comparable
 4. expand map layers only when their semantics are clear and source-supported
-5. keep ingestion/source-health automation observable and low-maintenance
+5. keep the OIDC ingestion gateway, publication transaction and source-health automation observable and low-maintenance
 
 ## Methodology rule
 

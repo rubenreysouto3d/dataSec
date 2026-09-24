@@ -7,6 +7,7 @@ from scripts.backfill_london import shift_month
 
 from scripts.ingest_london import (
     SupabaseRest,
+    github_oidc_token,
     build_grid,
     locate_area,
     multipolygon_wkt,
@@ -128,6 +129,27 @@ class SupabaseAuthTests(unittest.TestCase):
         request = urlopen.call_args.args[0]
         headers = {key.lower(): value for key, value in request.header_items()}
         self.assertEqual(headers["authorization"], "Bearer legacy-jwt")
+
+
+class GitHubOidcTests(unittest.TestCase):
+    @patch.dict(
+        "scripts.ingest_london.os.environ",
+        {
+            "ACTIONS_ID_TOKEN_REQUEST_URL": "https://oidc.example/token?foo=bar",
+            "ACTIONS_ID_TOKEN_REQUEST_TOKEN": "request-token",
+        },
+        clear=True,
+    )
+    @patch("scripts.ingest_london.urllib.request.urlopen")
+    def test_github_oidc_token_is_requested_lazily(self, urlopen):
+        response = urlopen.return_value.__enter__.return_value
+        response.read.return_value = b'{"value":"short-lived-token"}'
+
+        self.assertEqual(github_oidc_token(), "short-lived-token")
+        request = urlopen.call_args.args[0]
+        self.assertIn("audience=datasec-supabase-ingest", request.full_url)
+        headers = {key.lower(): value for key, value in request.header_items()}
+        self.assertEqual(headers["authorization"], "Bearer request-token")
 
 
 class PersistenceGateTests(unittest.TestCase):
