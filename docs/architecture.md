@@ -21,7 +21,9 @@ source-specific normalisation
     ↓
 stable area + metric model
     ↓
-aggregated observations
+run-scoped staging
+    ↓
+single transactional publication RPC
     ↓
 public read-only API / Next.js
 ```
@@ -71,9 +73,11 @@ A source update is publishable only when:
 - unmatched spatial rows stay below the source-specific threshold;
 - the pipeline completes before marking an ingestion run `passed`.
 
-Source-level quality gates run before product rows are written, so a rejected source snapshot does not publish new observations.
+Source-level quality gates run before product rows are staged, so a rejected source snapshot does not publish new observations.
 
-The current persistence adapter still writes validated rows to Supabase in multiple idempotent HTTP batches. A transport/database failure in the middle of those batches is therefore detectable but not yet transactionally atomic. The daily data-health job checks latest-month coverage and freshness so incomplete publication turns the repository health red. The next backend-hardening step is run-scoped staging (or a transactional database RPC) so a validated month becomes public in one commit.
+Validated metrics, areas, boundaries and observations are written into an internal run-scoped staging table. The public tables are then updated by one `publish_ingestion_run` database RPC. PostgreSQL executes that RPC transactionally: either the whole validated snapshot becomes public and the run is marked `passed`, or none of the staged product rows are published. Failed staging runs remain isolated from the browser-facing tables and can be diagnosed without exposing partial coverage.
+
+The daily data-health job remains a second line of defence for freshness, latest-month coverage, stable identities and coordinate lookup.
 
 
 ## Place and address lookup

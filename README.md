@@ -40,7 +40,7 @@ Madrid's source is broader than crime and includes traffic, assistance, public-s
 
 ## Data architecture
 
-Official source → contract check → download/API adapter → validation → source-specific normalisation → stable area/metric model → PostgreSQL/PostGIS → read-only public product layer.
+Official source → contract check → download/API adapter → validation → source-specific normalisation → run-scoped staging → transactional publication RPC → PostgreSQL/PostGIS read-only public layer.
 
 Raw London crime points are used during spatial assignment and discarded; the product stores aggregate observations and versioned boundaries rather than mirroring the source warehouse.
 
@@ -79,11 +79,11 @@ The public prototype is deployed through Vercel from `main`. GitHub Pages remain
 
 ## Next development
 
-1. harden automated publication so validated ingests become atomic/run-scoped
-2. add a production-suitable geocoder before meaningful traffic/monetisation
-3. improve exposure denominators (visitor/footfall where reliable official data exists)
-4. add a third city only after its source can be represented without pretending unlike datasets are directly comparable
-5. expand map layers only when their semantics are clear and source-supported
+1. add a production-suitable geocoder before meaningful traffic/monetisation
+2. improve exposure context (visitor/footfall where reliable official data exists)
+3. add a third city only after its source can be represented without pretending unlike datasets are directly comparable
+4. expand map layers only when their semantics are clear and source-supported
+5. keep ingestion/source-health automation observable and low-maintenance
 
 ## Methodology rule
 

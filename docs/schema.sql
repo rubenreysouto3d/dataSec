@@ -478,3 +478,184 @@ create policy "area population public read"
 on public.area_population_snapshots for select to anon, authenticated using (true);
 
 grant select on public.area_population_snapshots to anon, authenticated;
+
+
+-- Run-scoped internal staging. Importers may upload validated product rows in
+-- several HTTP batches, but publication to browser-facing tables is atomic.
+create table if not exists public.ingestion_staging (
+  ingestion_run_id text not null references public.ingestion_runs(id) on delete cascade,
+  entity_type text not null check (entity_type in ('metric','area','boundary','observation')),
+  item_key text not null,
+  payload jsonb not null,
+  created_at timestamptz not null default now(),
+  primary key (ingestion_run_id, entity_type, item_key)
+);
+
+create index if not exists ingestion_staging_run_idx
+  on public.ingestion_staging (ingestion_run_id);
+
+alter table public.ingestion_staging enable row level security;
+revoke all on public.ingestion_staging from anon, authenticated;
+grant select, insert, update, delete on public.ingestion_staging to service_role;
+
+create or replace function public.publish_ingestion_run(p_run_id text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_source_slug text;
+  v_metrics integer := 0;
+  v_areas integer := 0;
+  v_boundaries integer := 0;
+  v_observations integer := 0;
+  v_rows integer := 0;
+begin
+  select r.source_slug into v_source_slug
+  from public.ingestion_runs r
+  where r.id = p_run_id and r.status = 'running'
+  for update;
+
+  if v_source_slug is null then
+    raise exception 'ingestion run % is missing or not running', p_run_id;
+  end if;
+
+  if not exists (
+    select 1 from public.ingestion_staging
+    where ingestion_run_id = p_run_id and entity_type = 'area'
+  ) or not exists (
+    select 1 from public.ingestion_staging
+    where ingestion_run_id = p_run_id and entity_type = 'observation'
+  ) then
+    raise exception 'ingestion run % is missing required staged product rows', p_run_id;
+  end if;
+
+  if exists (
+    select 1 from public.ingestion_staging
+    where ingestion_run_id = p_run_id
+      and entity_type in ('area','boundary','observation')
+      and coalesce(payload->>'source_slug','') <> v_source_slug
+  ) then
+    raise exception 'staged source does not match ingestion run source for %', p_run_id;
+  end if;
+
+  insert into public.metrics (slug,label,family,description,higher_is_worse)
+  select payload->>'slug', payload->>'label', payload->>'family',
+         payload->>'description',
+         case when payload->>'higher_is_worse' is null then null
+              else (payload->>'higher_is_worse')::boolean end
+  from public.ingestion_staging
+  where ingestion_run_id = p_run_id and entity_type = 'metric'
+  on conflict (slug) do update set
+    label=excluded.label,
+    family=excluded.family,
+    description=excluded.description,
+    higher_is_worse=excluded.higher_is_worse;
+  get diagnostics v_metrics = row_count;
+
+  insert into public.areas (
+    id,city_slug,source_slug,source_area_id,parent_area_id,
+    area_type,slug,name,population,active
+  )
+  select payload->>'id', payload->>'city_slug', payload->>'source_slug',
+         payload->>'source_area_id', null, payload->>'area_type',
+         payload->>'slug', payload->>'name',
+         case when payload->>'population' is null then null
+              else (payload->>'population')::integer end,
+         coalesce((payload->>'active')::boolean,true)
+  from public.ingestion_staging
+  where ingestion_run_id=p_run_id and entity_type='area'
+    and payload->>'parent_area_id' is null
+  on conflict (id) do update set
+    city_slug=excluded.city_slug, source_slug=excluded.source_slug,
+    source_area_id=excluded.source_area_id, parent_area_id=excluded.parent_area_id,
+    area_type=excluded.area_type, slug=excluded.slug, name=excluded.name,
+    population=excluded.population, active=excluded.active;
+  get diagnostics v_areas = row_count;
+
+  insert into public.areas (
+    id,city_slug,source_slug,source_area_id,parent_area_id,
+    area_type,slug,name,population,active
+  )
+  select payload->>'id', payload->>'city_slug', payload->>'source_slug',
+         payload->>'source_area_id', payload->>'parent_area_id',
+         payload->>'area_type', payload->>'slug', payload->>'name',
+         case when payload->>'population' is null then null
+              else (payload->>'population')::integer end,
+         coalesce((payload->>'active')::boolean,true)
+  from public.ingestion_staging
+  where ingestion_run_id=p_run_id and entity_type='area'
+    and payload->>'parent_area_id' is not null
+  on conflict (id) do update set
+    city_slug=excluded.city_slug, source_slug=excluded.source_slug,
+    source_area_id=excluded.source_area_id, parent_area_id=excluded.parent_area_id,
+    area_type=excluded.area_type, slug=excluded.slug, name=excluded.name,
+    population=excluded.population, active=excluded.active;
+  get diagnostics v_rows = row_count;
+  v_areas := v_areas + v_rows;
+
+  insert into public.area_boundaries (
+    area_id,source_slug,period_start,geometry,source_hash
+  )
+  select payload->>'area_id', payload->>'source_slug',
+         (payload->>'period_start')::date,
+         extensions.ST_Multi(
+           extensions.ST_GeomFromText(payload->>'geometry',4326)
+         )::extensions.geometry(MultiPolygon,4326),
+         payload->>'source_hash'
+  from public.ingestion_staging
+  where ingestion_run_id=p_run_id and entity_type='boundary'
+  on conflict (area_id,period_start) do update set
+    source_slug=excluded.source_slug,
+    geometry=excluded.geometry,
+    source_hash=excluded.source_hash;
+  get diagnostics v_boundaries = row_count;
+
+  insert into public.observations (
+    area_id,source_slug,metric_slug,period_start,period_end,
+    value,unit,numerator,denominator,provenance
+  )
+  select payload->>'area_id', payload->>'source_slug', payload->>'metric_slug',
+         (payload->>'period_start')::date, (payload->>'period_end')::date,
+         (payload->>'value')::numeric, payload->>'unit',
+         case when payload->>'numerator' is null then null
+              else (payload->>'numerator')::numeric end,
+         case when payload->>'denominator' is null then null
+              else (payload->>'denominator')::numeric end,
+         coalesce(payload->'provenance','{}'::jsonb)
+  from public.ingestion_staging
+  where ingestion_run_id=p_run_id and entity_type='observation'
+  on conflict (area_id,source_slug,metric_slug,period_start,period_end,unit)
+  do update set
+    value=excluded.value,
+    numerator=excluded.numerator,
+    denominator=excluded.denominator,
+    provenance=excluded.provenance;
+  get diagnostics v_observations = row_count;
+
+  update public.ingestion_runs
+  set status='passed',
+      finished_at=now(),
+      diagnostics=diagnostics || jsonb_build_object(
+        'publication_mode','transactional_staging_rpc',
+        'published_metrics',v_metrics,
+        'published_areas',v_areas,
+        'published_boundaries',v_boundaries,
+        'published_observations',v_observations
+      )
+  where id=p_run_id;
+
+  delete from public.ingestion_staging where ingestion_run_id=p_run_id;
+
+  return jsonb_build_object(
+    'run_id',p_run_id,'source_slug',v_source_slug,
+    'metrics',v_metrics,'areas',v_areas,
+    'boundaries',v_boundaries,'observations',v_observations
+  );
+end;
+$$;
+
+revoke all on function public.publish_ingestion_run(text)
+from public, anon, authenticated;
+grant execute on function public.publish_ingestion_run(text) to service_role;
