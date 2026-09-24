@@ -1,5 +1,35 @@
-const SUPABASE_URL = "https://pjyaevghxbimhknvmbxb.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_C5PkZoLjbXCuItBfzftrkw_KMLJB8E3";
+import { readFileSync } from "node:fs";
+
+const clientSource = readFileSync(
+  new URL("../lib/public-data-client.ts", import.meta.url),
+  "utf8",
+);
+
+function readPublicConstant(name) {
+  const match = clientSource.match(
+    new RegExp(`const ${name} = ["']([^"']+)["'];`),
+  );
+  if (!match) throw new Error(`Could not read public config constant: ${name}`);
+  return match[1];
+}
+
+const SUPABASE_URL = readPublicConstant("SUPABASE_URL");
+const SUPABASE_PUBLISHABLE_KEY = readPublicConstant("SUPABASE_PUBLISHABLE_KEY");
+
+const CITY_RULES = {
+  london: {
+    areaType: null,
+    stablePrefix: "gb-london-metropolitan:",
+    maxAgeMonths: 4,
+    minimumCoverage: 0.9,
+  },
+  madrid: {
+    areaType: "municipal_neighbourhood",
+    stablePrefix: "es-madrid-neighbourhood:",
+    maxAgeMonths: 4,
+    minimumCoverage: 0.9,
+  },
+};
 
 async function request(path, init = {}) {
   const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -18,31 +48,109 @@ async function request(path, init = {}) {
   return text ? JSON.parse(text) : null;
 }
 
-const areas = await request(
-  "areas?select=id,source_area_id,name&city_slug=eq.london&active=eq.true&limit=1",
-);
-if (!Array.isArray(areas) || areas.length !== 1) {
-  throw new Error("Public areas endpoint returned no London area");
+function monthAge(month) {
+  if (!/^\d{4}-\d{2}$/.test(month)) {
+    throw new Error(`Invalid source month: ${month}`);
+  }
+  const [year, value] = month.split("-").map(Number);
+  const now = new Date();
+  return (now.getUTCFullYear() - year) * 12 + (now.getUTCMonth() + 1 - value);
 }
 
-const contexts = await request(
-  "area_month_context?select=area_id,period_start,total_incidents&city_slug=eq.london&limit=1",
-);
-const madridAreas = await request(
-  "areas?select=id,source_area_id,name&city_slug=eq.madrid&area_type=eq.municipal_neighbourhood&active=eq.true&limit=1",
-);
-const latestContexts = await request(
-  "latest_area_context?select=area_id,city_slug,period_start,total_incidents&limit=2",
-);
-if (!Array.isArray(contexts) || contexts.length !== 1) {
-  throw new Error("Public area_month_context returned no London context");
+function asFinite(value, label) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) throw new Error(`Invalid numeric ${label}: ${value}`);
+  return number;
 }
-if (!Array.isArray(madridAreas) || madridAreas.length !== 1) {
-  throw new Error("Public areas endpoint returned no Madrid neighbourhood");
+
+async function checkCity(city, rule) {
+  const areaParams = new URLSearchParams({
+    select: "id,source_area_id,name",
+    city_slug: `eq.${city}`,
+    active: "eq.true",
+    order: "id.asc",
+    limit: "2000",
+  });
+  if (rule.areaType) areaParams.set("area_type", `eq.${rule.areaType}`);
+
+  const [areas, contexts] = await Promise.all([
+    request(`areas?${areaParams.toString()}`),
+    request(
+      `latest_area_context?select=area_id,city_slug,period_start,total_incidents,area_km2,incidents_per_km2,density_percentile&city_slug=eq.${city}&order=period_start.desc&limit=2000`,
+    ),
+  ]);
+
+  if (!Array.isArray(areas) || areas.length === 0) {
+    throw new Error(`No active ${city} areas are publicly readable`);
+  }
+  if (!Array.isArray(contexts) || contexts.length === 0) {
+    throw new Error(`No latest context rows are publicly readable for ${city}`);
+  }
+
+  for (const area of areas) {
+    if (typeof area.id !== "string" || !area.id.startsWith(rule.stablePrefix)) {
+      throw new Error(`Unexpected stable area id for ${city}: ${area.id}`);
+    }
+  }
+
+  const latestMonth = contexts
+    .map((row) => String(row.period_start ?? "").slice(0, 7))
+    .sort()
+    .at(-1);
+  if (!latestMonth) throw new Error(`Could not determine latest stored month for ${city}`);
+
+  const activeIds = new Set(areas.map((area) => area.id));
+  const current = contexts.filter(
+    (row) =>
+      String(row.period_start ?? "").startsWith(latestMonth) &&
+      activeIds.has(row.area_id),
+  );
+
+  for (const row of current) {
+    const total = asFinite(row.total_incidents, `${city} total_incidents`);
+    const areaKm2 = asFinite(row.area_km2, `${city} area_km2`);
+    const density = asFinite(row.incidents_per_km2, `${city} incidents_per_km2`);
+    const percentile = asFinite(row.density_percentile, `${city} density_percentile`);
+
+    if (total < 0 || areaKm2 <= 0 || density < 0) {
+      throw new Error(`Implausible latest context row for ${city}: ${JSON.stringify(row)}`);
+    }
+    if (percentile < 0 || percentile > 1) {
+      throw new Error(`Out-of-range density percentile for ${city}: ${percentile}`);
+    }
+  }
+
+  const coverage = current.length / areas.length;
+  if (coverage < rule.minimumCoverage) {
+    throw new Error(
+      `${city} latest-month coverage is only ${(coverage * 100).toFixed(1)}% (${current.length}/${areas.length}) for ${latestMonth}`,
+    );
+  }
+
+  const ageMonths = monthAge(latestMonth);
+  if (ageMonths < 0) {
+    throw new Error(`${city} latest stored month is in the future: ${latestMonth}`);
+  }
+  if (ageMonths > rule.maxAgeMonths) {
+    throw new Error(
+      `${city} stored data is stale: latest month ${latestMonth} is ${ageMonths} calendar months old`,
+    );
+  }
+
+  return {
+    city,
+    areaCount: areas.length,
+    latestMonth,
+    latestMonthCoverage: current.length,
+    coverageRatio: Number(coverage.toFixed(4)),
+    ageMonths,
+  };
 }
-if (!Array.isArray(latestContexts) || latestContexts.length < 1) {
-  throw new Error("Public latest_area_context returned no rows");
-}
+
+const [london, madrid] = await Promise.all([
+  checkCity("london", CITY_RULES.london),
+  checkCity("madrid", CITY_RULES.madrid),
+]);
 
 const located = await request("rpc/find_area_at_point", {
   method: "POST",
@@ -58,23 +166,42 @@ const madridLocated = await request("rpc/find_area_at_point", {
     p_lat: 40.4168,
   }),
 });
-if (!Array.isArray(located) || located.length !== 1 || !located[0]?.source_area_id || located[0]?.city_slug !== "london") {
-  throw new Error(`Point lookup did not resolve central London: ${JSON.stringify(located)}`);
+
+if (
+  !Array.isArray(located) ||
+  located.length !== 1 ||
+  !located[0]?.area_id?.startsWith(CITY_RULES.london.stablePrefix) ||
+  located[0]?.city_slug !== "london"
+) {
+  throw new Error(`Point lookup did not resolve central London to a stable area: ${JSON.stringify(located)}`);
 }
-if (!Array.isArray(madridLocated) || madridLocated.length !== 1 || !madridLocated[0]?.source_area_id || madridLocated[0]?.city_slug !== "madrid") {
-  throw new Error(`Point lookup did not resolve central Madrid: ${JSON.stringify(madridLocated)}`);
+if (
+  !Array.isArray(madridLocated) ||
+  madridLocated.length !== 1 ||
+  !madridLocated[0]?.area_id?.startsWith(CITY_RULES.madrid.stablePrefix) ||
+  madridLocated[0]?.city_slug !== "madrid"
+) {
+  throw new Error(`Point lookup did not resolve central Madrid to a stable area: ${JSON.stringify(madridLocated)}`);
 }
 
 console.log(
   JSON.stringify(
     {
       ok: true,
-      sampleArea: areas[0],
-      sampleContext: contexts[0],
-      sampleMadridArea: madridAreas[0],
-      sampleLatestContext: latestContexts[0],
-      londonPointLookup: located[0],
-      madridPointLookup: madridLocated[0],
+      checkedAt: new Date().toISOString(),
+      cities: [london, madrid],
+      pointLookup: {
+        london: {
+          areaId: located[0].area_id,
+          sourceAreaId: located[0].source_area_id,
+          name: located[0].name,
+        },
+        madrid: {
+          areaId: madridLocated[0].area_id,
+          sourceAreaId: madridLocated[0].source_area_id,
+          name: madridLocated[0].name,
+        },
+      },
     },
     null,
     2,
