@@ -22,12 +22,16 @@ export default function CityMap({ areas, boundaries, contexts }: Props) {
     x: Number(point.longitude),
     y: Number(point.latitude),
   }));
-  const xs = allPoints.map((point) => point.x);
-  const ys = allPoints.map((point) => point.y);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
+  let minX = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const point of allPoints) {
+    if (point.x < minX) minX = point.x;
+    if (point.x > maxX) maxX = point.x;
+    if (point.y < minY) minY = point.y;
+    if (point.y > maxY) maxY = point.y;
+  }
 
   const width = 1000;
   const height = 720;
