@@ -1,3 +1,4 @@
+// Trigger this check on infrastructure changes so a successful deploy cannot cache a transient data-store failure.
 import { readFileSync } from "node:fs";
 
 const clientSource = readFileSync(
