@@ -15,7 +15,8 @@ export default async function ComparePage() {
 
   try {
     areas = await getNeighbourhoods();
-  } catch {
+  } catch (caught) {
+    if (process.env.GITHUB_PAGES !== "true") throw caught;
     error = true;
   }
 
