@@ -587,14 +587,19 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
         {mapError ? <div className="map-loading map-error">{mapError}</div> : null}
       </div>
 
-      <div className="map-legend map-legend-interactive" aria-label="Map legend">
-        <span>Lower recorded level</span>
-        <i className="legend-1" />
-        <i className="legend-2" />
-        <i className="legend-3" />
-        <i className="legend-4" />
-        <i className="legend-5" />
-        <span>Higher recorded level</span>
+      <div className="map-legend-block" aria-label="Map legend">
+        <div className="map-legend map-legend-interactive">
+          <span>Lower recorded level</span>
+          <div className="map-legend-gradient" aria-hidden="true" />
+          <span>Higher recorded level</span>
+        </div>
+        <div className="map-legend-percentiles" aria-hidden="true">
+          <span>P0</span>
+          <span>P25</span>
+          <span>P50</span>
+          <span>P75</span>
+          <span>P100</span>
+        </div>
       </div>
 
       <p className="density-caution map-method-note">
