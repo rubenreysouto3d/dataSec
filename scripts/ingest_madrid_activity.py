@@ -195,11 +195,8 @@ def persist(
 ) -> None:
     url = os.environ.get("SUPABASE_URL")
     key = os.environ.get("SUPABASE_SECRET_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-    oidc_token = os.environ.get("DATASEC_INGEST_GATEWAY_TOKEN")
-    if not url or not (key or oidc_token):
-        raise RuntimeError(
-            "SUPABASE_URL plus either a backend key or DATASEC_INGEST_GATEWAY_TOKEN are required"
-        )
+    if not url:
+        raise RuntimeError("SUPABASE_URL is required")
 
     db = SupabaseRest(url, key)
     run_id = str(uuid.uuid4())
