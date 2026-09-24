@@ -190,9 +190,28 @@ function relativeBand(percentile: number | null) {
   if (percentile === null || !Number.isFinite(percentile)) return "No city comparison";
   if (percentile < 0.2) return "Lowest 20% of areas";
   if (percentile < 0.4) return "Lower than most areas";
-  if (percentile < 0.6) return "Around the middle";
+  if (percentile < 0.6) return "Around the city middle";
   if (percentile < 0.8) return "Higher than most areas";
   return "Highest 20% of areas";
+}
+
+function median(values: number[]) {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2
+    ? sorted[middle]
+    : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+function medianComparison(value: number | null, cityMedian: number | null) {
+  if (value === null || cityMedian === null || !Number.isFinite(value) || !Number.isFinite(cityMedian)) {
+    return "No median comparison";
+  }
+  if (cityMedian === 0) return value === 0 ? "At the city median" : "Above the city median";
+  const delta = ((value - cityMedian) / cityMedian) * 100;
+  if (Math.abs(delta) < 8) return "Close to the city median";
+  return `${Math.round(Math.abs(delta))}% ${delta > 0 ? "above" : "below"} the city median`;
 }
 
 export default function CityMap({ citySlug, areas, boundaries, metrics, activityContexts }: Props) {
@@ -285,6 +304,13 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
 
     return { type: "FeatureCollection", features };
   }, [areaById, boundaries, layer, metricById]);
+
+  const cityMedian = useMemo(() => {
+    const values = metrics
+      .map((metric) => metricForLayer(metric, layer).value)
+      .filter((value): value is number => value !== null && Number.isFinite(value));
+    return median(values);
+  }, [layer, metrics]);
 
   const selectedArea = selectedAreaId ? areaById.get(selectedAreaId) ?? null : null;
   const selectedBaseMetric = selectedAreaId ? metricById.get(selectedAreaId) : undefined;
@@ -601,8 +627,16 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
         </button>
       </div>
 
-      <div className="interactive-map-wrap">
-        <div ref={containerRef} className="interactive-city-map" />
+      <div className="map-current-view">
+        <strong>Currently showing</strong>
+        <span>
+          {metricCopy[metricKey].short} · {normalization === "resident" ? "per 10,000 residents" : "per km²"} · relative to other {cityName} areas
+        </span>
+      </div>
+
+      <div className="map-stage">
+        <div className="interactive-map-wrap">
+          <div ref={containerRef} className="interactive-city-map" />
 
         <div className="map-area-finder">
           <label htmlFor="area-map-search">Find a neighbourhood</label>
@@ -629,78 +663,101 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
 
         <div className="map-tap-hint">Tap or click an area for details</div>
 
-        {selectedArea ? (
-          <aside className="map-selection-card">
-            <button
-              type="button"
-              className="map-selection-close"
-              onClick={() => setSelectedAreaId(null)}
-              aria-label="Close selected area"
-            >
-              ×
-            </button>
-            <span>{citySlug === "madrid" ? "Municipal neighbourhood" : "Police neighbourhood"}</span>
-            <h3>{selectedArea.name}</h3>
+          {!mapReady && !mapError ? <div className="map-loading">Loading map…</div> : null}
+          {mapError ? <div className="map-loading map-error">{mapError}</div> : null}
+        </div>
 
-            <div className="map-selection-summary">
-              <strong>{relativeBand(selectedMetric.percentile)}</strong>
-              <p>
+        <aside className="map-detail-panel" aria-live="polite">
+          {selectedArea ? (
+            <div className="map-selection-card">
+              <button
+                type="button"
+                className="map-selection-close"
+                onClick={() => setSelectedAreaId(null)}
+                aria-label="Close selected area"
+              >
+                ×
+              </button>
+              <span>{citySlug === "madrid" ? "Municipal neighbourhood" : "Police neighbourhood"}</span>
+              <h3>{selectedArea.name}</h3>
+
+              <div className="map-selection-summary">
+                <strong>{relativeBand(selectedMetric.percentile)}</strong>
+                <p>{medianComparison(selectedMetric.value, cityMedian)}</p>
+              </div>
+
+              <div className="map-value-compare">
+                <div>
+                  <span>This area</span>
+                  <strong>{formatMetric(selectedMetric.value, selectedMetric.unit)}</strong>
+                </div>
+                <div>
+                  <span>City median</span>
+                  <strong>{formatMetric(cityMedian, selectedMetric.unit)}</strong>
+                </div>
+              </div>
+
+              {selectedPercentile !== null ? (
+                <div className="map-relative-scale" aria-label={`Relative position: ${selectedPercentile}%`}>
+                  <div className="map-relative-track">
+                    <b aria-hidden="true" />
+                    <i style={{ left: `${Math.min(100, Math.max(0, selectedPercentile))}%` }} />
+                  </div>
+                  <div><span>Lower</span><span>City middle</span><span>Higher</span></div>
+                </div>
+              ) : null}
+
+              <p className="map-percentile-copy">
                 {selectedPercentile !== null
-                  ? `Higher recorded level than about ${selectedPercentile}% of ${cityName} areas for this metric.`
+                  ? `About ${selectedPercentile}% of ${cityName} areas recorded a lower value for this exact metric.`
                   : "There is no comparable city percentile for this area."}
               </p>
-            </div>
 
-            {selectedPercentile !== null ? (
-              <div className="map-relative-scale" aria-label={`Relative position: ${selectedPercentile}%`}>
-                <div className="map-relative-track">
-                  <i style={{ left: `${Math.min(100, Math.max(0, selectedPercentile))}%` }} />
-                </div>
-                <div><span>Lower</span><span>Higher</span></div>
-              </div>
-            ) : null}
-
-            <dl>
-              <div>
-                <dt>Selected rate</dt>
-                <dd>{formatMetric(selectedMetric.value, selectedMetric.unit)}</dd>
-              </div>
-              <div>
-                <dt>Recorded incidents</dt>
-                <dd>{selectedMetric.count?.toLocaleString("en-GB") ?? "—"}</dd>
-              </div>
-              {selectedBaseMetric?.population ? (
+              <dl>
                 <div>
-                  <dt>Registered residents</dt>
-                  <dd>{selectedBaseMetric.population.toLocaleString("en-GB")}</dd>
+                  <dt>Recorded incidents</dt>
+                  <dd>{selectedMetric.count?.toLocaleString("en-GB") ?? "—"}</dd>
                 </div>
-              ) : null}
+                {selectedBaseMetric?.population ? (
+                  <div>
+                    <dt>Registered residents</dt>
+                    <dd>{selectedBaseMetric.population.toLocaleString("en-GB")}</dd>
+                  </div>
+                ) : null}
+                {selectedActivity ? (
+                  <div>
+                    <dt>Open premises</dt>
+                    <dd>{selectedActivity.openPremises.toLocaleString("en-GB")}</dd>
+                  </div>
+                ) : null}
+                <div>
+                  <dt>Snapshot</dt>
+                  <dd>{formatMonth(selectedBaseMetric?.month)}</dd>
+                </div>
+              </dl>
+
               {selectedActivity ? (
-                <div>
-                  <dt>Open premises</dt>
-                  <dd>{selectedActivity.openPremises.toLocaleString("en-GB")}</dd>
-                </div>
+                <p className="map-context-note">
+                  Commercial census is shown only as local context; it is not used as a risk denominator.
+                </p>
               ) : null}
-              <div>
-                <dt>Snapshot</dt>
-                <dd>{formatMonth(selectedBaseMetric?.month)}</dd>
+
+              <a className="map-selection-link" href={areaHref(selectedArea.id)}>
+                Open full area profile →
+              </a>
+            </div>
+          ) : (
+            <div className="map-empty-detail">
+              <span>AREA DETAILS</span>
+              <h3>Select a neighbourhood</h3>
+              <p>Tap a coloured area or use the search box. This panel will explain the result against the city median and the rest of the city.</p>
+              <div className="map-empty-example">
+                <strong>Colour answers one question:</strong>
+                <span>“How high is this recorded value compared with other areas in the same city?”</span>
               </div>
-            </dl>
-
-            {selectedActivity ? (
-              <p className="map-context-note">
-                Commercial census is shown only as local context; it is not used as a risk denominator.
-              </p>
-            ) : null}
-
-            <a className="map-selection-link" href={areaHref(selectedArea.id)}>
-              Open full area profile →
-            </a>
-          </aside>
-        ) : null}
-
-        {!mapReady && !mapError ? <div className="map-loading">Loading map…</div> : null}
-        {mapError ? <div className="map-loading map-error">{mapError}</div> : null}
+            </div>
+          )}
+        </aside>
       </div>
 
       <div className="map-legend-block" aria-label="Map legend">
