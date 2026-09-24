@@ -124,6 +124,9 @@ export default async function AreaPage({ params }: Props) {
           <span>DATA STATUS</span>
           <strong>Official / stored</strong>
           <small>Validated source snapshot</small>
+          <Link className="area-compare-link" href={`/compare?a=${encodeURIComponent(area.id)}`}>
+            Compare with another area →
+          </Link>
         </div>
       </section>
 
