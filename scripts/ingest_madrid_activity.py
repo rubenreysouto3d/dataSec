@@ -72,6 +72,34 @@ def activity_resources() -> dict[str, dict[str, Any]]:
     return found
 
 
+def fetch_activity_rows(resource_id: str, *, page_size: int = 5_000) -> tuple[list[dict[str, Any]], list[str]]:
+    fields = sorted(REQUIRED_FIELDS)
+    field_list = ",".join(fields)
+    first = ckan_action(
+        "datastore_search",
+        {"resource_id": resource_id, "limit": "1", "offset": "0", "fields": field_list},
+    )
+    total = int(first.get("total") or 0)
+    rows: list[dict[str, Any]] = []
+    for offset in range(0, total, page_size):
+        page = ckan_action(
+            "datastore_search",
+            {
+                "resource_id": resource_id,
+                "limit": str(page_size),
+                "offset": str(offset),
+                "fields": field_list,
+            },
+        )
+        records = page.get("records", [])
+        if not isinstance(records, list):
+            raise RuntimeError("Madrid commercial records payload is not a list")
+        rows.extend(records)
+    if len(rows) != total:
+        raise RuntimeError(f"Commercial pagination mismatch: expected {total}, got {len(rows)}")
+    return rows, fields
+
+
 def canonical_area_code(row: dict[str, Any]) -> str:
     district = str(row.get("id_distrito_local") or "").strip()
     neighbourhood = str(row.get("cod_barrio_local") or "").strip()
@@ -268,7 +296,7 @@ def main() -> int:
         raise RuntimeError(f"Expected 131 official Madrid neighbourhood codes, got {len(official_codes)}")
 
     log(f"dataSec Madrid commercial context ingest: {month} ({resource_id})")
-    rows, fields = fetch_datastore_rows(resource_id)
+    rows, fields = fetch_activity_rows(resource_id)
     log(f"Loaded {len(rows):,} commercial-activity rows")
     aggregates = aggregate_activity(rows, fields, official_codes)
     total_open = sum(v["open_premises"] for v in aggregates.values())
