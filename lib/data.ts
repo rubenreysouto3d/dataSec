@@ -4,7 +4,9 @@ const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_C5PkZoLjbXCuItBfzftrkw_KMLJB8E3
 export type CitySlug = "london" | "madrid";
 
 export type Neighbourhood = {
+  // Stable dataSec identity. Use this in routes and cross-feature references.
   id: string;
+  sourceAreaId: string;
   stableId: string;
   name: string;
   citySlug: CitySlug;
@@ -147,7 +149,8 @@ export async function getNeighbourhoods(citySlug?: CitySlug): Promise<Neighbourh
   return rows
     .filter((row) => row.city_slug !== "madrid" || row.area_type === "municipal_neighbourhood")
     .map((row) => ({
-    id: row.source_area_id,
+    id: row.id,
+    sourceAreaId: row.source_area_id,
     stableId: row.id,
     name: row.name,
     citySlug: row.city_slug,
@@ -156,12 +159,12 @@ export async function getNeighbourhoods(citySlug?: CitySlug): Promise<Neighbourh
   }));
 }
 
-export async function getAreaProfile(sourceAreaId: string): Promise<AreaProfile | null> {
+export async function getAreaProfile(areaId: string): Promise<AreaProfile | null> {
   const rows = await rest<AreaRow[]>("areas", {
     select: "id,source_area_id,name,city_slug,area_type,source_slug",
-    source_area_id: `eq.${sourceAreaId}`,
+    id: `eq.${areaId}`,
     active: "eq.true",
-    limit: "2",
+    limit: "1",
   });
   const row = rows[0];
   if (!row) return null;
