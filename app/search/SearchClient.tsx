@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { Neighbourhood } from "@/lib/data";
 import LocateButton from "@/components/LocateButton";
 import { resolvePlaceToArea } from "@/lib/public-data-client";
+import { areaHref } from "@/lib/area-route";
 
 type Props = {
   areas: Neighbourhood[];
@@ -56,7 +57,7 @@ export default function SearchClient({ areas, error }: Props) {
         setPlaceError("That place could not be matched to current London or Madrid coverage.");
         return;
       }
-      router.push(`/area/${encodeURIComponent(area.id)}`);
+      router.push(areaHref(area.id));
     } catch {
       setPlaceError("Place lookup is temporarily unavailable.");
     } finally {
@@ -107,7 +108,7 @@ export default function SearchClient({ areas, error }: Props) {
           ) : (
             <div className="search-results">
               {results.map((area) => (
-                <Link href={`/area/${encodeURIComponent(area.id)}`} key={area.id}>
+                <Link href={areaHref(area.id)} key={area.id}>
                   <span>{area.cityName}</span>
                   <strong>{area.name}</strong>
                   <i>Open profile →</i>
