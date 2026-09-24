@@ -742,9 +742,14 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
                 </p>
               ) : null}
 
-              <a className="map-selection-link" href={areaHref(selectedArea.id)}>
-                Open full area profile →
-              </a>
+              <div className="map-selection-actions">
+                <a className="map-selection-link" href={areaHref(selectedArea.id)}>
+                  Open full area profile →
+                </a>
+                <a className="map-selection-compare" href={`/compare?a=${encodeURIComponent(selectedArea.id)}`}>
+                  Compare this area
+                </a>
+              </div>
             </div>
           ) : (
             <div className="map-empty-detail">
