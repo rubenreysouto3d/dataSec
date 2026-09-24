@@ -100,11 +100,11 @@ def fetch_activity_rows(resource_id: str, *, page_size: int = 5_000) -> tuple[li
     return rows, fields
 
 
-def canonical_area_code(row: dict[str, Any]) -> str:
+def canonical_area_code(row: dict[str, Any]) -> str | None:
     district = str(row.get("id_distrito_local") or "").strip()
     neighbourhood = str(row.get("cod_barrio_local") or "").strip()
     if not district or not neighbourhood:
-        raise RuntimeError(f"Commercial row missing district/neighbourhood code: {row}")
+        return None
     return f"{int(district):02d}{int(neighbourhood)}"
 
 
@@ -112,7 +112,7 @@ def aggregate_activity(
     rows: list[dict[str, Any]],
     fields: list[str],
     official_codes: set[str],
-) -> dict[str, dict[str, int]]:
+) -> tuple[dict[str, dict[str, int]], dict[str, Any]]:
     missing = REQUIRED_FIELDS - set(fields)
     if missing:
         raise RuntimeError(f"Commercial source contract changed; missing fields: {sorted(missing)}")
@@ -120,11 +120,17 @@ def aggregate_activity(
     premises: dict[str, set[str]] = {code: set() for code in official_codes}
     hostelry: dict[str, set[str]] = {code: set() for code in official_codes}
     unknown_codes: set[str] = set()
+    missing_geography_rows = 0
+    unknown_geography_rows = 0
 
     for row in rows:
         code = canonical_area_code(row)
+        if code is None:
+            missing_geography_rows += 1
+            continue
         if code not in official_codes:
             unknown_codes.add(code)
+            unknown_geography_rows += 1
             continue
 
         situation_id = str(row.get("id_situacion_local") or "").strip()
@@ -143,8 +149,14 @@ def aggregate_activity(
         if section_id == "I" or section == "HOSTELERIA":
             hostelry[code].add(local_id)
 
-    if unknown_codes:
-        raise RuntimeError(f"Commercial source has unknown neighbourhood codes: {sorted(unknown_codes)[:20]}")
+    skipped_rows = missing_geography_rows + unknown_geography_rows
+    skipped_ratio = skipped_rows / max(len(rows), 1)
+    if skipped_ratio > 0.05:
+        raise RuntimeError(
+            f"Commercial rows without usable neighbourhood exceed 5%: "
+            f"{skipped_rows:,}/{len(rows):,} ({skipped_ratio:.2%}); "
+            f"unknown codes={sorted(unknown_codes)[:20]}"
+        )
 
     result = {
         code: {
@@ -165,10 +177,22 @@ def aggregate_activity(
     if total_hostelry > total_open:
         raise RuntimeError("Hostelry count exceeds open-premises count")
 
-    return result
+    diagnostics = {
+        "missing_geography_rows": missing_geography_rows,
+        "unknown_geography_rows": unknown_geography_rows,
+        "unknown_codes": sorted(unknown_codes),
+        "skipped_ratio": skipped_ratio,
+    }
+    return result, diagnostics
 
 
-def persist(month: str, resource_id: str, source_rows: int, aggregates: dict[str, dict[str, int]]) -> None:
+def persist(
+    month: str,
+    resource_id: str,
+    source_rows: int,
+    aggregates: dict[str, dict[str, int]],
+    diagnostics: dict[str, Any],
+) -> None:
     url = os.environ.get("SUPABASE_URL")
     key = os.environ.get("SUPABASE_SECRET_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     if not url or not key:
@@ -206,13 +230,14 @@ def persist(month: str, resource_id: str, source_rows: int, aggregates: dict[str
             "status": "running",
             "source_version": month,
             "row_count": source_rows,
-            "matched_row_count": source_rows,
+            "matched_row_count": source_rows - int(diagnostics["missing_geography_rows"]) - int(diagnostics["unknown_geography_rows"]),
             "diagnostics": {
                 "resource_id": resource_id,
                 "neighbourhood_count": len(aggregates),
                 "open_premises": sum(v["open_premises"] for v in aggregates.values()),
                 "open_hostelry": sum(v["open_hostelry"] for v in aggregates.values()),
                 "measurement": "commercial_activity_context",
+                **diagnostics,
             },
         }],
         "id",
@@ -298,12 +323,14 @@ def main() -> int:
     log(f"dataSec Madrid commercial context ingest: {month} ({resource_id})")
     rows, fields = fetch_activity_rows(resource_id)
     log(f"Loaded {len(rows):,} commercial-activity rows")
-    aggregates = aggregate_activity(rows, fields, official_codes)
+    aggregates, diagnostics = aggregate_activity(rows, fields, official_codes)
     total_open = sum(v["open_premises"] for v in aggregates.values())
     total_hostelry = sum(v["open_hostelry"] for v in aggregates.values())
     log(
         f"Validated {len(aggregates)} neighbourhoods; "
-        f"{total_open:,} open premises; {total_hostelry:,} open hostelry premises"
+        f"{total_open:,} open premises; {total_hostelry:,} open hostelry premises; "
+        f"skipped geography {diagnostics['missing_geography_rows'] + diagnostics['unknown_geography_rows']:,} "
+        f"({diagnostics['skipped_ratio']:.2%})"
     )
 
     if args.emit_json:
@@ -313,7 +340,7 @@ def main() -> int:
         log("Dry run complete; no database writes.")
         return 0
 
-    persist(month, resource_id, len(rows), aggregates)
+    persist(month, resource_id, len(rows), aggregates, diagnostics)
     log("Madrid commercial context snapshot persisted successfully")
     return 0
 
