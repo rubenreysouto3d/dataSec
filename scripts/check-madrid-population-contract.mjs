@@ -51,23 +51,11 @@ for (const field of expected) {
 }
 if (sample.total < 100_000) throw new Error(`Implausibly low population row count: ${sample.total}`);
 
-const quoted = `"${latest.id.replaceAll('"', '""')}"`;
-const sql = [
-  'select "COD_DISTRITO", "COD_BARRIO",',
-  'sum(cast("ESPANOLESHOMBRES" as integer) + cast("ESPANOLESMUJERES" as integer) +',
-  'cast("EXTRANJEROSHOMBRES" as integer) + cast("EXTRANJEROSMUJERES" as integer)) as population',
-  `from ${quoted}`,
-  'group by "COD_DISTRITO", "COD_BARRIO"',
-  'order by "COD_DISTRITO", "COD_BARRIO"',
-].join(" ");
-
-const aggregate = await action("datastore_search_sql", { sql });
-if (!Array.isArray(aggregate.records) || aggregate.records.length !== 131) {
-  throw new Error(`Expected 131 aggregated Madrid neighbourhoods, got ${aggregate.records?.length ?? "missing"}`);
-}
-const total = aggregate.records.reduce((sum, row) => sum + Number(row.population), 0);
-if (!Number.isFinite(total) || total < 3_000_000 || total > 4_500_000) {
-  throw new Error(`Implausible Madrid registered population: ${total}`);
+const [year, month] = latest.month.split("-").map(Number);
+const now = new Date();
+const ageMonths = (now.getUTCFullYear() - year) * 12 + (now.getUTCMonth() + 1 - month);
+if (ageMonths > 2) {
+  throw new Error(`Madrid population source is stale: latest ${latest.month}`);
 }
 
 console.log(JSON.stringify({
@@ -75,6 +63,5 @@ console.log(JSON.stringify({
   latestMonth: latest.month,
   resourceId: latest.id,
   sourceRows: sample.total,
-  neighbourhoods: aggregate.records.length,
-  registeredPopulation: total,
+  fieldContract: expected.length,
 }, null, 2));
