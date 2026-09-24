@@ -82,7 +82,8 @@ export default async function CityPage({ params }: Props) {
       getCityMapMetrics(city, areaIds),
       city === "madrid" ? getCityActivityContexts(areaIds) : Promise.resolve([]),
     ]);
-  } catch {
+  } catch (caught) {
+    if (process.env.GITHUB_PAGES !== "true") throw caught;
     error = true;
   }
 
