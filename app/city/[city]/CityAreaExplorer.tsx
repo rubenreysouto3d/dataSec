@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { CityAreaContext, Neighbourhood } from "@/lib/data";
+import { areaHref } from "@/lib/area-route";
 
 const PAGE_SIZE = 48;
 
@@ -99,7 +100,7 @@ export default function CityAreaExplorer({
             {visible.map((area) => {
               const context = contextByArea.get(area.id);
               return (
-                <Link className="area-card" href={`/area/${encodeURIComponent(area.id)}`} key={area.stableId}>
+                <Link className="area-card" href={areaHref(area.id)} key={area.stableId}>
                   <span className="area-city">{area.cityName}</span>
                   <h3>{area.name}</h3>
                   {context ? (
