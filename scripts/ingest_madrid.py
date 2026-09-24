@@ -13,7 +13,9 @@ import calendar
 import hashlib
 import json
 import os
+import pathlib
 import re
+import subprocess
 import time
 import unicodedata
 import urllib.error
@@ -81,6 +83,27 @@ def log(message: str) -> None:
     print(message, flush=True)
 
 
+def fetch_json_via_node(url: str, *, timeout: int = 120) -> tuple[Any, bytes]:
+    helper = pathlib.Path(__file__).with_name("fetch-json-node.mjs")
+    try:
+        result = subprocess.run(
+            ["node", str(helper), url, USER_AGENT, str(timeout)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=timeout + 10,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise RuntimeError(f"Node fallback failed for {url}: {exc}") from exc
+
+    if result.returncode != 0:
+        detail = result.stderr.decode("utf-8", errors="replace")[:500]
+        raise RuntimeError(f"Node fallback HTTP fetch failed for {url}: {detail}")
+
+    blob = result.stdout
+    return json.loads(blob.decode("utf-8")), blob
+
+
 def fetch_json(url: str, *, timeout: int = 120) -> tuple[Any, bytes]:
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     try:
@@ -88,6 +111,10 @@ def fetch_json(url: str, *, timeout: int = 120) -> tuple[Any, bytes]:
             blob = response.read()
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")
+        host = urllib.parse.urlparse(url).hostname or ""
+        if exc.code == 403 and host == "datos.madrid.es":
+            log("Madrid CKAN blocked urllib with HTTP 403; retrying via Node fetch")
+            return fetch_json_via_node(url, timeout=timeout)
         raise RuntimeError(f"HTTP {exc.code} for {url}: {body[:500]}") from exc
     return json.loads(blob.decode("utf-8")), blob
 
