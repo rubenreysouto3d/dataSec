@@ -7,6 +7,7 @@ on:
       - "scripts/check-police-contract.mjs"
       - "scripts/check-madrid-contract.mjs"
       - "scripts/check-madrid-population-contract.mjs"
+      - "scripts/check-madrid-activity-contract.mjs"
       - "data/sources/london.json"
       - "data/sources/madrid.json"
       - ".github/workflows/source-health.yml"
@@ -50,3 +51,14 @@ jobs:
           node-version: 24
       - name: Validate Madrid population contract
         run: node scripts/check-madrid-population-contract.mjs
+
+  madrid-activity-context:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Inspect aligned Madrid commercial-activity source
+        run: node scripts/check-madrid-activity-contract.mjs
