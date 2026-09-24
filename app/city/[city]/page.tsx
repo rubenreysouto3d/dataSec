@@ -123,9 +123,9 @@ export default async function CityPage({ params }: Props) {
             <small>Newest month available across this city</small>
           </article>
           <article>
-            <span>Median source density</span>
+            <span>Typical recorded density</span>
             <strong>{Math.round(snapshot.medianIncidentsPerKm2).toLocaleString("en-GB")}/km²</strong>
-            <small>Median across covered areas · descriptive only</small>
+            <small>City median for the full source · half the covered areas are lower</small>
           </article>
           <article>
             <span>Snapshot coverage</span>
