@@ -24,8 +24,10 @@ export default function CompareClient({ areas, sourceError }: Props) {
   const [failed, setFailed] = useState(false);
 
   const byId = useMemo(() => new Map(areas.map((area) => [area.id, area])), [areas]);
+  const leftArea = byId.get(left);
+  const rightArea = byId.get(right);
   const sameCity =
-    !left || !right || byId.get(left)?.citySlug === byId.get(right)?.citySlug;
+    !left || !right || leftArea?.citySlug === rightArea?.citySlug;
 
   useEffect(() => {
     setLeft(a);
@@ -75,42 +77,78 @@ export default function CompareClient({ areas, sourceError }: Props) {
     return <div className="notice">The stored area list could not be loaded.</div>;
   }
 
-  const options = (placeholder: string) => (
+  const options = (placeholder: string, citySlug?: string, excludedId?: string) => (
     <>
       <option value="">{placeholder}</option>
-      {[...grouped.entries()].map(([city, cityAreas]) => (
-        <optgroup label={city} key={city}>
-          {cityAreas.map((area) => (
-            <option value={area.id} key={area.stableId}>{area.name}</option>
-          ))}
-        </optgroup>
-      ))}
+      {[...grouped.entries()].map(([city, cityAreas]) => {
+        const filteredAreas = cityAreas.filter(
+          (area) => (!citySlug || area.citySlug === citySlug) && area.id !== excludedId,
+        );
+        if (!filteredAreas.length) return null;
+        return (
+          <optgroup label={city} key={city}>
+            {filteredAreas.map((area) => (
+              <option value={area.id} key={area.stableId}>{area.name}</option>
+            ))}
+          </optgroup>
+        );
+      })}
     </>
   );
+
+  function changeLeft(value: string) {
+    setLeft(value);
+    const nextLeft = byId.get(value);
+    const currentRight = byId.get(right);
+    if (nextLeft && currentRight && nextLeft.citySlug !== currentRight.citySlug) {
+      setRight("");
+    }
+  }
+
+  function swapAreas() {
+    setLeft(right);
+    setRight(left);
+    if (left && right) {
+      router.push(`/compare?a=${encodeURIComponent(right)}&b=${encodeURIComponent(left)}`);
+    }
+  }
 
   return (
     <>
       <form className="compare-form" onSubmit={submit}>
         <label>
           <span>Area A</span>
-          <select value={left} onChange={(event) => setLeft(event.target.value)}>
-            {options("Choose area…")}
+          <select value={left} onChange={(event) => changeLeft(event.target.value)}>
+            {options("Choose area…", undefined, right)}
           </select>
         </label>
-        <div className="compare-vs">VS</div>
+        <button
+          className="compare-swap"
+          type="button"
+          onClick={swapAreas}
+          disabled={!left || !right}
+          aria-label="Swap compared areas"
+          title="Swap areas"
+        >
+          ⇄
+        </button>
         <label>
           <span>Area B</span>
           <select value={right} onChange={(event) => setRight(event.target.value)}>
-            {options("Choose area…")}
+            {options(
+              leftArea ? `Choose another ${leftArea.cityName} area…` : "Choose area…",
+              leftArea?.citySlug,
+              left,
+            )}
           </select>
         </label>
         <button type="submit" disabled={!left || !right || left === right || !sameCity}>Compare</button>
       </form>
 
       {left === right && left ? <div className="notice">Choose two different areas.</div> : null}
-      {!sameCity ? (
-        <div className="notice">
-          Cross-city comparison is deliberately disabled: London and Madrid currently use different official source definitions.
+      {!left ? (
+        <div className="compare-start-hint">
+          Choose the first area; the second selector will then show only areas from the same city and source.
         </div>
       ) : null}
       {loading ? <div className="notice">Loading official comparison…</div> : null}
