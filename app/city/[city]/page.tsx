@@ -7,6 +7,7 @@ import {
   getNeighbourhoods,
   monthLabel,
 } from "@/lib/data";
+import CityAreaExplorer from "./CityAreaExplorer";
 
 type Props = { params: Promise<{ city: string }> };
 
@@ -112,15 +113,7 @@ export default async function CityPage({ params }: Props) {
         {error ? (
           <div className="notice">The stored dataset is temporarily unavailable.</div>
         ) : (
-          <div className="area-grid">
-            {areas.map((area) => (
-              <Link className="area-card" href={`/area/${encodeURIComponent(area.id)}`} key={area.stableId}>
-                <span className="area-city">{area.cityName}</span>
-                <h3>{area.name}</h3>
-                <span className="arrow">View profile →</span>
-              </Link>
-            ))}
-          </div>
+          <CityAreaExplorer areas={areas} />
         )}
       </section>
     </main>
