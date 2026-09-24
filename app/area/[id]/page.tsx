@@ -68,7 +68,7 @@ export default async function AreaPage({ params }: Props) {
 
   return (
     <main className="area-page">
-      <Link className="back" href="/">← {area.cityName}</Link>
+      <Link className="back" href={`/city/${area.citySlug}`}>← {area.cityName}</Link>
       <section className="area-intro">
         <div>
           <div className="eyebrow">{area.cityName} · {areaTypeLabel(area)}</div>
