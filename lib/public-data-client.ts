@@ -19,6 +19,7 @@ type MetricRow = { slug: string; label: string };
 type CityRow = { slug: "london" | "madrid"; name: string };
 
 export type CompareProfile = {
+  id: string;
   sourceAreaId: string;
   name: string;
   citySlug: "london" | "madrid";
@@ -57,12 +58,12 @@ function getCities() {
   return citiesPromise;
 }
 
-export async function getCompareProfile(sourceAreaId: string): Promise<CompareProfile | null> {
+export async function getCompareProfile(areaId: string): Promise<CompareProfile | null> {
   const areas = await rest<AreaRow[]>("areas", {
     select: "id,source_area_id,name,city_slug",
-    source_area_id: `eq.${sourceAreaId}`,
+    id: `eq.${areaId}`,
     active: "eq.true",
-    limit: "2",
+    limit: "1",
   });
   const area = areas[0];
   if (!area) return null;
@@ -90,6 +91,7 @@ export async function getCompareProfile(sourceAreaId: string): Promise<ComparePr
 
   const labels = new Map(metrics.map((metric) => [metric.slug, metric.label]));
   return {
+    id: area.id,
     sourceAreaId: area.source_area_id,
     name: area.name,
     citySlug: area.city_slug,
@@ -139,7 +141,7 @@ export async function locateAreaByCoordinates(
   const rows = (await response.json()) as PointAreaRow[];
   const row = rows[0];
   return row
-    ? { id: row.source_area_id, name: row.name, citySlug: row.city_slug }
+    ? { id: row.area_id, name: row.name, citySlug: row.city_slug }
     : null;
 }
 
