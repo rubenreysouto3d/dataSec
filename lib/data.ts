@@ -88,6 +88,13 @@ export type MonthlySummary = {
   categories: Array<{ category: string; label: string; count: number }>;
 };
 
+export type CitySnapshot = {
+  month: string;
+  areaCount: number;
+  coveredAreaCount: number;
+  medianIncidentsPerKm2: number;
+};
+
 export const cityNames: Record<CitySlug, string> = {
   london: "London",
   madrid: "Madrid",
@@ -246,6 +253,42 @@ async function getAllAreaContexts(): Promise<Array<AreaContext & { areaId: strin
 export async function getAreaContext(areaId: string): Promise<AreaContext | null> {
   const rows = await getAllAreaContexts();
   return rows.find((row) => row.areaId === areaId) ?? null;
+}
+
+export async function getCitySnapshot(
+  citySlug: CitySlug,
+  areaIds: string[],
+): Promise<CitySnapshot | null> {
+  const included = new Set(areaIds);
+  const contexts = (await getAllAreaContexts()).filter(
+    (row) => row.citySlug === citySlug && included.has(row.areaId),
+  );
+  if (contexts.length === 0) return null;
+
+  const month = contexts.reduce(
+    (latest, row) => (row.month > latest ? row.month : latest),
+    contexts[0].month,
+  );
+  const current = contexts.filter((row) => row.month === month);
+  const densities = current
+    .map((row) => row.incidentsPerKm2)
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b);
+
+  if (densities.length === 0) return null;
+
+  const middle = Math.floor(densities.length / 2);
+  const medianIncidentsPerKm2 =
+    densities.length % 2 === 0
+      ? (densities[middle - 1] + densities[middle]) / 2
+      : densities[middle];
+
+  return {
+    month,
+    areaCount: areaIds.length,
+    coveredAreaCount: current.length,
+    medianIncidentsPerKm2,
+  };
 }
 
 let metricsPromise: Promise<MetricRow[]> | null = null;
