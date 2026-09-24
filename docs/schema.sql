@@ -111,6 +111,18 @@ create index if not exists observations_metric_period_idx
 create index if not exists observations_source_period_idx
   on public.observations (source_slug, period_start desc);
 
+create table if not exists public.area_population_snapshots (
+  area_id text not null references public.areas(id) on delete cascade,
+  source_slug text not null references public.sources(slug),
+  period_start date not null,
+  population integer not null check (population >= 0),
+  provenance jsonb not null default '{}'::jsonb,
+  primary key (area_id, source_slug, period_start)
+);
+
+create index if not exists area_population_snapshots_area_period_idx
+  on public.area_population_snapshots (area_id, period_start desc);
+
 create table if not exists public.ingestion_runs (
   id text primary key,
   source_slug text not null references public.sources(slug),
@@ -161,6 +173,18 @@ select
   period_start,
   extensions.ST_AsGeoJSON(geometry)::jsonb as geojson,
   source_hash
+from public.latest_area_boundaries;
+
+create or replace view public.latest_area_boundaries_map_geojson
+with (security_invoker = true)
+as
+select
+  area_id,
+  source_slug,
+  period_start,
+  extensions.ST_AsGeoJSON(
+    extensions.ST_SimplifyPreserveTopology(geometry, 0.00015)
+  )::jsonb as geojson
 from public.latest_area_boundaries;
 
 create or replace view public.area_month_context
@@ -273,16 +297,135 @@ select distinct on (area_id)
 from public.area_month_context
 order by area_id, period_start desc;
 
+create or replace view public.latest_area_population
+with (security_invoker = true)
+as
+select distinct on (area_id)
+  area_id,
+  source_slug,
+  period_start,
+  population,
+  provenance
+from public.area_population_snapshots
+order by area_id, period_start desc;
+
+create or replace view public.latest_area_map_metrics
+with (security_invoker = true)
+as
+with latest_context as (
+  select * from public.latest_area_context
+),
+category_agg as (
+  select
+    c.area_id,
+    c.city_slug,
+    c.period_start,
+    c.total_incidents,
+    c.area_km2,
+    c.incidents_per_km2,
+    c.density_percentile,
+    sum(o.value) filter (
+      where
+        (c.city_slug = 'madrid' and o.metric_slug in (
+          'madrid-dispatch-amenazas-y-atentados-terroristas',
+          'madrid-dispatch-atentado-agresion-a-empleado-publico',
+          'madrid-dispatch-fallecidos-por-delito-o-causa-desconocida',
+          'madrid-dispatch-hurtos',
+          'madrid-dispatch-otros-delitos',
+          'madrid-dispatch-reyertas-agresiones',
+          'madrid-dispatch-robos-con-fuerza',
+          'madrid-dispatch-robos-con-violencia-intimidacion',
+          'madrid-dispatch-sustraccion-de-vehiculo',
+          'madrid-dispatch-violencia-de-genero-y-familiar'
+        ))
+        or
+        (c.city_slug = 'london' and o.metric_slug <> 'all-crime')
+    )::numeric as crime_related_count,
+    sum(o.value) filter (
+      where
+        (c.city_slug = 'madrid' and o.metric_slug in (
+          'madrid-dispatch-atentado-agresion-a-empleado-publico',
+          'madrid-dispatch-fallecidos-por-delito-o-causa-desconocida',
+          'madrid-dispatch-reyertas-agresiones',
+          'madrid-dispatch-robos-con-fuerza',
+          'madrid-dispatch-robos-con-violencia-intimidacion',
+          'madrid-dispatch-sustraccion-de-vehiculo',
+          'madrid-dispatch-violencia-de-genero-y-familiar'
+        ))
+        or
+        (c.city_slug = 'london' and o.metric_slug in (
+          'violent-crime','robbery','burglary','criminal-damage-arson',
+          'vehicle-crime','possession-of-weapons'
+        ))
+    )::numeric as violence_property_count,
+    sum(o.value) filter (
+      where
+        (c.city_slug = 'madrid' and o.metric_slug in (
+          'madrid-dispatch-hurtos',
+          'madrid-dispatch-robos-con-fuerza',
+          'madrid-dispatch-robos-con-violencia-intimidacion',
+          'madrid-dispatch-sustraccion-de-vehiculo'
+        ))
+        or
+        (c.city_slug = 'london' and o.metric_slug in (
+          'theft-from-the-person','other-theft','shoplifting',
+          'bicycle-theft','vehicle-crime','robbery'
+        ))
+    )::numeric as theft_count
+  from latest_context c
+  join public.observations o
+    on o.area_id = c.area_id
+   and o.period_start = c.period_start
+  group by c.area_id, c.city_slug, c.period_start, c.total_incidents,
+           c.area_km2, c.incidents_per_km2, c.density_percentile
+),
+with_population as (
+  select
+    a.*,
+    p.population,
+    case when a.area_km2 > 0 then a.crime_related_count / a.area_km2 end as crime_related_per_km2,
+    case when a.area_km2 > 0 then a.violence_property_count / a.area_km2 end as violence_property_per_km2,
+    case when a.area_km2 > 0 then a.theft_count / a.area_km2 end as theft_per_km2,
+    case when p.population > 0 then a.crime_related_count * 10000.0 / p.population end as crime_related_per_10k,
+    case when p.population > 0 then a.violence_property_count * 10000.0 / p.population end as violence_property_per_10k,
+    case when p.population > 0 then a.theft_count * 10000.0 / p.population end as theft_per_10k
+  from category_agg a
+  left join public.area_population_snapshots p
+    on p.area_id = a.area_id
+   and p.period_start = a.period_start
+)
+select
+  *,
+  percent_rank() over (partition by city_slug, period_start order by crime_related_per_km2 nulls last)
+    as crime_related_density_percentile,
+  percent_rank() over (partition by city_slug, period_start order by violence_property_per_km2 nulls last)
+    as violence_property_density_percentile,
+  percent_rank() over (partition by city_slug, period_start order by theft_per_km2 nulls last)
+    as theft_density_percentile,
+  case when population is not null then
+    percent_rank() over (partition by city_slug, period_start order by crime_related_per_10k nulls last)
+  end as crime_related_resident_percentile,
+  case when population is not null then
+    percent_rank() over (partition by city_slug, period_start order by violence_property_per_10k nulls last)
+  end as violence_property_resident_percentile,
+  case when population is not null then
+    percent_rank() over (partition by city_slug, period_start order by theft_per_10k nulls last)
+  end as theft_resident_percentile
+from with_population;
+
 grant select on public.latest_area_boundaries,
   public.latest_area_boundaries_geojson,
+  public.latest_area_boundaries_map_geojson,
   public.area_month_context,
-  public.latest_area_context
+  public.latest_area_context,
+  public.latest_area_population,
+  public.latest_area_map_metrics
 to anon, authenticated, service_role;
 
 -- Backend ingestion may write via the service role.
 grant select, insert, update, delete on public.countries, public.cities, public.sources,
   public.areas, public.area_boundaries, public.metrics, public.observations,
-  public.ingestion_runs, public.data_quality_flags
+  public.area_population_snapshots, public.ingestion_runs, public.data_quality_flags
 to service_role;
 
 grant usage, select on all sequences in schema public to service_role;
@@ -297,6 +440,7 @@ alter table public.areas enable row level security;
 alter table public.area_boundaries enable row level security;
 alter table public.metrics enable row level security;
 alter table public.observations enable row level security;
+alter table public.area_population_snapshots enable row level security;
 alter table public.ingestion_runs enable row level security;
 alter table public.data_quality_flags enable row level security;
 
@@ -327,3 +471,10 @@ on public.metrics for select to anon, authenticated using (true);
 drop policy if exists "observations public read" on public.observations;
 create policy "observations public read"
 on public.observations for select to anon, authenticated using (true);
+
+
+drop policy if exists "area population public read" on public.area_population_snapshots;
+create policy "area population public read"
+on public.area_population_snapshots for select to anon, authenticated using (true);
+
+grant select on public.area_population_snapshots to anon, authenticated;

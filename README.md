@@ -12,6 +12,7 @@ Two structurally different official sources are live in the data model:
 - contemporaneous policing boundaries
 - category mix and stored history
 - within-city incident-density context
+- interactive basemap with selectable crime-related / theft / violence-property layers
 
 ### Madrid
 - official municipal neighbourhoods
@@ -19,6 +20,7 @@ Two structurally different official sources are live in the data model:
 - official municipal boundaries
 - category mix and stored history
 - within-city incident-density context
+- monthly registered-population context for resident-normalised map layers
 
 Madrid's source is broader than crime and includes traffic, assistance, public-space and other police responses. dataSec therefore does **not** compare London and Madrid as though both datasets measured the same thing.
 
@@ -30,6 +32,8 @@ Madrid's source is broader than crime and includes traffic, assistance, public-s
 - explicit address/place lookup through OpenStreetMap Nominatim
 - browser geolocation matched against stored PostGIS boundaries
 - same-city area comparison
+- interactive OpenFreeMap/OpenStreetMap city maps with zoom, pan, tooltips and selectable analytical layers
+- Madrid resident-normalised alternatives using the matched monthly municipal register
 - source links and methodology notes
 - stable dataSec area identities, independent of source-local IDs
 - automated source-contract, ingestion and data-health workflows
@@ -48,7 +52,8 @@ Raw London crime points are used during spatial assignment and discarded; the pr
 - Supabase / PostgreSQL 17 / PostGIS
 - Python ingestion pipelines
 - GitHub Actions
-- static GitHub Pages build prepared for the public preview
+- Vercel production deployment
+- static GitHub Pages export retained as an optional secondary deployment
 
 ## Run locally
 
@@ -68,18 +73,17 @@ npm run check:source
 python -m unittest discover -s tests
 ```
 
-## Deployment note
+## Deployment
 
-The GitHub Pages workflow builds the static export successfully. The repository still needs GitHub Pages enabled once under **Settings → Pages → Source: GitHub Actions** before the first public deployment can complete.
+The public prototype is deployed through Vercel from `main`. GitHub Pages remains paused/manual-only so failed Pages setup cannot create notification noise.
 
 ## Next development
 
-1. finish the public preview deployment
-2. improve city-level exploration and data freshness visibility
-3. add a production-suitable geocoder before meaningful traffic/monetisation
+1. harden automated publication so validated ingests become atomic/run-scoped
+2. add a production-suitable geocoder before meaningful traffic/monetisation
+3. improve exposure denominators (visitor/footfall where reliable official data exists)
 4. add a third city only after its source can be represented without pretending unlike datasets are directly comparable
-5. add population/footfall denominators where reliable official data exists
-6. build a scalable map layer once the analytical model is stable
+5. expand map layers only when their semantics are clear and source-supported
 
 ## Methodology rule
 
