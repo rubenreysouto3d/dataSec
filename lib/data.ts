@@ -86,6 +86,11 @@ export type CityAreaContext = AreaContext & {
   areaId: string;
 };
 
+export type CityBoundary = {
+  areaId: string;
+  rings: Point[][];
+};
+
 export type MonthlySummary = {
   month: string;
   total: number;
@@ -231,6 +236,36 @@ export async function getBoundaryRings(areaId: string): Promise<{ month: string;
     );
 
   return { month: row.period_start.slice(0, 7), rings };
+}
+
+
+export async function getCityBoundaries(areaIds: string[]): Promise<CityBoundary[]> {
+  const included = new Set(areaIds);
+  const rows = await rest<Array<BoundaryRow & { area_id: string }>>("latest_area_boundaries_geojson", {
+    select: "area_id,period_start,geojson",
+    limit: "2000",
+  });
+
+  return rows
+    .filter((row) => included.has(row.area_id))
+    .map((row) => {
+      const polygonCoordinates =
+        row.geojson.type === "Polygon"
+          ? [row.geojson.coordinates as number[][][]]
+          : (row.geojson.coordinates as number[][][][]);
+
+      const rings = polygonCoordinates
+        .map((polygon) => polygon[0])
+        .filter((ring): ring is number[][] => Array.isArray(ring) && ring.length >= 3)
+        .map((ring) =>
+          ring.map(([longitude, latitude]) => ({
+            longitude: String(longitude),
+            latitude: String(latitude),
+          })),
+        );
+
+      return { areaId: row.area_id, rings };
+    });
 }
 
 let areaContextPromise: Promise<Array<AreaContext & { areaId: string; citySlug: CitySlug }>> | null = null;
