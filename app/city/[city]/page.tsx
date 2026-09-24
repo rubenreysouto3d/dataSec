@@ -6,6 +6,7 @@ import {
   cityNames,
   getCityAreaContexts,
   getCityBoundaries,
+  getCityMapMetrics,
   getCitySnapshot,
   getNeighbourhoods,
   monthLabel,
@@ -67,14 +68,16 @@ export default async function CityPage({ params }: Props) {
   let snapshot: Awaited<ReturnType<typeof getCitySnapshot>> = null;
   let contexts: Awaited<ReturnType<typeof getCityAreaContexts>> = [];
   let boundaries: Awaited<ReturnType<typeof getCityBoundaries>> = [];
+  let mapMetrics: Awaited<ReturnType<typeof getCityMapMetrics>> = [];
   let error = false;
   try {
     areas = await getNeighbourhoods(city);
     const areaIds = areas.map((area) => area.id);
-    [snapshot, contexts, boundaries] = await Promise.all([
+    [snapshot, contexts, boundaries, mapMetrics] = await Promise.all([
       getCitySnapshot(city, areaIds),
       getCityAreaContexts(city, areaIds),
       getCityBoundaries(areaIds),
+      getCityMapMetrics(city, areaIds),
     ]);
   } catch {
     error = true;
@@ -130,7 +133,12 @@ export default async function CityPage({ params }: Props) {
 
       {!error ? (
         <section className="city-map-section">
-          <CityMap areas={areas} boundaries={boundaries} contexts={contexts} />
+          <CityMap
+            citySlug={city}
+            areas={areas}
+            boundaries={boundaries}
+            metrics={mapMetrics}
+          />
         </section>
       ) : null}
 

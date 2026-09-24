@@ -91,6 +91,58 @@ export type CityBoundary = {
   rings: Point[][];
 };
 
+type CityMapMetricRow = {
+  area_id: string;
+  city_slug: CitySlug;
+  period_start: string;
+  total_incidents: number | string;
+  area_km2: number | string;
+  incidents_per_km2: number | string;
+  density_percentile: number | string;
+  crime_related_count: number | string | null;
+  violence_property_count: number | string | null;
+  theft_count: number | string | null;
+  population: number | string | null;
+  crime_related_per_km2: number | string | null;
+  violence_property_per_km2: number | string | null;
+  theft_per_km2: number | string | null;
+  crime_related_per_10k: number | string | null;
+  violence_property_per_10k: number | string | null;
+  theft_per_10k: number | string | null;
+  crime_related_density_percentile: number | string | null;
+  violence_property_density_percentile: number | string | null;
+  theft_density_percentile: number | string | null;
+  crime_related_resident_percentile: number | string | null;
+  violence_property_resident_percentile: number | string | null;
+  theft_resident_percentile: number | string | null;
+};
+
+export type CityMapMetric = {
+  areaId: string;
+  citySlug: CitySlug;
+  month: string;
+  totalIncidents: number;
+  areaKm2: number;
+  incidentsPerKm2: number;
+  densityPercentile: number;
+  crimeRelatedCount: number;
+  violencePropertyCount: number;
+  theftCount: number;
+  population: number | null;
+  crimeRelatedPerKm2: number | null;
+  violencePropertyPerKm2: number | null;
+  theftPerKm2: number | null;
+  crimeRelatedPer10k: number | null;
+  violencePropertyPer10k: number | null;
+  theftPer10k: number | null;
+  crimeRelatedDensityPercentile: number | null;
+  violencePropertyDensityPercentile: number | null;
+  theftDensityPercentile: number | null;
+  crimeRelatedResidentPercentile: number | null;
+  violencePropertyResidentPercentile: number | null;
+  theftResidentPercentile: number | null;
+};
+
 export type MonthlySummary = {
   month: string;
   total: number;
@@ -266,6 +318,74 @@ export async function getCityBoundaries(areaIds: string[]): Promise<CityBoundary
 
       return { areaId: row.area_id, rings };
     });
+}
+
+export async function getCityMapMetrics(
+  citySlug: CitySlug,
+  areaIds: string[],
+): Promise<CityMapMetric[]> {
+  const included = new Set(areaIds);
+  const rows = await rest<CityMapMetricRow[]>("latest_area_map_metrics", {
+    select: [
+      "area_id",
+      "city_slug",
+      "period_start",
+      "total_incidents",
+      "area_km2",
+      "incidents_per_km2",
+      "density_percentile",
+      "crime_related_count",
+      "violence_property_count",
+      "theft_count",
+      "population",
+      "crime_related_per_km2",
+      "violence_property_per_km2",
+      "theft_per_km2",
+      "crime_related_per_10k",
+      "violence_property_per_10k",
+      "theft_per_10k",
+      "crime_related_density_percentile",
+      "violence_property_density_percentile",
+      "theft_density_percentile",
+      "crime_related_resident_percentile",
+      "violence_property_resident_percentile",
+      "theft_resident_percentile",
+    ].join(","),
+    city_slug: `eq.${citySlug}`,
+    order: "area_id.asc",
+    limit: "2000",
+  });
+
+  const numberOrNull = (value: number | string | null) =>
+    value === null || value === undefined ? null : Number(value);
+
+  return rows
+    .filter((row) => included.has(row.area_id))
+    .map((row) => ({
+      areaId: row.area_id,
+      citySlug: row.city_slug,
+      month: row.period_start.slice(0, 7),
+      totalIncidents: Number(row.total_incidents),
+      areaKm2: Number(row.area_km2),
+      incidentsPerKm2: Number(row.incidents_per_km2),
+      densityPercentile: Number(row.density_percentile),
+      crimeRelatedCount: Number(row.crime_related_count ?? 0),
+      violencePropertyCount: Number(row.violence_property_count ?? 0),
+      theftCount: Number(row.theft_count ?? 0),
+      population: numberOrNull(row.population),
+      crimeRelatedPerKm2: numberOrNull(row.crime_related_per_km2),
+      violencePropertyPerKm2: numberOrNull(row.violence_property_per_km2),
+      theftPerKm2: numberOrNull(row.theft_per_km2),
+      crimeRelatedPer10k: numberOrNull(row.crime_related_per_10k),
+      violencePropertyPer10k: numberOrNull(row.violence_property_per_10k),
+      theftPer10k: numberOrNull(row.theft_per_10k),
+      crimeRelatedDensityPercentile: numberOrNull(row.crime_related_density_percentile),
+      violencePropertyDensityPercentile: numberOrNull(row.violence_property_density_percentile),
+      theftDensityPercentile: numberOrNull(row.theft_density_percentile),
+      crimeRelatedResidentPercentile: numberOrNull(row.crime_related_resident_percentile),
+      violencePropertyResidentPercentile: numberOrNull(row.violence_property_resident_percentile),
+      theftResidentPercentile: numberOrNull(row.theft_resident_percentile),
+    }));
 }
 
 let areaContextPromise: Promise<Array<AreaContext & { areaId: string; citySlug: CitySlug }>> | null = null;

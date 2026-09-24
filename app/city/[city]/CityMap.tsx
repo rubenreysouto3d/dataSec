@@ -1,130 +1,436 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
 import { areaHref } from "@/lib/area-route";
-import type { CityAreaContext, CityBoundary, Neighbourhood } from "@/lib/data";
+import type {
+  CityBoundary,
+  CityMapMetric,
+  CitySlug,
+  Neighbourhood,
+} from "@/lib/data";
 
 type Props = {
+  citySlug: CitySlug;
   areas: Neighbourhood[];
   boundaries: CityBoundary[];
-  contexts: CityAreaContext[];
+  metrics: CityMapMetric[];
 };
 
-type XY = { x: number; y: number };
+type LayerKey =
+  | "violence-property"
+  | "theft"
+  | "crime-related"
+  | "activity"
+  | "violence-property-resident"
+  | "theft-resident"
+  | "crime-related-resident";
 
-export default function CityMap({ areas, boundaries, contexts }: Props) {
-  const areaById = new Map(areas.map((area) => [area.id, area]));
-  const contextById = new Map(contexts.map((context) => [context.areaId, context]));
-  const usable = boundaries.filter((boundary) => boundary.rings.some((ring) => ring.length >= 3));
+type MapLibreModule = {
+  Map: new (options: Record<string, unknown>) => any;
+  Popup: new (options?: Record<string, unknown>) => any;
+  NavigationControl: new (options?: Record<string, unknown>) => any;
+  ScaleControl: new (options?: Record<string, unknown>) => any;
+};
 
-  if (!usable.length) {
-    return <div className="notice">Map geometry is temporarily unavailable.</div>;
+const MAPLIBRE_URL = "https://unpkg.com/maplibre-gl@6.11.1/dist/maplibre-gl.mjs";
+const MAPLIBRE_CSS = "https://unpkg.com/maplibre-gl@6.11.1/dist/maplibre-gl.css";
+const MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
+
+const layerCopy: Record<LayerKey, { label: string; note: string }> = {
+  "violence-property": {
+    label: "Violence & property",
+    note: "Selected violence and property-related source categories per km².",
+  },
+  theft: {
+    label: "Theft & robbery",
+    note: "Theft, robbery and vehicle/property-theft categories per km².",
+  },
+  "crime-related": {
+    label: "Crime-related",
+    note: "Crime-related source categories per km²; excludes Madrid's non-crime dispatch activity.",
+  },
+  activity: {
+    label: "All source activity",
+    note: "All source incidents per km², including non-crime Madrid police dispatch activity.",
+  },
+  "violence-property-resident": {
+    label: "Violence & property / 10k residents",
+    note: "Selected violence and property-related source categories per 10,000 registered residents.",
+  },
+  "theft-resident": {
+    label: "Theft & robbery / 10k residents",
+    note: "Theft, robbery and vehicle/property-theft categories per 10,000 registered residents.",
+  },
+  "crime-related-resident": {
+    label: "Crime-related / 10k residents",
+    note: "Crime-related source categories per 10,000 registered residents.",
+  },
+};
+
+function metricForLayer(metric: CityMapMetric | undefined, layer: LayerKey) {
+  if (!metric) return { percentile: null, value: null, count: null, unit: "" };
+
+  switch (layer) {
+    case "activity":
+      return {
+        percentile: metric.densityPercentile,
+        value: metric.incidentsPerKm2,
+        count: metric.totalIncidents,
+        unit: "/km²",
+      };
+    case "crime-related":
+      return {
+        percentile: metric.crimeRelatedDensityPercentile,
+        value: metric.crimeRelatedPerKm2,
+        count: metric.crimeRelatedCount,
+        unit: "/km²",
+      };
+    case "theft":
+      return {
+        percentile: metric.theftDensityPercentile,
+        value: metric.theftPerKm2,
+        count: metric.theftCount,
+        unit: "/km²",
+      };
+    case "violence-property-resident":
+      return {
+        percentile: metric.violencePropertyResidentPercentile,
+        value: metric.violencePropertyPer10k,
+        count: metric.violencePropertyCount,
+        unit: "/10k residents",
+      };
+    case "theft-resident":
+      return {
+        percentile: metric.theftResidentPercentile,
+        value: metric.theftPer10k,
+        count: metric.theftCount,
+        unit: "/10k residents",
+      };
+    case "crime-related-resident":
+      return {
+        percentile: metric.crimeRelatedResidentPercentile,
+        value: metric.crimeRelatedPer10k,
+        count: metric.crimeRelatedCount,
+        unit: "/10k residents",
+      };
+    default:
+      return {
+        percentile: metric.violencePropertyDensityPercentile,
+        value: metric.violencePropertyPerKm2,
+        count: metric.violencePropertyCount,
+        unit: "/km²",
+      };
   }
+}
 
-  const allPoints = usable.flatMap((boundary) => boundary.rings.flat()).map((point) => ({
-    x: Number(point.longitude),
-    y: Number(point.latitude),
-  }));
-  let minX = Number.POSITIVE_INFINITY;
-  let maxX = Number.NEGATIVE_INFINITY;
-  let minY = Number.POSITIVE_INFINITY;
-  let maxY = Number.NEGATIVE_INFINITY;
-  for (const point of allPoints) {
-    if (point.x < minX) minX = point.x;
-    if (point.x > maxX) maxX = point.x;
-    if (point.y < minY) minY = point.y;
-    if (point.y > maxY) maxY = point.y;
-  }
+function ensureMapLibreCss() {
+  if (document.querySelector(`link[data-datasec-maplibre]`)) return;
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = MAPLIBRE_CSS;
+  link.dataset.datasecMaplibre = "true";
+  document.head.appendChild(link);
+}
 
-  const width = 1000;
-  const height = 720;
-  const padding = 24;
-  const rangeX = Math.max(maxX - minX, 0.000001);
-  const rangeY = Math.max(maxY - minY, 0.000001);
-  const scale = Math.min(
-    (width - padding * 2) / rangeX,
-    (height - padding * 2) / rangeY,
+async function loadMapLibre(): Promise<MapLibreModule> {
+  const dynamicImport = new Function("url", "return import(url)") as (
+    url: string,
+  ) => Promise<MapLibreModule>;
+  return dynamicImport(MAPLIBRE_URL);
+}
+
+export default function CityMap({ citySlug, areas, boundaries, metrics }: Props) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<any>(null);
+  const popupRef = useRef<any>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const [mapError, setMapError] = useState("");
+  const residentCoverage = metrics.filter((metric) => metric.population !== null).length;
+  const hasResidentLayer = residentCoverage >= Math.max(1, Math.floor(areas.length * 0.8));
+  const [layer, setLayer] = useState<LayerKey>(
+    hasResidentLayer ? "violence-property-resident" : "violence-property",
   );
-  const usedW = rangeX * scale;
-  const usedH = rangeY * scale;
-  const offsetX = (width - usedW) / 2;
-  const offsetY = (height - usedH) / 2;
 
-  function project(x: number, y: number): XY {
-    return {
-      x: offsetX + (x - minX) * scale,
-      y: height - (offsetY + (y - minY) * scale),
+  const areaById = useMemo(
+    () => new Map(areas.map((area) => [area.id, area])),
+    [areas],
+  );
+  const metricById = useMemo(
+    () => new Map(metrics.map((metric) => [metric.areaId, metric])),
+    [metrics],
+  );
+
+  const bounds = useMemo(() => {
+    let minLng = Number.POSITIVE_INFINITY;
+    let minLat = Number.POSITIVE_INFINITY;
+    let maxLng = Number.NEGATIVE_INFINITY;
+    let maxLat = Number.NEGATIVE_INFINITY;
+
+    for (const boundary of boundaries) {
+      for (const ring of boundary.rings) {
+        for (const point of ring) {
+          const lng = Number(point.longitude);
+          const lat = Number(point.latitude);
+          if (lng < minLng) minLng = lng;
+          if (lng > maxLng) maxLng = lng;
+          if (lat < minLat) minLat = lat;
+          if (lat > maxLat) maxLat = lat;
+        }
+      }
+    }
+
+    return Number.isFinite(minLng)
+      ? [[minLng, minLat], [maxLng, maxLat]]
+      : null;
+  }, [boundaries]);
+
+  const geojson = useMemo(() => {
+    const features = boundaries.flatMap((boundary) => {
+      const area = areaById.get(boundary.areaId);
+      if (!area || !boundary.rings.length) return [];
+      const selected = metricForLayer(metricById.get(boundary.areaId), layer);
+      const coordinates = boundary.rings.map((ring) =>
+        ring.map((point) => [Number(point.longitude), Number(point.latitude)]),
+      );
+
+      return [{
+        type: "Feature",
+        properties: {
+          id: area.id,
+          name: area.name,
+          href: areaHref(area.id),
+          percentile: selected.percentile,
+          value: selected.value,
+          count: selected.count,
+          unit: selected.unit,
+          population: metricById.get(area.id)?.population ?? null,
+        },
+        geometry: boundary.rings.length === 1
+          ? { type: "Polygon", coordinates: [coordinates[0]] }
+          : { type: "MultiPolygon", coordinates: coordinates.map((ring) => [ring]) },
+      }];
+    });
+
+    return { type: "FeatureCollection", features };
+  }, [areaById, boundaries, layer, metricById]);
+
+  function fitToCity() {
+    if (!mapRef.current || !bounds) return;
+    mapRef.current.fitBounds(bounds, {
+      padding: 42,
+      duration: 450,
+      maxZoom: citySlug === "madrid" ? 12 : 11,
+    });
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    let map: any;
+
+    async function start() {
+      if (!containerRef.current || !bounds) return;
+      try {
+        ensureMapLibreCss();
+        const maplibre = await loadMapLibre();
+        if (cancelled || !containerRef.current) return;
+
+        map = new maplibre.Map({
+          container: containerRef.current,
+          style: MAP_STYLE,
+          center: citySlug === "madrid" ? [-3.7038, 40.4168] : [-0.1276, 51.5072],
+          zoom: citySlug === "madrid" ? 9.5 : 8.7,
+          attributionControl: true,
+          cooperativeGestures: false,
+        });
+        mapRef.current = map;
+
+        map.addControl(new maplibre.NavigationControl({ visualizePitch: false }), "top-right");
+        map.addControl(new maplibre.ScaleControl({ maxWidth: 120, unit: "metric" }), "bottom-left");
+        popupRef.current = new maplibre.Popup({
+          closeButton: false,
+          closeOnClick: false,
+          offset: 12,
+          maxWidth: "300px",
+        });
+
+        map.on("load", () => {
+          if (cancelled) return;
+          map.addSource("datasec-areas", {
+            type: "geojson",
+            data: geojson,
+            promoteId: "id",
+          });
+          map.addLayer({
+            id: "datasec-areas-fill",
+            type: "fill",
+            source: "datasec-areas",
+            paint: {
+              "fill-color": [
+                "case",
+                ["==", ["get", "percentile"], null],
+                "#b8b6af",
+                [
+                  "interpolate",
+                  ["linear"],
+                  ["to-number", ["get", "percentile"]],
+                  0, "#4f9f72",
+                  0.25, "#a9bd72",
+                  0.5, "#e2b45d",
+                  0.75, "#de754d",
+                  1, "#b93632",
+                ],
+              ],
+              "fill-opacity": 0.58,
+            },
+          });
+          map.addLayer({
+            id: "datasec-areas-line",
+            type: "line",
+            source: "datasec-areas",
+            paint: {
+              "line-color": "rgba(26,26,22,.72)",
+              "line-width": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+                8, 0.45,
+                12, 1.25,
+                15, 2,
+              ],
+            },
+          });
+
+          map.on("mousemove", "datasec-areas-fill", (event: any) => {
+            map.getCanvas().style.cursor = "pointer";
+            const feature = event.features?.[0];
+            if (!feature) return;
+            const props = feature.properties ?? {};
+            const card = document.createElement("div");
+            card.className = "datasec-map-tooltip";
+            const title = document.createElement("strong");
+            title.textContent = String(props.name ?? "");
+            const detail = document.createElement("span");
+            const value = Number(props.value);
+            const percentile = Number(props.percentile);
+            const valueText = Number.isFinite(value)
+              ? `${value.toLocaleString("en-GB", { maximumFractionDigits: 1 })}${props.unit ?? ""}`
+              : "No value";
+            const percentileText = Number.isFinite(percentile)
+              ? ` · P${Math.round(percentile * 100)}`
+              : "";
+            detail.textContent = `${valueText}${percentileText}`;
+            const hint = document.createElement("small");
+            hint.textContent = "Click for full profile";
+            card.append(title, detail, hint);
+            popupRef.current
+              ?.setLngLat(event.lngLat)
+              .setDOMContent(card)
+              .addTo(map);
+          });
+
+          map.on("mouseleave", "datasec-areas-fill", () => {
+            map.getCanvas().style.cursor = "";
+            popupRef.current?.remove();
+          });
+
+          map.on("click", "datasec-areas-fill", (event: any) => {
+            const href = event.features?.[0]?.properties?.href;
+            if (!href) return;
+            const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+            window.location.assign(`${basePath}${href}`);
+          });
+
+          map.fitBounds(bounds, {
+            padding: 42,
+            duration: 0,
+            maxZoom: citySlug === "madrid" ? 12 : 11,
+          });
+          setMapReady(true);
+        });
+      } catch (error) {
+        console.error(error);
+        if (!cancelled) setMapError("The interactive basemap could not be loaded.");
+      }
+    }
+
+    start();
+    return () => {
+      cancelled = true;
+      popupRef.current?.remove();
+      if (map) map.remove();
+      mapRef.current = null;
+      setMapReady(false);
     };
-  }
+  }, [bounds, citySlug]);
 
-  function ringPath(ring: CityBoundary["rings"][number]) {
-    const stride = Math.max(1, Math.ceil(ring.length / 220));
-    const sampled = ring.filter((_, index) => index % stride === 0 || index === ring.length - 1);
-    return sampled
-      .map((point, index) => {
-        const p = project(Number(point.longitude), Number(point.latitude));
-        return `${index === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`;
-      })
-      .join(" ") + " Z";
-  }
+  useEffect(() => {
+    const source = mapRef.current?.getSource?.("datasec-areas");
+    source?.setData?.(geojson);
+  }, [geojson]);
 
-  function percentileClass(value: number | undefined) {
-    if (value === undefined) return "map-bin-none";
-    if (value < 0.2) return "map-bin-1";
-    if (value < 0.4) return "map-bin-2";
-    if (value < 0.6) return "map-bin-3";
-    if (value < 0.8) return "map-bin-4";
-    return "map-bin-5";
+  const layers: Array<{ key: LayerKey; label: string }> = [
+    { key: "violence-property", label: "Violence & property · density" },
+    { key: "theft", label: "Theft & robbery · density" },
+    { key: "crime-related", label: "Crime-related · density" },
+    { key: "activity", label: "All source activity · density" },
+  ];
+
+  if (hasResidentLayer) {
+    layers.unshift(
+      { key: "violence-property-resident", label: "Violence & property · residents" },
+      { key: "theft-resident", label: "Theft & robbery · residents" },
+      { key: "crime-related-resident", label: "Crime-related · residents" },
+    );
   }
 
   return (
-    <section className="city-map-panel">
-      <div className="panel-head">
+    <section className="city-map-panel interactive-map-panel">
+      <div className="panel-head map-panel-head">
         <div>
-          <span>MAP</span>
-          <h2>Latest source-density context</h2>
+          <span>INTERACTIVE MAP</span>
+          <h2>{layerCopy[layer].label}</h2>
+          <p>{layerCopy[layer].note}</p>
         </div>
-        <small>Click an area for its profile</small>
+        <div className="map-layer-tools">
+          <label>
+            <span>Map layer</span>
+            <select
+              value={layer}
+              onChange={(event) => setLayer(event.target.value as LayerKey)}
+            >
+              {layers.map((item) => (
+                <option value={item.key} key={item.key}>{item.label}</option>
+              ))}
+            </select>
+          </label>
+          <button type="button" onClick={fitToCity} disabled={!mapReady}>
+            Reset view
+          </button>
+        </div>
       </div>
 
-      <svg
-        className="city-map"
-        viewBox={`0 0 ${width} ${height}`}
-        role="img"
-        aria-label="Neighbourhood source-density map"
-      >
-        {usable.map((boundary) => {
-          const area = areaById.get(boundary.areaId);
-          if (!area) return null;
-          const context = contextById.get(boundary.areaId);
-          const d = boundary.rings.map(ringPath).join(" ");
-          return (
-            <a href={areaHref(area.id)} key={area.id}>
-              <path
-                d={d}
-                className={percentileClass(context?.densityPercentile)}
-                vectorEffect="non-scaling-stroke"
-              >
-                <title>
-                  {area.name}
-                  {context
-                    ? ` · P${Math.round(context.densityPercentile * 100)} · ${Math.round(context.incidentsPerKm2).toLocaleString("en-GB")}/km²`
-                    : " · no context"}
-                </title>
-              </path>
-            </a>
-          );
-        })}
-      </svg>
-
-      <div className="map-legend" aria-label="Map legend">
-        <span>Lower source density</span>
-        <i className="map-bin-1" />
-        <i className="map-bin-2" />
-        <i className="map-bin-3" />
-        <i className="map-bin-4" />
-        <i className="map-bin-5" />
-        <span>Higher source density</span>
+      <div className="interactive-map-wrap">
+        <div ref={containerRef} className="interactive-city-map" />
+        {!mapReady && !mapError ? <div className="map-loading">Loading map…</div> : null}
+        {mapError ? <div className="map-loading map-error">{mapError}</div> : null}
       </div>
-      <p className="density-caution">
-        Colours are percentiles within this city and this source snapshot. They describe recorded incident concentration per km², not personal risk.
+
+      <div className="map-legend map-legend-interactive" aria-label="Map legend">
+        <span>Lower within this city</span>
+        <i className="legend-1" />
+        <i className="legend-2" />
+        <i className="legend-3" />
+        <i className="legend-4" />
+        <i className="legend-5" />
+        <span>Higher within this city</span>
+      </div>
+
+      <p className="density-caution map-method-note">
+        Colour shows the percentile for the selected source-derived metric within this city and snapshot.
+        It is not a personal-risk score. The basemap is © OpenStreetMap contributors, rendered via OpenFreeMap.
+        {hasResidentLayer
+          ? " Resident-normalised layers use the matched monthly registered population."
+          : " Resident-normalised layers will appear when matched population data is available."}
       </p>
     </section>
   );
