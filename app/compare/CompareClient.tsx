@@ -147,12 +147,12 @@ function Comparison({ left, right }: { left: CompareProfile; right: CompareProfi
         <div>
           <span>AREA A · {left.cityName}</span>
           <h2>{left.name}</h2>
-          <Link href={`/area/${encodeURIComponent(left.sourceAreaId)}`}>Open full profile →</Link>
+          <Link href={`/area/${encodeURIComponent(left.id)}`}>Open full profile →</Link>
         </div>
         <div>
           <span>AREA B · {right.cityName}</span>
           <h2>{right.name}</h2>
-          <Link href={`/area/${encodeURIComponent(right.sourceAreaId)}`}>Open full profile →</Link>
+          <Link href={`/area/${encodeURIComponent(right.id)}`}>Open full profile →</Link>
         </div>
       </div>
 
