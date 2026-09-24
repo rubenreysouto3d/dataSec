@@ -15,7 +15,8 @@ export default async function SearchPage() {
 
   try {
     areas = await getNeighbourhoods();
-  } catch {
+  } catch (caught) {
+    if (process.env.GITHUB_PAGES !== "true") throw caught;
     error = true;
   }
 
