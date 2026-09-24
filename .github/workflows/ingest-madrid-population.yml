@@ -20,8 +20,6 @@ jobs:
     timeout-minutes: 20
     env:
       SUPABASE_URL: https://pjyaevghxbimhknvmbxb.supabase.co
-      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -38,15 +36,6 @@ jobs:
             args+=(--month "${{ inputs.month }}")
           fi
           python scripts/ingest_madrid_population.py "${args[@]}"
-      - name: Acquire short-lived GitHub OIDC token
-        shell: bash
-        run: |
-          response="$(curl -fsSL \
-            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=datasec-supabase-ingest")"
-          token="$(python -c 'import json,sys; print(json.load(sys.stdin)["value"])' <<<"$response")"
-          echo "::add-mask::$token"
-          echo "DATASEC_INGEST_GATEWAY_TOKEN=$token" >> "$GITHUB_ENV"
       - name: Persist validated population snapshot
         shell: bash
         run: |
