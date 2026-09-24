@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { areaHref } from "@/lib/area-route";
 import type {
+  CityActivityContext,
   CityBoundary,
   CityMapMetric,
   CitySlug,
@@ -14,6 +15,7 @@ type Props = {
   areas: Neighbourhood[];
   boundaries: CityBoundary[];
   metrics: CityMapMetric[];
+  activityContexts: CityActivityContext[];
 };
 
 type LayerKey =
@@ -166,7 +168,7 @@ function formatMetric(value: number | null, unit: string) {
   return value.toLocaleString("en-GB", { maximumFractionDigits: 1 }) + unit;
 }
 
-export default function CityMap({ citySlug, areas, boundaries, metrics }: Props) {
+export default function CityMap({ citySlug, areas, boundaries, metrics, activityContexts }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
   const popupRef = useRef<any>(null);
@@ -189,6 +191,10 @@ export default function CityMap({ citySlug, areas, boundaries, metrics }: Props)
   const boundaryById = useMemo(
     () => new Map(boundaries.map((boundary) => [boundary.areaId, boundary])),
     [boundaries],
+  );
+  const activityById = useMemo(
+    () => new Map(activityContexts.map((context) => [context.areaId, context])),
+    [activityContexts],
   );
 
   const bounds = useMemo(() => {
@@ -247,6 +253,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics }: Props)
 
   const selectedArea = selectedAreaId ? areaById.get(selectedAreaId) ?? null : null;
   const selectedBaseMetric = selectedAreaId ? metricById.get(selectedAreaId) : undefined;
+  const selectedActivity = selectedAreaId ? activityById.get(selectedAreaId) : undefined;
   const selectedMetric = metricForLayer(selectedBaseMetric, layer);
 
   function focusArea(areaId: string) {
@@ -548,11 +555,28 @@ export default function CityMap({ citySlug, areas, boundaries, metrics }: Props)
                   <dd>{selectedBaseMetric.population.toLocaleString("en-GB")}</dd>
                 </div>
               ) : null}
+              {selectedActivity ? (
+                <>
+                  <div>
+                    <dt>Open premises</dt>
+                    <dd>{selectedActivity.openPremises.toLocaleString("en-GB")}</dd>
+                  </div>
+                  <div>
+                    <dt>Open hostelry</dt>
+                    <dd>{selectedActivity.openHostelry.toLocaleString("en-GB")}</dd>
+                  </div>
+                </>
+              ) : null}
               <div>
                 <dt>Snapshot</dt>
                 <dd>{selectedBaseMetric?.month ?? "—"}</dd>
               </div>
             </dl>
+            {selectedActivity ? (
+              <p className="map-context-note">
+                Commercial census · context only, not a risk denominator.
+              </p>
+            ) : null}
             <a className="map-selection-link" href={areaHref(selectedArea.id)}>
               Open full area profile →
             </a>

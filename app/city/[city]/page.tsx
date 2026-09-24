@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import {
   type CitySlug,
   cityNames,
+  getCityActivityContexts,
   getCityAreaContexts,
   getCityBoundaries,
   getCityMapMetrics,
@@ -69,15 +70,17 @@ export default async function CityPage({ params }: Props) {
   let contexts: Awaited<ReturnType<typeof getCityAreaContexts>> = [];
   let boundaries: Awaited<ReturnType<typeof getCityBoundaries>> = [];
   let mapMetrics: Awaited<ReturnType<typeof getCityMapMetrics>> = [];
+  let activityContexts: Awaited<ReturnType<typeof getCityActivityContexts>> = [];
   let error = false;
   try {
     areas = await getNeighbourhoods(city);
     const areaIds = areas.map((area) => area.id);
-    [snapshot, contexts, boundaries, mapMetrics] = await Promise.all([
+    [snapshot, contexts, boundaries, mapMetrics, activityContexts] = await Promise.all([
       getCitySnapshot(city, areaIds),
       getCityAreaContexts(city, areaIds),
       getCityBoundaries(areaIds),
       getCityMapMetrics(city, areaIds),
+      city === "madrid" ? getCityActivityContexts(areaIds) : Promise.resolve([]),
     ]);
   } catch {
     error = true;
@@ -138,6 +141,7 @@ export default async function CityPage({ params }: Props) {
             areas={areas}
             boundaries={boundaries}
             metrics={mapMetrics}
+            activityContexts={activityContexts}
           />
         </section>
       ) : null}

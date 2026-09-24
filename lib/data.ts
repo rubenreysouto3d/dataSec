@@ -117,6 +117,20 @@ type CityMapMetricRow = {
   theft_resident_percentile: number | string | null;
 };
 
+type CityActivityContextRow = {
+  area_id: string;
+  period_start: string;
+  open_premises: number | string;
+  open_hostelry: number | string;
+};
+
+export type CityActivityContext = {
+  areaId: string;
+  month: string;
+  openPremises: number;
+  openHostelry: number;
+};
+
 export type CityMapMetric = {
   areaId: string;
   citySlug: CitySlug;
@@ -385,6 +399,23 @@ export async function getCityMapMetrics(
       crimeRelatedResidentPercentile: numberOrNull(row.crime_related_resident_percentile),
       violencePropertyResidentPercentile: numberOrNull(row.violence_property_resident_percentile),
       theftResidentPercentile: numberOrNull(row.theft_resident_percentile),
+    }));
+}
+
+export async function getCityActivityContexts(areaIds: string[]): Promise<CityActivityContext[]> {
+  const included = new Set(areaIds);
+  const rows = await rest<CityActivityContextRow[]>("latest_area_activity_context", {
+    select: "area_id,period_start,open_premises,open_hostelry",
+    order: "area_id.asc",
+    limit: "2000",
+  });
+  return rows
+    .filter((row) => included.has(row.area_id))
+    .map((row) => ({
+      areaId: row.area_id,
+      month: row.period_start.slice(0, 7),
+      openPremises: Number(row.open_premises),
+      openHostelry: Number(row.open_hostelry),
     }));
 }
 
