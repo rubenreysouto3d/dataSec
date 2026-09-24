@@ -25,22 +25,11 @@ jobs:
     timeout-minutes: 25
     env:
       SUPABASE_URL: https://pjyaevghxbimhknvmbxb.supabase.co
-      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - name: Acquire short-lived GitHub OIDC token
-        shell: bash
-        run: |
-          response="$(curl -fsSL \
-            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=datasec-supabase-ingest")"
-          token="$(python -c 'import json,sys; print(json.load(sys.stdin)["value"])' <<<"$response")"
-          echo "::add-mask::$token"
-          echo "DATASEC_INGEST_GATEWAY_TOKEN=$token" >> "$GITHUB_ENV"
       - name: Run London ingestion
         shell: bash
         run: |
