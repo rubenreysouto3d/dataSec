@@ -17,6 +17,7 @@ With --dry-run, nothing is written to Supabase.
 from __future__ import annotations
 
 import argparse
+import calendar
 import csv
 import hashlib
 import io
