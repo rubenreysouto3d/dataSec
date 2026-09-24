@@ -43,8 +43,23 @@ const matches = activity.resources
   .filter((resource)=>resource.month===targetMonth && /actividades/i.test(String(resource.name ?? "")));
 
 if (matches.length !== 1) {
-  throw new Error(`Expected one Actividades CSV for ${targetMonth}, got ${matches.length}`);
+  const candidates = activity.resources
+    .filter((resource) => String(resource.format ?? "").toUpperCase() === "CSV")
+    .map((resource) => ({
+      id: resource.id,
+      name: resource.name,
+      description: resource.description,
+      month: parseMonth(resource),
+    }));
+  console.log(JSON.stringify({
+    ok: false,
+    targetMonth,
+    matchCount: matches.length,
+    candidates: candidates.slice(-40),
+  }, null, 2));
+  process.exit(0);
 }
+
 const resource = matches[0];
 const sample = await action("datastore_search",{resource_id:resource.id,limit:"3"});
 if (!sample.total || sample.total < 1000) throw new Error(`Implausibly low activity rows: ${sample.total}`);
