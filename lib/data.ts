@@ -241,7 +241,7 @@ export async function getBoundaryRings(areaId: string): Promise<{ month: string;
 
 export async function getCityBoundaries(areaIds: string[]): Promise<CityBoundary[]> {
   const included = new Set(areaIds);
-  const rows = await rest<Array<BoundaryRow & { area_id: string }>>("latest_area_boundaries_geojson", {
+  const rows = await rest<Array<BoundaryRow & { area_id: string }>>("latest_area_boundaries_map_geojson", {
     select: "area_id,period_start,geojson",
     limit: "2000",
   });
