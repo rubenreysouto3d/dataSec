@@ -194,20 +194,35 @@ export function sourceExplanation(area: AreaProfile): string {
 
 async function rest<T>(table: string, params: Record<string, string>): Promise<T> {
   const query = new URLSearchParams(params);
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query.toString()}`, {
-    headers: {
-      apikey: SUPABASE_PUBLISHABLE_KEY,
-      "User-Agent": "dataSec/0.3 (+https://github.com/rubenreysouto3d/dataSec)",
-    },
-    ...(process.env.GITHUB_PAGES === "true"
-      ? { cache: "force-cache" as const }
-      : { next: { revalidate: 60 * 60 * 12 } }),
-  });
+  const url = `${SUPABASE_URL}/rest/v1/${table}?${query.toString()}`;
+  const retryable = new Set([429, 500, 502, 503, 504]);
 
-  if (!response.ok) {
-    throw new Error(`Supabase Data API ${response.status}: ${table}`);
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const response = await fetch(url, {
+      headers: {
+        apikey: SUPABASE_PUBLISHABLE_KEY,
+        "User-Agent": "dataSec/0.3 (+https://github.com/rubenreysouto3d/dataSec)",
+        "X-dataSec-attempt": String(attempt),
+      },
+      ...(attempt > 1
+        ? { cache: "no-store" as const }
+        : process.env.GITHUB_PAGES === "true"
+          ? { cache: "force-cache" as const }
+          : { next: { revalidate: 60 * 60 * 12 } }),
+    });
+
+    if (response.ok) {
+      return response.json() as Promise<T>;
+    }
+
+    if (!retryable.has(response.status) || attempt === 3) {
+      throw new Error(`Supabase Data API ${response.status}: ${table}`);
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
   }
-  return response.json() as Promise<T>;
+
+  throw new Error(`Supabase Data API retry exhausted: ${table}`);
 }
 
 let cityPromise: Promise<Map<CitySlug, string>> | null = null;
