@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Neighbourhood } from "@/lib/data";
 import { getCompareProfile, type CompareProfile } from "@/lib/public-data-client";
+import { areaHref } from "@/lib/area-route";
 
 type Props = {
   areas: Neighbourhood[];
@@ -147,12 +148,12 @@ function Comparison({ left, right }: { left: CompareProfile; right: CompareProfi
         <div>
           <span>AREA A · {left.cityName}</span>
           <h2>{left.name}</h2>
-          <Link href={`/area/${encodeURIComponent(left.id)}`}>Open full profile →</Link>
+          <Link href={areaHref(left.id)}>Open full profile →</Link>
         </div>
         <div>
           <span>AREA B · {right.cityName}</span>
           <h2>{right.name}</h2>
-          <Link href={`/area/${encodeURIComponent(right.id)}`}>Open full profile →</Link>
+          <Link href={areaHref(right.id)}>Open full profile →</Link>
         </div>
       </div>
 
