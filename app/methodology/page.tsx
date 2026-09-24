@@ -1,7 +1,13 @@
+export const metadata = {
+  title: "Methodology",
+  description:
+    "How dataSec validates, stores and interprets official neighbourhood-level incident data without collapsing unlike sources into one safety score.",
+};
+
 export default function MethodologyPage() {
   return (
     <main className="method-page">
-      <div className="eyebrow">Methodology · v0.2</div>
+      <div className="eyebrow">Methodology · v0.3</div>
       <h1>Useful context without pretending unlike datasets are the same.</h1>
       <section className="method-grid">
         <article>
@@ -17,26 +23,36 @@ export default function MethodologyPage() {
         <article>
           <span>03</span>
           <h2>Local context, not a universal score</h2>
-          <p>Density percentiles are calculated only within the same city and source snapshot. They describe recorded incident concentration, not personal risk.</p>
+          <p>Density percentiles are calculated only within the same city and source snapshot. They describe recorded incident concentration, not personal risk. Cross-city source-density ranking is deliberately disabled.</p>
         </article>
         <article>
           <span>04</span>
-          <h2>Geography is versioned</h2>
-          <p>Official area boundaries are stored alongside source periods where available. London source locations are anonymised; Madrid profiles use official municipal neighbourhood geometry.</p>
+          <h2>Geography is explicit</h2>
+          <p>Official area boundaries are stored with their source periods where available. Place search and browser location are matched against those stored boundaries rather than treating a geocoder label as the data geography.</p>
         </article>
         <article>
           <span>05</span>
-          <h2>Fail closed</h2>
-          <p>If a source changes schema, fails validation or cannot be matched to its expected geography, ingestion stops instead of silently publishing suspect figures.</p>
+          <h2>Quality gates before publication</h2>
+          <p>Source contracts, expected fields, category mappings, geography and unmatched-row thresholds are checked before a source snapshot can write product observations. A rejected source snapshot is recorded as failed instead of being treated as valid data.</p>
         </article>
         <article>
           <span>06</span>
+          <h2>Daily health checks</h2>
+          <p>The public data layer is checked for stable area identities, latest-month coverage, plausible context values, coordinate lookup and freshness. Current coverage is expected to stay above 90% and data older than four calendar months fails the health check.</p>
+        </article>
+        <article>
+          <span>07</span>
+          <h2>Known publication boundary</h2>
+          <p>Validated rows are currently persisted to Supabase in idempotent HTTP batches rather than one database transaction. Health checks detect incomplete coverage; run-scoped staging or a transactional database RPC is the next backend hardening step.</p>
+        </article>
+        <article>
+          <span>08</span>
           <h2>No demographic shortcuts</h2>
           <p>dataSec does not infer safety from ethnicity, nationality or neighbourhood reputation. The product is based on documented public-source observations and explicit limitations.</p>
         </article>
       </section>
       <div className="source-box single">
-        <p>Current prototype coverage: London Metropolitan Police neighbourhoods and Madrid municipal neighbourhoods. Next work focuses on richer history, normal place/address lookup and additional cities without collapsing incompatible sources into one score.</p>
+        <p>Current prototype coverage: London Metropolitan Police neighbourhoods and Madrid municipal neighbourhoods. Name search, explicit place/address lookup, browser-location matching and same-city comparison are already available. Additional cities will be added only when their source definitions and geography can be represented honestly.</p>
       </div>
     </main>
   );
