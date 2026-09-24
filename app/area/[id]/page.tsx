@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { boundaryPath } from "@/lib/boundary";
@@ -19,6 +20,24 @@ export async function generateStaticParams() {
   if (process.env.GITHUB_PAGES !== "true") return [];
   const areas = await getNeighbourhoods();
   return areas.map((area) => ({ id: area.id }));
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { id } = await params;
+  try {
+    const area = await getAreaProfile(id);
+    if (!area) return { title: "Area not found" };
+
+    return {
+      title: `${area.name}, ${area.cityName}`,
+      description:
+        area.citySlug === "london"
+          ? `Official Metropolitan Police neighbourhood incident data, category mix, local density context and stored history for ${area.name}, London.`
+          : `Official Madrid Municipal Police dispatch incident data, category mix, local density context and stored history for ${area.name}, Madrid.`,
+    };
+  } catch {
+    return { title: "Area profile" };
+  }
 }
 
 export default async function AreaPage({ params }: Props) {
