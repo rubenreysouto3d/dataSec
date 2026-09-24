@@ -1,7 +1,11 @@
+import io
 import unittest
+import urllib.error
+from unittest.mock import patch
 
 from scripts.ingest_madrid import (
     build_area_index,
+    fetch_json,
     geojson_geometry_polygons,
     match_incident_area,
     metric_slug,
@@ -36,6 +40,36 @@ class MadridSourceTests(unittest.TestCase):
             metric_slug("RUIDOS MOLESTOS"),
             "madrid-dispatch-ruidos-molestos",
         )
+
+
+class MadridHttpTests(unittest.TestCase):
+    def test_ckan_403_uses_node_fallback(self):
+        url = "https://datos.madrid.es/api/3/action/package_show?id=test"
+        error = urllib.error.HTTPError(
+            url,
+            403,
+            "Forbidden",
+            {},
+            io.BytesIO(b"blocked"),
+        )
+        expected = ({"success": True}, b'{"success":true}')
+        with patch("scripts.ingest_madrid.urllib.request.urlopen", side_effect=error):
+            with patch("scripts.ingest_madrid.fetch_json_via_node", return_value=expected) as fallback:
+                self.assertEqual(fetch_json(url), expected)
+        fallback.assert_called_once_with(url, timeout=120)
+
+    def test_non_ckan_http_error_fails_closed(self):
+        url = "https://example.com/test"
+        error = urllib.error.HTTPError(
+            url,
+            403,
+            "Forbidden",
+            {},
+            io.BytesIO(b"blocked"),
+        )
+        with patch("scripts.ingest_madrid.urllib.request.urlopen", side_effect=error):
+            with self.assertRaises(RuntimeError):
+                fetch_json(url)
 
 
 class MadridGeoJsonTests(unittest.TestCase):
