@@ -38,19 +38,23 @@ jobs:
       - name: Validate Madrid population source
         shell: bash
         run: |
-          args=(--dry-run)
+          args=(--dry-run --emit-json)
           if [ -n "${{ inputs.month }}" ]; then
             args+=(--month "${{ inputs.month }}")
           fi
           python scripts/ingest_madrid_population.py "${args[@]}"
       - name: Check backend credential
+        id: credential
         shell: bash
         run: |
           if [ -z "$SUPABASE_SECRET_KEY" ] && [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
-            echo "::error::Madrid population ingestion requires a Supabase backend key."
-            exit 1
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Population source validated; persistence skipped because no Supabase backend key is configured."
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
           fi
       - name: Persist validated population snapshot
+        if: steps.credential.outputs.available == 'true'
         shell: bash
         run: |
           args=()

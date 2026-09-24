@@ -233,6 +233,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--month", help="YYYY-MM; defaults to latest Madrid incident month")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--emit-json", action="store_true", help="Print validated neighbourhood populations as compact JSON")
     args = parser.parse_args()
 
     incident_month = max(incident_monthly_resources())
@@ -259,6 +260,9 @@ def main() -> int:
     totals, _ = aggregate_population(rows, fields, official_codes)
     city_total = sum(totals.values())
     log(f"Validated {len(totals)} neighbourhoods; registered population {city_total:,}")
+    if args.emit_json:
+        import json
+        print("POPULATION_JSON=" + json.dumps(totals, sort_keys=True, separators=(",", ":")), flush=True)
 
     if args.dry_run:
         log("Dry run complete; no database writes.")
