@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -38,6 +39,22 @@ function isCitySlug(value: string): value is CitySlug {
 
 export function generateStaticParams() {
   return [{ city: "london" }, { city: "madrid" }];
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { city } = await params;
+  if (!isCitySlug(city)) return { title: "City data" };
+
+  const cityName = cityNames[city];
+  const description =
+    city === "london"
+      ? "Explore Metropolitan Police neighbourhood incident data, local density context, source definitions and stored monthly history for London."
+      : "Explore Madrid Municipal Police dispatch incident data by municipal neighbourhood, with local density context, source definitions and stored monthly history.";
+
+  return {
+    title: `${cityName} neighbourhood data`,
+    description,
+  };
 }
 
 export default async function CityPage({ params }: Props) {
