@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCitySnapshot, getNeighbourhoods, monthLabel } from "@/lib/data";
 import LocateButton from "@/components/LocateButton";
+import { areaHref } from "@/lib/area-route";
 
 export default async function Home() {
   let areas = [] as Awaited<ReturnType<typeof getNeighbourhoods>>;
@@ -76,7 +77,7 @@ export default async function Home() {
         ) : (
           <div className="area-grid">
             {(londonVisible.length ? londonVisible : london.slice(0, 6)).map((area) => (
-              <Link className="area-card" href={`/area/${encodeURIComponent(area.id)}`} key={area.stableId}>
+              <Link className="area-card" href={areaHref(area.id)} key={area.stableId}>
                 <span className="area-city">London</span>
                 <h3>{area.name}</h3>
                 <span className="arrow">View profile →</span>
@@ -94,7 +95,7 @@ export default async function Home() {
         {!error ? (
           <div className="area-grid">
             {(madridVisible.length ? madridVisible : madrid.slice(0, 6)).map((area) => (
-              <Link className="area-card" href={`/area/${encodeURIComponent(area.id)}`} key={area.stableId}>
+              <Link className="area-card" href={areaHref(area.id)} key={area.stableId}>
                 <span className="area-city">Madrid</span>
                 <h3>{area.name}</h3>
                 <span className="arrow">View profile →</span>
