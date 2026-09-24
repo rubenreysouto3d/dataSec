@@ -339,7 +339,7 @@ category_agg as (
           'madrid-dispatch-violencia-de-genero-y-familiar'
         ))
         or
-        (c.city_slug = 'london' and o.metric_slug <> 'all-crime')
+        (c.city_slug = 'london' and o.metric_slug not in ('all-crime', 'anti-social-behaviour'))
     )::numeric as crime_related_count,
     sum(o.value) filter (
       where
