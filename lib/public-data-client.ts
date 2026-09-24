@@ -34,11 +34,28 @@ export type CompareProfile = {
 
 async function rest<T>(table: string, params: Record<string, string>): Promise<T> {
   const query = new URLSearchParams(params);
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query.toString()}`, {
-    headers: { apikey: SUPABASE_PUBLISHABLE_KEY },
-  });
-  if (!response.ok) throw new Error(`Supabase Data API ${response.status}: ${table}`);
-  return response.json() as Promise<T>;
+  const url = `${SUPABASE_URL}/rest/v1/${table}?${query.toString()}`;
+  const retryable = new Set([429, 500, 502, 503, 504]);
+
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const response = await fetch(url, {
+      headers: {
+        apikey: SUPABASE_PUBLISHABLE_KEY,
+        "X-dataSec-attempt": String(attempt),
+      },
+      cache: attempt > 1 ? "no-store" : "default",
+    });
+
+    if (response.ok) return response.json() as Promise<T>;
+
+    if (!retryable.has(response.status) || attempt === 3) {
+      throw new Error(`Supabase Data API ${response.status}: ${table}`);
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
+  }
+
+  throw new Error(`Supabase Data API retry exhausted: ${table}`);
 }
 
 let metricsPromise: Promise<MetricRow[]> | null = null;
