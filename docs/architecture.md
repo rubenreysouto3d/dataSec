@@ -71,7 +71,9 @@ A source update is publishable only when:
 - unmatched spatial rows stay below the source-specific threshold;
 - the pipeline completes before marking an ingestion run `passed`.
 
-Failed imports leave the previous good observations intact.
+Source-level quality gates run before product rows are written, so a rejected source snapshot does not publish new observations.
+
+The current persistence adapter still writes validated rows to Supabase in multiple idempotent HTTP batches. A transport/database failure in the middle of those batches is therefore detectable but not yet transactionally atomic. The daily data-health job checks latest-month coverage and freshness so incomplete publication turns the repository health red. The next backend-hardening step is run-scoped staging (or a transactional database RPC) so a validated month becomes public in one commit.
 
 
 ## Place and address lookup
