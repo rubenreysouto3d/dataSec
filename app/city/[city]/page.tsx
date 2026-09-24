@@ -99,17 +99,6 @@ export default async function CityPage({ params }: Props) {
         <p>{copy.intro}</p>
       </section>
 
-      <section className="city-source-note">
-        <article>
-          <span>WHAT THE SOURCE MEASURES</span>
-          <p>{copy.source}</p>
-        </article>
-        <article>
-          <span>IMPORTANT LIMITATION</span>
-          <p>{copy.caution}</p>
-        </article>
-      </section>
-
       {snapshot ? (
         <section className="stat-strip">
           <article>
@@ -123,14 +112,14 @@ export default async function CityPage({ params }: Props) {
             <small>Newest month available across this city</small>
           </article>
           <article>
-            <span>Typical recorded density</span>
-            <strong>{Math.round(snapshot.medianIncidentsPerKm2).toLocaleString("en-GB")}/km²</strong>
-            <small>City median for the full source · half the covered areas are lower</small>
-          </article>
-          <article>
             <span>Snapshot coverage</span>
             <strong>{Math.round((snapshot.coveredAreaCount / snapshot.areaCount) * 100)}%</strong>
             <small>{snapshot.coveredAreaCount} of {snapshot.areaCount} areas on the latest month</small>
+          </article>
+          <article>
+            <span>Map coverage</span>
+            <strong>{areas.length ? Math.round((boundaries.length / areas.length) * 100) : 0}%</strong>
+            <small>{boundaries.length} of {areas.length} stored areas have map geometry</small>
           </article>
         </section>
       ) : null}
@@ -146,6 +135,21 @@ export default async function CityPage({ params }: Props) {
           />
         </section>
       ) : null}
+
+      <section className="city-source-note city-source-note-after-map">
+        <div className="city-source-note-title">
+          <span>SOURCE & LIMITS</span>
+          <strong>What these colours can — and cannot — tell you</strong>
+        </div>
+        <article>
+          <span>WHAT THE SOURCE MEASURES</span>
+          <p>{copy.source}</p>
+        </article>
+        <article>
+          <span>IMPORTANT LIMITATION</span>
+          <p>{copy.caution}</p>
+        </article>
+      </section>
 
       <section className="areas-section city-area-list">
         <div className="section-heading">
