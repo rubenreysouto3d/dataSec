@@ -1,6 +1,6 @@
 import io
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 import zipfile
 
 from scripts.backfill_london import shift_month
@@ -11,6 +11,7 @@ from scripts.ingest_london import (
     locate_area,
     multipolygon_wkt,
     parse_boundary_archive,
+    persist,
     point_in_ring,
     slugify,
 )
@@ -127,6 +128,46 @@ class SupabaseAuthTests(unittest.TestCase):
         request = urlopen.call_args.args[0]
         headers = {key.lower(): value for key, value in request.header_items()}
         self.assertEqual(headers["authorization"], "Bearer legacy-jwt")
+
+
+class PersistenceGateTests(unittest.TestCase):
+    @patch.dict(
+        "scripts.ingest_london.os.environ",
+        {
+            "SUPABASE_URL": "https://example.supabase.co",
+            "SUPABASE_SECRET_KEY": "sb_secret_test",
+        },
+        clear=False,
+    )
+    @patch("scripts.ingest_london.SupabaseRest")
+    def test_high_unmatched_ratio_never_publishes_product_rows(self, client_class):
+        client = MagicMock()
+        client_class.return_value = client
+
+        with self.assertRaisesRegex(RuntimeError, "exceeds 5% quality gate"):
+            persist(
+                "2026-07",
+                [{} for _ in range(10)],
+                [],
+                {},
+                {},
+                1,
+                "crime-checksum",
+                "boundary-checksum",
+            )
+
+        written_tables = [call.args[0] for call in client.upsert.call_args_list]
+        self.assertNotIn("metrics", written_tables)
+        self.assertNotIn("areas", written_tables)
+        self.assertNotIn("area_boundaries", written_tables)
+        self.assertNotIn("observations", written_tables)
+
+        quality_calls = [
+            call
+            for call in client.request.call_args_list
+            if call.args and call.args[0] == "data_quality_flags"
+        ]
+        self.assertEqual(len(quality_calls), 1)
 
 
 class BackfillTests(unittest.TestCase):
