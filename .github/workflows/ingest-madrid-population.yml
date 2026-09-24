@@ -1,12 +1,6 @@
 name: ingest-madrid-population
 
 on:
-  # Bootstrap on creation/change. This push trigger will be removed after the first validated load.
-  push:
-    branches: [main]
-    paths:
-      - "scripts/ingest_madrid_population.py"
-      - ".github/workflows/ingest-madrid-population.yml"
   schedule:
     - cron: "17 6 5,20 * *"
   workflow_dispatch:

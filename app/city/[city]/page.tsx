@@ -32,7 +32,7 @@ const cityCopy: Record<CitySlug, {
     eyebrow: "Madrid Municipal Police",
     intro: "Municipal neighbourhoods with incidents handled by Madrid Municipal Police central dispatch.",
     source: "Official municipal police dispatch incidents. This dataset is broader than crime and includes traffic, assistance, public-space and administrative responses.",
-    caution: "Counts and density must not be interpreted as a crime rate or compared directly with London because the source definitions are different.",
+    caution: "Counts and density are not a personal-risk score. Central neighbourhoods can legitimately concentrate recorded incidents because of nightlife, tourism and footfall; resident-normalised rates can also overstate those same areas because visitors are not included in the resident denominator.",
   },
 };
 

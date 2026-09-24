@@ -55,15 +55,15 @@ const layerCopy: Record<LayerKey, { label: string; note: string }> = {
   },
   "violence-property-resident": {
     label: "Violence & property / 10k residents",
-    note: "Selected violence and property-related source categories per 10,000 registered residents.",
+    note: "Selected violence and property-related categories per 10,000 registered residents. Visitor-heavy centres can be overstated.",
   },
   "theft-resident": {
     label: "Theft & robbery / 10k residents",
-    note: "Theft, robbery and vehicle/property-theft categories per 10,000 registered residents.",
+    note: "Theft, robbery and vehicle/property-theft categories per 10,000 registered residents. Visitor-heavy centres can be overstated.",
   },
   "crime-related-resident": {
     label: "Crime-related / 10k residents",
-    note: "Crime-related source categories per 10,000 registered residents.",
+    note: "Crime-related source categories per 10,000 registered residents. Visitor-heavy centres can be overstated.",
   },
 };
 
@@ -147,9 +147,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics }: Props)
   const [mapError, setMapError] = useState("");
   const residentCoverage = metrics.filter((metric) => metric.population !== null).length;
   const hasResidentLayer = residentCoverage >= Math.max(1, Math.floor(areas.length * 0.8));
-  const [layer, setLayer] = useState<LayerKey>(
-    hasResidentLayer ? "violence-property-resident" : "violence-property",
-  );
+  const [layer, setLayer] = useState<LayerKey>("violence-property");
 
   const areaById = useMemo(
     () => new Map(areas.map((area) => [area.id, area])),
@@ -260,6 +258,8 @@ export default function CityMap({ citySlug, areas, boundaries, metrics }: Props)
             data: geojson,
             promoteId: "id",
           });
+          const firstLabelLayer = map.getStyle().layers?.find((styleLayer: any) => styleLayer.type === "symbol")?.id;
+
           map.addLayer({
             id: "datasec-areas-fill",
             type: "fill",
@@ -280,9 +280,9 @@ export default function CityMap({ citySlug, areas, boundaries, metrics }: Props)
                   1, "#b93632",
                 ],
               ],
-              "fill-opacity": 0.58,
+              "fill-opacity": 0.46,
             },
-          });
+          }, firstLabelLayer);
           map.addLayer({
             id: "datasec-areas-line",
             type: "line",
@@ -298,7 +298,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics }: Props)
                 15, 2,
               ],
             },
-          });
+          }, firstLabelLayer);
 
           map.on("mousemove", "datasec-areas-fill", (event: any) => {
             map.getCanvas().style.cursor = "pointer";
@@ -429,7 +429,9 @@ export default function CityMap({ citySlug, areas, boundaries, metrics }: Props)
         Colour shows the percentile for the selected source-derived metric within this city and snapshot.
         It is not a personal-risk score. The basemap is © OpenStreetMap contributors, rendered via OpenFreeMap.
         {hasResidentLayer
-          ? " Resident-normalised layers use the matched monthly registered population."
+          ? layer.endsWith("-resident")
+            ? " This resident-normalised view uses registered population; central visitor/nightlife areas can look artificially high because visitors are not in that denominator."
+            : " Resident-normalised alternatives are available in the layer selector."
           : " Resident-normalised layers will appear when matched population data is available."}
       </p>
     </section>
