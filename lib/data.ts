@@ -306,11 +306,23 @@ export async function getBoundaryRings(areaId: string): Promise<{ month: string;
 
 
 export async function getCityBoundaries(areaIds: string[]): Promise<CityBoundary[]> {
+  if (areaIds.length === 0) return [];
   const included = new Set(areaIds);
-  const rows = await rest<Array<BoundaryRow & { area_id: string }>>("latest_area_boundaries_map_geojson", {
+  const params: Record<string, string> = {
     select: "area_id,period_start,geojson",
     limit: "2000",
-  });
+  };
+  const firstId = areaIds[0];
+  if (firstId.startsWith("es-madrid-neighbourhood:")) {
+    params.area_id = "like.es-madrid-neighbourhood:*";
+  } else if (firstId.startsWith("gb-london-metropolitan:")) {
+    params.area_id = "like.gb-london-metropolitan:*";
+  }
+
+  const rows = await rest<Array<BoundaryRow & { area_id: string }>>(
+    "latest_area_boundaries_map_geojson",
+    params,
+  );
 
   return rows
     .filter((row) => included.has(row.area_id))
