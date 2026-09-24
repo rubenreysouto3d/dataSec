@@ -123,6 +123,25 @@ export default function CompareClient({ areas, sourceError }: Props) {
   );
 }
 
+function densityBand(percentile: number) {
+  if (percentile < 0.2) return "Among the lowest recorded densities";
+  if (percentile < 0.4) return "Lower than most areas";
+  if (percentile < 0.6) return "Around the city middle";
+  if (percentile < 0.8) return "Higher than most areas";
+  return "Among the highest recorded densities";
+}
+
+function differenceCopy(leftValue: number, rightValue: number, unit: string) {
+  if (!Number.isFinite(leftValue) || !Number.isFinite(rightValue)) return "Comparison unavailable";
+  const high = Math.max(leftValue, rightValue);
+  const low = Math.min(leftValue, rightValue);
+  if (high === 0) return "Same recorded value";
+  if (low === 0) return `${high.toLocaleString("en-GB")} ${unit} vs 0`;
+  const pct = Math.round(((high - low) / low) * 100);
+  if (pct < 5) return "Very similar recorded values";
+  return `${pct}% higher on this measure`;
+}
+
 function Comparison({ left, right }: { left: CompareProfile; right: CompareProfile }) {
   const categories = Array.from(new Set([
     ...left.categories.slice(0, 7).map((item) => item.slug),
@@ -142,6 +161,13 @@ function Comparison({ left, right }: { left: CompareProfile; right: CompareProfi
       ? "police neighbourhoods"
       : "municipal neighbourhoods";
 
+  const leftDensityPct = Math.round(left.densityPercentile * 100);
+  const rightDensityPct = Math.round(right.densityPercentile * 100);
+  const densityHigher = left.incidentsPerKm2 === right.incidentsPerKm2
+    ? null
+    : left.incidentsPerKm2 > right.incidentsPerKm2 ? left.name : right.name;
+  const countHigher = left.total === right.total ? null : left.total > right.total ? left.name : right.name;
+
   return (
     <section className="compare-results">
       <div className="compare-head">
@@ -157,11 +183,45 @@ function Comparison({ left, right }: { left: CompareProfile; right: CompareProfi
         </div>
       </div>
 
+      <div className="compare-takeaway">
+        <span>QUICK READ</span>
+        <div>
+          <strong>
+            {densityHigher
+              ? `${densityHigher} has the higher recorded density`
+              : "Both areas have the same recorded density"}
+          </strong>
+          <p>{differenceCopy(left.incidentsPerKm2, right.incidentsPerKm2, "incidents/km²")}.</p>
+        </div>
+        <div>
+          <strong>
+            {countHigher
+              ? `${countHigher} has the higher raw count`
+              : "Both areas have the same raw count"}
+          </strong>
+          <p>Raw counts are affected by area size, activity and source coverage, so they are not a safety verdict.</p>
+        </div>
+      </div>
+
       <div className="compare-metrics">
-        <Metric label="Source incidents" left={left.total.toLocaleString("en-GB")} right={right.total.toLocaleString("en-GB")} />
-        <Metric label="Area" left={`${left.areaKm2.toFixed(2)} km²`} right={`${right.areaKm2.toFixed(2)} km²`} />
-        <Metric label="Incidents / km²" left={Math.round(left.incidentsPerKm2).toLocaleString("en-GB")} right={Math.round(right.incidentsPerKm2).toLocaleString("en-GB")} />
-        <Metric label="Density percentile" left={`P${Math.round(left.densityPercentile * 100)}`} right={`P${Math.round(right.densityPercentile * 100)}`} />
+        <Metric label="Recorded incidents" left={left.total.toLocaleString("en-GB")} right={right.total.toLocaleString("en-GB")} />
+        <Metric label="Area size" left={`${left.areaKm2.toFixed(2)} km²`} right={`${right.areaKm2.toFixed(2)} km²`} />
+        <Metric label="Recorded density" left={`${Math.round(left.incidentsPerKm2).toLocaleString("en-GB")}/km²`} right={`${Math.round(right.incidentsPerKm2).toLocaleString("en-GB")}/km²`} />
+      </div>
+
+      <div className="compare-position">
+        <article>
+          <span>{left.name}</span>
+          <strong>{densityBand(left.densityPercentile)}</strong>
+          <p>About {leftDensityPct}% of {left.cityName} {densityContext} recorded a lower density.</p>
+          <div className="compare-position-track"><i style={{ width: `${leftDensityPct}%` }} /></div>
+        </article>
+        <article>
+          <span>{right.name}</span>
+          <strong>{densityBand(right.densityPercentile)}</strong>
+          <p>About {rightDensityPct}% of {right.cityName} {densityContext} recorded a lower density.</p>
+          <div className="compare-position-track"><i style={{ width: `${rightDensityPct}%` }} /></div>
+        </article>
       </div>
 
       <div className="compare-category-table">
@@ -178,8 +238,8 @@ function Comparison({ left, right }: { left: CompareProfile; right: CompareProfi
       </div>
 
       <p className="compare-note">
-        Percentiles compare source incidents per km² across {left.cityName} {densityContext} for the same snapshot.
-        This is descriptive local context, not a personal-risk score or a cross-city ranking.
+        The city-position bars compare recorded source incidents per km² across {left.cityName} {densityContext} for the same snapshot.
+        Higher does not mean more dangerous and lower does not mean safe; this is descriptive source context, not a personal-risk score.
       </p>
     </section>
   );
