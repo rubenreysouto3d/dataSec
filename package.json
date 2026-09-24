@@ -4,10 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/check-data-store.mjs && next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "check:source": "node scripts/check-police-contract.mjs"
+    "check:source": "node scripts/check-police-contract.mjs",
+    "check:data": "node scripts/check-data-store.mjs"
   },
   "dependencies": {
     "next": "16.3.6",
