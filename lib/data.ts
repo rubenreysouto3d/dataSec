@@ -264,8 +264,18 @@ export async function getCityAreaContexts(
   areaIds: string[],
 ): Promise<CityAreaContext[]> {
   const included = new Set(areaIds);
-  return (await getAllAreaContexts())
-    .filter((row) => row.citySlug === citySlug && included.has(row.areaId))
+  const cityRows = (await getAllAreaContexts()).filter(
+    (row) => row.citySlug === citySlug && included.has(row.areaId),
+  );
+  if (cityRows.length === 0) return [];
+
+  const latestMonth = cityRows.reduce(
+    (latest, row) => (row.month > latest ? row.month : latest),
+    cityRows[0].month,
+  );
+
+  return cityRows
+    .filter((row) => row.month === latestMonth)
     .map(({ areaId, month, totalIncidents, areaKm2, incidentsPerKm2, densityPercentile }) => ({
       areaId,
       month,
