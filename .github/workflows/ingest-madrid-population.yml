@@ -1,0 +1,60 @@
+name: ingest-madrid-population
+
+on:
+  # Bootstrap on creation/change. This push trigger will be removed after the first validated load.
+  push:
+    branches: [main]
+    paths:
+      - "scripts/ingest_madrid_population.py"
+      - ".github/workflows/ingest-madrid-population.yml"
+  schedule:
+    - cron: "17 6 5,20 * *"
+  workflow_dispatch:
+    inputs:
+      month:
+        description: "Month to ingest (YYYY-MM); blank aligns to latest Madrid incident month"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-persist:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_URL: https://pjyaevghxbimhknvmbxb.supabase.co
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Validate Madrid population source
+        shell: bash
+        run: |
+          args=(--dry-run)
+          if [ -n "${{ inputs.month }}" ]; then
+            args+=(--month "${{ inputs.month }}")
+          fi
+          python scripts/ingest_madrid_population.py "${args[@]}"
+      - name: Check backend credential
+        shell: bash
+        run: |
+          if [ -z "$SUPABASE_SECRET_KEY" ] && [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::error::Madrid population ingestion requires a Supabase backend key."
+            exit 1
+          fi
+      - name: Persist validated population snapshot
+        shell: bash
+        run: |
+          args=()
+          if [ -n "${{ inputs.month }}" ]; then
+            args+=(--month "${{ inputs.month }}")
+          fi
+          python scripts/ingest_madrid_population.py "${args[@]}"
