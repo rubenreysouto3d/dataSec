@@ -1,12 +1,20 @@
 import Link from "next/link";
-import { getNeighbourhoods } from "@/lib/data";
+import { getCitySnapshot, getNeighbourhoods, monthLabel } from "@/lib/data";
 import LocateButton from "@/components/LocateButton";
 
 export default async function Home() {
   let areas = [] as Awaited<ReturnType<typeof getNeighbourhoods>>;
+  let londonSnapshot: Awaited<ReturnType<typeof getCitySnapshot>> = null;
+  let madridSnapshot: Awaited<ReturnType<typeof getCitySnapshot>> = null;
   let error = false;
   try {
     areas = await getNeighbourhoods();
+    const londonIds = areas.filter((area) => area.citySlug === "london").map((area) => area.id);
+    const madridIds = areas.filter((area) => area.citySlug === "madrid").map((area) => area.id);
+    [londonSnapshot, madridSnapshot] = await Promise.all([
+      getCitySnapshot("london", londonIds),
+      getCitySnapshot("madrid", madridIds),
+    ]);
   } catch {
     error = true;
   }
@@ -43,7 +51,12 @@ export default async function Home() {
         <div className="hero-proof">
           <span><strong>Cities</strong> London · Madrid</span>
           <span><strong>Sources</strong> official public data</span>
-          <span><strong>Storage</strong> validated snapshots</span>
+          <span>
+            <strong>Latest data</strong>
+            {londonSnapshot && madridSnapshot
+              ? `London ${monthLabel(londonSnapshot.month)} · Madrid ${monthLabel(madridSnapshot.month)}`
+              : "validated snapshots"}
+          </span>
         </div>
       </section>
 
