@@ -1,0 +1,63 @@
+name: ingest-madrid-activity-context
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/ingest_madrid_activity.py"
+      - ".github/workflows/ingest-madrid-activity.yml"
+  schedule:
+    - cron: "37 6 5,20 * *"
+  workflow_dispatch:
+    inputs:
+      month:
+        description: "Month to ingest (YYYY-MM); blank aligns to latest Madrid incident month"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-persist:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_URL: https://pjyaevghxbimhknvmbxb.supabase.co
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Validate Madrid commercial activity context
+        shell: bash
+        run: |
+          args=(--dry-run --emit-json)
+          if [ -n "${{ inputs.month }}" ]; then
+            args+=(--month "${{ inputs.month }}")
+          fi
+          python scripts/ingest_madrid_activity.py "${args[@]}"
+      - name: Check backend credential
+        id: credential
+        shell: bash
+        run: |
+          if [ -z "$SUPABASE_SECRET_KEY" ] && [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Commercial context validated; persistence skipped because no Supabase backend key is configured."
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Persist validated commercial context
+        if: steps.credential.outputs.available == 'true'
+        shell: bash
+        run: |
+          args=()
+          if [ -n "${{ inputs.month }}" ]; then
+            args+=(--month "${{ inputs.month }}")
+          fi
+          python scripts/ingest_madrid_activity.py "${args[@]}"
