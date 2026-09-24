@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { boundaryPath } from "@/lib/boundary";
+import { areaIdFromPath, areaPathId } from "@/lib/area-route";
 import {
   areaTypeLabel,
   dataLabel,
@@ -19,13 +20,14 @@ type Props = { params: Promise<{ id: string }> };
 export async function generateStaticParams() {
   if (process.env.GITHUB_PAGES !== "true") return [];
   const areas = await getNeighbourhoods();
-  return areas.map((area) => ({ id: area.id }));
+  return areas.map((area) => ({ id: areaPathId(area.id) }));
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
+  const areaId = areaIdFromPath(id);
   try {
-    const area = await getAreaProfile(id);
+    const area = await getAreaProfile(areaId);
     if (!area) return { title: "Area not found" };
 
     return {
@@ -42,6 +44,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function AreaPage({ params }: Props) {
   const { id } = await params;
+  const areaId = areaIdFromPath(id);
 
   let area: Awaited<ReturnType<typeof getAreaProfile>> = null;
   let boundary: Awaited<ReturnType<typeof getBoundaryRings>> = null;
@@ -49,7 +52,7 @@ export default async function AreaPage({ params }: Props) {
   let monthly: Awaited<ReturnType<typeof getMonthlySummaries>> = [];
 
   try {
-    area = await getAreaProfile(id);
+    area = await getAreaProfile(areaId);
     if (area) {
       [boundary, context, monthly] = await Promise.all([
         getBoundaryRings(area.id),
