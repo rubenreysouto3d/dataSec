@@ -161,6 +161,7 @@ class PersistenceGateTests(unittest.TestCase):
         self.assertNotIn("areas", written_tables)
         self.assertNotIn("area_boundaries", written_tables)
         self.assertNotIn("observations", written_tables)
+        client.stage.assert_not_called()
 
         quality_calls = [
             call
@@ -168,6 +169,58 @@ class PersistenceGateTests(unittest.TestCase):
             if call.args and call.args[0] == "data_quality_flags"
         ]
         self.assertEqual(len(quality_calls), 1)
+
+
+class TransactionalPublicationTests(unittest.TestCase):
+    @patch.dict(
+        "scripts.ingest_london.os.environ",
+        {
+            "SUPABASE_URL": "https://example.supabase.co",
+            "SUPABASE_SECRET_KEY": "sb_secret_test",
+        },
+        clear=False,
+    )
+    @patch("scripts.ingest_london.SupabaseRest")
+    def test_successful_publish_stages_then_calls_single_rpc(self, client_class):
+        client = MagicMock()
+        client_class.return_value = client
+        square = [
+            (-0.20, 51.49),
+            (-0.10, 51.49),
+            (-0.10, 51.55),
+            (-0.20, 51.55),
+            (-0.20, 51.49),
+        ]
+
+        persist(
+            "2026-07",
+            [{}],
+            [{
+                "source_area_id": "TEST",
+                "name": "Test area",
+                "polygons": [{"outer": square, "holes": []}],
+            }],
+            {("TEST", "theft"): 1},
+            {"Theft": "theft"},
+            0,
+            "crime-checksum",
+            "boundary-checksum",
+        )
+
+        staged_types = [call.args[1] for call in client.stage.call_args_list]
+        self.assertCountEqual(staged_types, ["metric", "area", "boundary", "observation"])
+
+        written_tables = [call.args[0] for call in client.upsert.call_args_list]
+        for table in ("metrics", "areas", "area_boundaries", "observations"):
+            self.assertNotIn(table, written_tables)
+
+        publish_calls = [
+            call
+            for call in client.request.call_args_list
+            if call.args and call.args[0] == "rpc/publish_ingestion_run"
+        ]
+        self.assertEqual(len(publish_calls), 1)
+        self.assertIn("p_run_id", publish_calls[0].kwargs["payload"])
 
 
 class BackfillTests(unittest.TestCase):

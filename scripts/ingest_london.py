@@ -438,6 +438,29 @@ class SupabaseRest:
                 prefer="resolution=merge-duplicates,return=minimal",
             )
 
+    def stage(
+        self,
+        run_id: str,
+        entity_type: str,
+        rows: list[dict[str, object]],
+        item_key,
+    ) -> None:
+        staged = [
+            {
+                "ingestion_run_id": run_id,
+                "entity_type": entity_type,
+                "item_key": str(item_key(row)),
+                "payload": row,
+            }
+            for row in rows
+        ]
+        self.upsert(
+            "ingestion_staging",
+            staged,
+            "ingestion_run_id,entity_type,item_key",
+            batch=200,
+        )
+
 
 def persist(
     month: str,
@@ -533,7 +556,7 @@ def persist(
             }
             for name, slug in sorted(category_map.items())
         ]
-        db.upsert("metrics", metric_rows, "slug")
+        db.stage(run_id, "metric", metric_rows, lambda row: row["slug"])
 
         area_rows: list[dict[str, object]] = []
         boundary_rows: list[dict[str, object]] = []
@@ -567,8 +590,13 @@ def persist(
                 }
             )
 
-        db.upsert("areas", area_rows, "id")
-        db.upsert("area_boundaries", boundary_rows, "area_id,period_start")
+        db.stage(run_id, "area", area_rows, lambda row: row["id"])
+        db.stage(
+            run_id,
+            "boundary",
+            boundary_rows,
+            lambda row: f"{row['area_id']}|{row['period_start']}",
+        )
 
         metric_slugs = sorted(set(category_map.values()))
         observation_rows: list[dict[str, object]] = []
@@ -593,19 +621,21 @@ def persist(
                         },
                     }
                 )
-        db.upsert(
-            "observations",
+        db.stage(
+            run_id,
+            "observation",
             observation_rows,
-            "area_id,source_slug,metric_slug,period_start,period_end,unit",
+            lambda row: (
+                f"{row['area_id']}|{row['metric_slug']}|{row['period_start']}|"
+                f"{row['period_end']}|{row['unit']}"
+            ),
         )
 
-        patch_query = urllib.parse.urlencode({"id": f"eq.{run_id}"})
         db.request(
-            "ingestion_runs",
-            method="PATCH",
-            query=patch_query,
-            payload={"status": "passed", "finished_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())},
-            prefer="return=minimal",
+            "rpc/publish_ingestion_run",
+            method="POST",
+            payload={"p_run_id": run_id},
+            prefer="return=representation",
         )
     except Exception as exc:
         patch_query = urllib.parse.urlencode({"id": f"eq.{run_id}"})

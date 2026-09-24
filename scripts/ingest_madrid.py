@@ -466,7 +466,7 @@ def persist(
             }
             for category, slug in sorted(categories.items())
         ]
-        db.upsert("metrics", metric_rows, "slug")
+        db.stage(run_id, "metric", metric_rows, lambda row: row["slug"])
 
         district_rows: list[dict[str, object]] = []
         neighbourhood_rows: list[dict[str, object]] = []
@@ -525,9 +525,18 @@ def persist(
         if len(neighbourhood_rows) != 131 or len(boundary_rows) != 131:
             raise RuntimeError("Madrid area/boundary count changed before persistence")
 
-        db.upsert("areas", district_rows, "id")
-        db.upsert("areas", neighbourhood_rows, "id")
-        db.upsert("area_boundaries", boundary_rows, "area_id,period_start")
+        db.stage(
+            run_id,
+            "area",
+            [*district_rows, *neighbourhood_rows],
+            lambda row: row["id"],
+        )
+        db.stage(
+            run_id,
+            "boundary",
+            boundary_rows,
+            lambda row: f"{row['area_id']}|{row['period_start']}",
+        )
 
         metric_slugs = sorted(set(categories.values()))
         observation_rows: list[dict[str, object]] = []
@@ -553,10 +562,14 @@ def persist(
                         "geography_model": "source_assigned_neighbourhood_current_official_boundary",
                     },
                 })
-        db.upsert(
-            "observations",
+        db.stage(
+            run_id,
+            "observation",
             observation_rows,
-            "area_id,source_slug,metric_slug,period_start,period_end,unit",
+            lambda row: (
+                f"{row['area_id']}|{row['metric_slug']}|{row['period_start']}|"
+                f"{row['period_end']}|{row['unit']}"
+            ),
         )
 
         quality_flags = [{
@@ -587,16 +600,11 @@ def persist(
             prefer="return=minimal",
         )
 
-        patch_query = urllib.parse.urlencode({"id": f"eq.{run_id}"})
         db.request(
-            "ingestion_runs",
-            method="PATCH",
-            query=patch_query,
-            payload={
-                "status": "passed",
-                "finished_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            },
-            prefer="return=minimal",
+            "rpc/publish_ingestion_run",
+            method="POST",
+            payload={"p_run_id": run_id},
+            prefer="return=representation",
         )
     except Exception as exc:
         patch_query = urllib.parse.urlencode({"id": f"eq.{run_id}"})
