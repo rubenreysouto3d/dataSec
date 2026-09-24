@@ -40,7 +40,7 @@ const activity = await action("package_show",{id:ACTIVITY_DATASET});
 const matches = activity.resources
   .filter((resource)=>String(resource.format ?? "").toUpperCase()==="CSV")
   .map((resource)=>({...resource,month:parseMonth(resource)}))
-  .filter((resource)=>resource.month===targetMonth && /actividades/i.test(String(resource.name ?? "")));
+  .filter((resource)=>resource.month===targetMonth && /actividades/i.test(`${resource.name ?? ""} ${resource.description ?? ""}`));
 
 if (matches.length !== 1) {
   const candidates = activity.resources
