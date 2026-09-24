@@ -82,6 +82,10 @@ export type AreaContext = {
   densityPercentile: number;
 };
 
+export type CityAreaContext = AreaContext & {
+  areaId: string;
+};
+
 export type MonthlySummary = {
   month: string;
   total: number;
@@ -253,6 +257,23 @@ async function getAllAreaContexts(): Promise<Array<AreaContext & { areaId: strin
 export async function getAreaContext(areaId: string): Promise<AreaContext | null> {
   const rows = await getAllAreaContexts();
   return rows.find((row) => row.areaId === areaId) ?? null;
+}
+
+export async function getCityAreaContexts(
+  citySlug: CitySlug,
+  areaIds: string[],
+): Promise<CityAreaContext[]> {
+  const included = new Set(areaIds);
+  return (await getAllAreaContexts())
+    .filter((row) => row.citySlug === citySlug && included.has(row.areaId))
+    .map(({ areaId, month, totalIncidents, areaKm2, incidentsPerKm2, densityPercentile }) => ({
+      areaId,
+      month,
+      totalIncidents,
+      areaKm2,
+      incidentsPerKm2,
+      densityPercentile,
+    }));
 }
 
 export async function getCitySnapshot(
