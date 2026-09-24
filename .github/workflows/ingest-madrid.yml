@@ -25,6 +25,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   dry-run:
@@ -64,23 +65,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
-      - name: Check backend credential
-        id: credential
+      - name: Acquire short-lived GitHub OIDC token
         shell: bash
         run: |
-          if [ -z "$SUPABASE_SECRET_KEY" ] && [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
-            if [ "${{ github.event_name }}" = "schedule" ]; then
-              echo "available=false" >> "$GITHUB_OUTPUT"
-              echo "::notice::Scheduled Madrid ingest skipped because no Supabase backend key is configured."
-            else
-              echo "::error::Persistent Madrid ingest requires SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY."
-              exit 1
-            fi
-          else
-            echo "available=true" >> "$GITHUB_OUTPUT"
-          fi
+          response="$(curl -fsSL \
+            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=datasec-supabase-ingest")"
+          token="$(python -c 'import json,sys; print(json.load(sys.stdin)["value"])' <<<"$response")"
+          echo "::add-mask::$token"
+          echo "DATASEC_INGEST_GATEWAY_TOKEN=$token" >> "$GITHUB_ENV"
       - name: Persist Madrid ingestion
-        if: steps.credential.outputs.available == 'true'
         shell: bash
         run: |
           args=()

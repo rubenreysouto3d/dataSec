@@ -389,9 +389,17 @@ def multipolygon_wkt(polygons: list[dict[str, object]]) -> str:
 
 
 class SupabaseRest:
-    def __init__(self, base_url: str, service_key: str):
-        self.base = base_url.rstrip("/") + "/rest/v1"
-        self.key = service_key
+    def __init__(self, base_url: str, service_key: str | None):
+        self.project_base = base_url.rstrip("/")
+        self.base = self.project_base + "/rest/v1"
+        self.key = service_key or ""
+        self.gateway_token = os.environ.get("DATASEC_INGEST_GATEWAY_TOKEN", "").strip()
+        self.gateway_url = os.environ.get(
+            "DATASEC_INGEST_GATEWAY_URL",
+            self.project_base + "/functions/v1/github-ingest",
+        )
+        if not self.key and not self.gateway_token:
+            raise RuntimeError("No Supabase backend key or GitHub OIDC ingest token is available")
 
     def request(
         self,
@@ -402,6 +410,37 @@ class SupabaseRest:
         payload: object | None = None,
         prefer: str | None = None,
     ) -> object | None:
+        if self.gateway_token:
+            envelope = {
+                "table": table,
+                "method": method,
+                "query": query,
+                "payload": payload,
+                "prefer": prefer,
+            }
+            data = json.dumps(envelope, separators=(",", ":")).encode("utf-8")
+            req = urllib.request.Request(
+                self.gateway_url,
+                data=data,
+                headers={
+                    "User-Agent": USER_AGENT,
+                    "Authorization": f"Bearer {self.gateway_token}",
+                    "Content-Type": "application/json",
+                },
+                method="POST",
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=120) as response:
+                    body = response.read()
+                    if not body:
+                        return None
+                    return json.loads(body.decode("utf-8"))
+            except urllib.error.HTTPError as exc:
+                body = exc.read().decode("utf-8", errors="replace")
+                raise RuntimeError(
+                    f"OIDC ingest gateway {method} {table} failed: HTTP {exc.code}: {body}"
+                ) from exc
+
         url = f"{self.base}/{table}"
         if query:
             url += "?" + query
@@ -474,9 +513,10 @@ def persist(
 ) -> None:
     url = os.environ.get("SUPABASE_URL")
     key = os.environ.get("SUPABASE_SECRET_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-    if not url or not key:
+    oidc_token = os.environ.get("DATASEC_INGEST_GATEWAY_TOKEN")
+    if not url or not (key or oidc_token):
         raise RuntimeError(
-            "SUPABASE_URL and SUPABASE_SECRET_KEY (or legacy SUPABASE_SERVICE_ROLE_KEY) "
+            "SUPABASE_URL plus either a backend key or DATASEC_INGEST_GATEWAY_TOKEN "
             "are required unless --dry-run is used"
         )
 
