@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { type CitySlug, cityNames, getNeighbourhoods } from "@/lib/data";
+import {
+  type CitySlug,
+  cityNames,
+  getCitySnapshot,
+  getNeighbourhoods,
+  monthLabel,
+} from "@/lib/data";
 
 type Props = { params: Promise<{ city: string }> };
 
@@ -37,9 +43,11 @@ export default async function CityPage({ params }: Props) {
   if (!isCitySlug(city)) notFound();
 
   let areas: Awaited<ReturnType<typeof getNeighbourhoods>> = [];
+  let snapshot: Awaited<ReturnType<typeof getCitySnapshot>> = null;
   let error = false;
   try {
     areas = await getNeighbourhoods(city);
+    snapshot = await getCitySnapshot(city, areas.map((area) => area.id));
   } catch {
     error = true;
   }
@@ -66,6 +74,31 @@ export default async function CityPage({ params }: Props) {
           <p>{copy.caution}</p>
         </article>
       </section>
+
+      {snapshot ? (
+        <section className="stat-strip">
+          <article>
+            <span>Areas in scope</span>
+            <strong>{snapshot.areaCount.toLocaleString("en-GB")}</strong>
+            <small>Stored official neighbourhoods</small>
+          </article>
+          <article>
+            <span>Latest stored snapshot</span>
+            <strong>{monthLabel(snapshot.month)}</strong>
+            <small>Newest month available across this city</small>
+          </article>
+          <article>
+            <span>Median source density</span>
+            <strong>{Math.round(snapshot.medianIncidentsPerKm2).toLocaleString("en-GB")}/km²</strong>
+            <small>Median across covered areas · descriptive only</small>
+          </article>
+          <article>
+            <span>Snapshot coverage</span>
+            <strong>{Math.round((snapshot.coveredAreaCount / snapshot.areaCount) * 100)}%</strong>
+            <small>{snapshot.coveredAreaCount} of {snapshot.areaCount} areas on the latest month</small>
+          </article>
+        </section>
+      ) : null}
 
       <section className="areas-section city-area-list">
         <div className="section-heading">
