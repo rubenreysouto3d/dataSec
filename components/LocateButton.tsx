@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { locateAreaByCoordinates } from "@/lib/public-data-client";
+import { areaHref } from "@/lib/area-route";
 
 export default function LocateButton() {
   const router = useRouter();
@@ -28,7 +29,7 @@ export default function LocateButton() {
             setMessage("Your location is outside the current dataSec coverage.");
             return;
           }
-          router.push(`/area/${encodeURIComponent(area.id)}`);
+          router.push(areaHref(area.id));
         } catch {
           setStatus("error");
           setMessage("We could not match your location to a stored official boundary.");
