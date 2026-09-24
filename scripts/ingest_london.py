@@ -388,12 +388,46 @@ def multipolygon_wkt(polygons: list[dict[str, object]]) -> str:
     return f"MULTIPOLYGON({', '.join(parts)})"
 
 
+def github_oidc_token() -> str:
+    explicit = os.environ.get("DATASEC_INGEST_GATEWAY_TOKEN", "").strip()
+    if explicit:
+        return explicit
+
+    request_url = os.environ.get("ACTIONS_ID_TOKEN_REQUEST_URL", "").strip()
+    request_token = os.environ.get("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "").strip()
+    if not request_url or not request_token:
+        return ""
+
+    separator = "&" if "?" in request_url else "?"
+    url = f"{request_url}{separator}audience=datasec-supabase-ingest"
+    request = urllib.request.Request(
+        url,
+        headers={
+            "Authorization": f"Bearer {request_token}",
+            "User-Agent": USER_AGENT,
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(
+            f"GitHub OIDC token request failed: HTTP {exc.code}: {body[:500]}"
+        ) from exc
+
+    token = str(payload.get("value") or "").strip()
+    if not token:
+        raise RuntimeError("GitHub OIDC response did not contain a token")
+    return token
+
+
 class SupabaseRest:
     def __init__(self, base_url: str, service_key: str | None):
         self.project_base = base_url.rstrip("/")
         self.base = self.project_base + "/rest/v1"
         self.key = service_key or ""
-        self.gateway_token = os.environ.get("DATASEC_INGEST_GATEWAY_TOKEN", "").strip()
+        self.gateway_token = github_oidc_token()
         self.gateway_url = os.environ.get(
             "DATASEC_INGEST_GATEWAY_URL",
             self.project_base + "/functions/v1/github-ingest",
@@ -513,12 +547,8 @@ def persist(
 ) -> None:
     url = os.environ.get("SUPABASE_URL")
     key = os.environ.get("SUPABASE_SECRET_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-    oidc_token = os.environ.get("DATASEC_INGEST_GATEWAY_TOKEN")
-    if not url or not (key or oidc_token):
-        raise RuntimeError(
-            "SUPABASE_URL plus either a backend key or DATASEC_INGEST_GATEWAY_TOKEN "
-            "are required unless --dry-run is used"
-        )
+    if not url:
+        raise RuntimeError("SUPABASE_URL is required unless --dry-run is used")
 
     db = SupabaseRest(url, key)
     run_id = str(uuid.uuid4())
