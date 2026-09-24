@@ -16,7 +16,8 @@ export default async function Home() {
       getCitySnapshot("london", londonIds),
       getCitySnapshot("madrid", madridIds),
     ]);
-  } catch {
+  } catch (caught) {
+    if (process.env.GITHUB_PAGES !== "true") throw caught;
     error = true;
   }
 
