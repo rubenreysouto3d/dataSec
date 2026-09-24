@@ -153,6 +153,28 @@ const [london, madrid] = await Promise.all([
   checkCity("madrid", CITY_RULES.madrid),
 ]);
 
+const [londonBoundaries, madridBoundaries, londonMapMetrics] = await Promise.all([
+  request(
+    "latest_area_boundaries_map_geojson?select=area_id,period_start,geojson&area_id=like.gb-london-metropolitan:*&limit=2000",
+  ),
+  request(
+    "latest_area_boundaries_map_geojson?select=area_id,period_start,geojson&area_id=like.es-madrid-neighbourhood:*&limit=500",
+  ),
+  request(
+    "latest_area_map_metrics?select=area_id,period_start,violence_property_density_percentile&city_slug=eq.london&limit=2000",
+  ),
+]);
+
+if (!Array.isArray(londonBoundaries) || londonBoundaries.length < Math.floor(london.areaCount * 0.9)) {
+  throw new Error(`London map-boundary coverage is too low: ${londonBoundaries?.length ?? "missing"}/${london.areaCount}`);
+}
+if (!Array.isArray(madridBoundaries) || madridBoundaries.length < 120) {
+  throw new Error(`Madrid map-boundary coverage is too low: ${madridBoundaries?.length ?? "missing"}/131`);
+}
+if (!Array.isArray(londonMapMetrics) || londonMapMetrics.length < Math.floor(london.areaCount * 0.9)) {
+  throw new Error(`London map metrics coverage is too low: ${londonMapMetrics?.length ?? "missing"}/${london.areaCount}`);
+}
+
 const located = await request("rpc/find_area_at_point", {
   method: "POST",
   body: JSON.stringify({
