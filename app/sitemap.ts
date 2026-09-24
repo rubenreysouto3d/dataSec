@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 
 export const dynamic = "force-static";
 import { getNeighbourhoods } from "@/lib/data";
+import { areaHref } from "@/lib/area-route";
 
 function siteUrl() {
   return (process.env.NEXT_PUBLIC_SITE_URL ?? "https://rubenreysouto3d.github.io/dataSec").replace(/\/$/, "");
@@ -26,7 +27,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   const areaEntries: MetadataRoute.Sitemap = areas.map((area) => ({
-    url: `${base}/area/${encodeURIComponent(area.id)}`,
+    url: `${base}${areaHref(area.id)}`,
     changeFrequency: "monthly",
     priority: 0.7,
   }));
