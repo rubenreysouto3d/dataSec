@@ -77,8 +77,8 @@ export default function CityAreaExplorer({
             }}
           >
             <option value="name">Name A–Z</option>
-            <option value="density-desc">Source density · higher first</option>
-            <option value="density-asc">Source density · lower first</option>
+            <option value="density-desc">Recorded density · higher first</option>
+            <option value="density-asc">Recorded density · lower first</option>
           </select>
         </label>
 
@@ -90,7 +90,7 @@ export default function CityAreaExplorer({
 
       {sort !== "name" ? (
         <p className="density-caution">
-          Density is same-source incidents per km² for the latest stored snapshot. It is not a personal-risk or safety ranking.
+          This orders areas by recorded incidents per km² in the same source and snapshot. It is not a personal-risk or safety ranking.
         </p>
       ) : null}
 
@@ -105,7 +105,20 @@ export default function CityAreaExplorer({
                   <h3>{area.name}</h3>
                   {context ? (
                     <small className="area-context">
-                      P{Math.round(context.densityPercentile * 100)} source density · {Math.round(context.incidentsPerKm2).toLocaleString("en-GB")}/km²
+                      <strong>
+                        {context.densityPercentile < 0.2
+                          ? "Among the lowest recorded levels"
+                          : context.densityPercentile < 0.4
+                            ? "Lower than most areas"
+                            : context.densityPercentile < 0.6
+                              ? "Around the city middle"
+                              : context.densityPercentile < 0.8
+                                ? "Higher than most areas"
+                                : "Among the highest recorded levels"}
+                      </strong>
+                      <span>
+                        {Math.round(context.incidentsPerKm2).toLocaleString("en-GB")}/km² · about {Math.round(context.densityPercentile * 100)}% of areas are lower
+                      </span>
                     </small>
                   ) : (
                     <small className="area-context">Context unavailable</small>
