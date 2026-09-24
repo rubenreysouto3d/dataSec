@@ -206,3 +206,12 @@
   .compare-position{grid-template-columns:1fr}
   .compare-position article+article{border-left:0;border-top:1px solid var(--line)}
 }
+
+
+.compare-swap{height:48px;min-width:48px;border:1px solid var(--line)!important;background:var(--paper)!important;color:var(--ink)!important;font-size:20px!important;padding:0!important}
+.compare-swap:hover:not(:disabled){border-color:var(--ink)!important;background:var(--ink)!important;color:#fff!important}
+.compare-swap:disabled{opacity:.3}
+.compare-start-hint{margin-top:12px;padding:12px 14px;border-left:3px solid var(--ink);background:rgba(255,255,255,.22);color:var(--muted);font-size:10px;line-height:1.45}
+@media(max-width:800px){
+  .compare-swap{width:48px}
+}
