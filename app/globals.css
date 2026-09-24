@@ -150,3 +150,7 @@
   .map-empty-detail h3{font-size:25px}
   .map-selection-card dl{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 }
+
+.area-context strong,.area-context span{display:block}
+.area-context strong{color:var(--ink);font-size:10px;margin-bottom:3px}
+.area-context span{color:var(--muted);font-size:9px;line-height:1.35}
