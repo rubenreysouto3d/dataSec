@@ -17,6 +17,25 @@ import {
 
 type Props = { params: Promise<{ id: string }> };
 
+function densityBand(percentile: number | null | undefined) {
+  if (percentile === null || percentile === undefined || !Number.isFinite(percentile)) {
+    return "City comparison unavailable";
+  }
+  if (percentile < 0.2) return "Among the lowest recorded densities";
+  if (percentile < 0.4) return "Lower than most areas";
+  if (percentile < 0.6) return "Around the city middle";
+  if (percentile < 0.8) return "Higher than most areas";
+  return "Among the highest recorded densities";
+}
+
+function movementCopy(trend: number | null) {
+  if (trend === null) return "Not enough stored history yet";
+  if (Math.abs(trend) < 5) return "Broadly stable across stored months";
+  return trend > 0
+    ? `Recorded incidents are up ${trend}% across the stored window`
+    : `Recorded incidents are down ${Math.abs(trend)}% across the stored window`;
+}
+
 export async function generateStaticParams() {
   if (process.env.GITHUB_PAGES !== "true") return [];
   const areas = await getNeighbourhoods();
@@ -87,6 +106,8 @@ export default async function AreaPage({ params }: Props) {
   const max = Math.max(...totals.map((item) => item.total), 1);
   const path = boundaryPath(boundary.rings);
   const cityContext = area.citySlug === "london" ? "London police neighbourhoods" : "Madrid municipal neighbourhoods";
+  const densityPosition = context ? Math.round(context.densityPercentile * 100) : null;
+  const topShare = top[0] && latest.total > 0 ? Math.round((top[0].count / latest.total) * 100) : null;
 
   return (
     <main className="area-page">
@@ -106,6 +127,36 @@ export default async function AreaPage({ params }: Props) {
         </div>
       </section>
 
+      <section className="area-glance">
+        <div className="area-glance-title">
+          <span>AT A GLANCE</span>
+          <h2>What stands out here?</h2>
+        </div>
+        <article>
+          <span>Recorded density</span>
+          <strong>{densityBand(context?.densityPercentile)}</strong>
+          <p>
+            {context && densityPosition !== null
+              ? `About ${densityPosition}% of ${cityContext} recorded a lower all-source density in the same snapshot.`
+              : "City-relative context is unavailable for this snapshot."}
+          </p>
+        </article>
+        <article>
+          <span>Recent movement</span>
+          <strong>{movementCopy(trend)}</strong>
+          <p>Based only on the {totals.length} stored monthly snapshots currently available.</p>
+        </article>
+        <article>
+          <span>Largest category</span>
+          <strong>{top[0]?.label ?? "No category data"}</strong>
+          <p>
+            {top[0]
+              ? `${top[0].count.toLocaleString("en-GB")} records${topShare !== null ? ` · about ${topShare}% of this snapshot` : ""}.`
+              : "No category mix is available."}
+          </p>
+        </article>
+      </section>
+
       <section className="stat-strip">
         <article>
           <span>{dataLabel(area.citySlug)}</span>
@@ -113,9 +164,9 @@ export default async function AreaPage({ params }: Props) {
           <small>{monthLabel(latest.month)}</small>
         </article>
         <article>
-          <span>Incident density</span>
+          <span>Recorded density</span>
           <strong>{context ? `${Math.round(context.incidentsPerKm2).toLocaleString("en-GB")}/km²` : "—"}</strong>
-          <small>{context ? `P${Math.round(context.densityPercentile * 100)} within ${cityContext} · not risk` : "Context unavailable"}</small>
+          <small>{context ? densityBand(context.densityPercentile) : "Context unavailable"}</small>
         </article>
         <article>
           <span>{totals.length >= 2 ? `${totals.length}-month movement` : "Trend history"}</span>
@@ -148,7 +199,13 @@ export default async function AreaPage({ params }: Props) {
           <div className="category-list">
             {top.map((item) => (
               <div className="category-row" key={item.category}>
-                <div><strong>{item.label}</strong><small>{item.count.toLocaleString("en-GB")}</small></div>
+                <div>
+                  <strong>{item.label}</strong>
+                  <small>
+                    {item.count.toLocaleString("en-GB")}
+                    {latest.total > 0 ? ` · ${Math.round((item.count / latest.total) * 100)}%` : ""}
+                  </small>
+                </div>
                 <div className="bar"><i style={{ width: `${Math.max(4, (item.count / (top[0]?.count || 1)) * 100)}%` }} /></div>
               </div>
             ))}
