@@ -342,14 +342,14 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
                   "interpolate",
                   ["linear"],
                   ["to-number", ["get", "percentile"]],
-                  0, "#e6edf1",
-                  0.25, "#c3d4df",
-                  0.5, "#88a8bc",
-                  0.75, "#567c96",
-                  1, "#25495f",
+                  0, "#dce9f2",
+                  0.25, "#9ecae1",
+                  0.5, "#4292c6",
+                  0.75, "#1361a8",
+                  1, "#08306b",
                 ],
               ],
-              "fill-opacity": 0.46,
+              "fill-opacity": 0.7,
             },
           }, firstLabelLayer);
           map.addLayer({
@@ -357,14 +357,14 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
             type: "line",
             source: "datasec-areas",
             paint: {
-              "line-color": "rgba(26,26,22,.72)",
+              "line-color": "rgba(255,255,255,.92)",
               "line-width": [
                 "interpolate",
                 ["linear"],
                 ["zoom"],
-                8, 0.45,
-                12, 1.25,
-                15, 2,
+                8, 0.7,
+                12, 1.5,
+                15, 2.2,
               ],
             },
           }, firstLabelLayer);
@@ -376,7 +376,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
             filter: ["==", ["get", "id"], ""],
             paint: {
               "line-color": "#11110f",
-              "line-width": 3,
+              "line-width": 4,
             },
           }, firstLabelLayer);
 
