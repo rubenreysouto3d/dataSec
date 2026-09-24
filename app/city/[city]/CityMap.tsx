@@ -38,7 +38,7 @@ type MapLibreModule = {
 
 const MAPLIBRE_URL = "https://unpkg.com/maplibre-gl@6.11.1/dist/maplibre-gl.mjs";
 const MAPLIBRE_CSS = "https://unpkg.com/maplibre-gl@6.11.1/dist/maplibre-gl.css";
-const MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
+const MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
 
 const layerCopy: Record<LayerKey, { label: string; note: string }> = {
   "violence-property": {
