@@ -43,33 +43,35 @@ const matches = activity.resources
   .filter((resource)=>resource.month===targetMonth && /actividades/i.test(`${resource.name ?? ""} ${resource.description ?? ""}`));
 
 if (matches.length !== 1) {
-  const candidates = activity.resources
-    .filter((resource) => String(resource.format ?? "").toUpperCase() === "CSV")
-    .map((resource) => ({
-      id: resource.id,
-      name: resource.name,
-      description: resource.description,
-      month: parseMonth(resource),
-    }));
-  console.log(JSON.stringify({
-    ok: false,
-    targetMonth,
-    matchCount: matches.length,
-    candidates: candidates.slice(-40),
-  }, null, 2));
-  process.exit(0);
+  throw new Error(`Expected one Actividades CSV for ${targetMonth}, got ${matches.length}`);
 }
 
 const resource = matches[0];
-const sample = await action("datastore_search",{resource_id:resource.id,limit:"3"});
-if (!sample.total || sample.total < 1000) throw new Error(`Implausibly low activity rows: ${sample.total}`);
+const sample = await action("datastore_search",{resource_id:resource.id,limit:"1"});
+if (!sample.total || sample.total < 100000) {
+  throw new Error(`Implausibly low Madrid activity row count: ${sample.total}`);
+}
+
+const expectedFields = [
+  "id_local",
+  "id_barrio_local",
+  "desc_barrio_local",
+  "id_situacion_local",
+  "desc_situacion_local",
+  "id_seccion",
+  "desc_seccion",
+  "id_division",
+  "desc_division",
+];
+const fields = new Set(sample.fields.map((field)=>field.id));
+for (const field of expectedFields) {
+  if (!fields.has(field)) throw new Error(`Missing Madrid activity field: ${field}`);
+}
 
 console.log(JSON.stringify({
   ok:true,
   targetMonth,
   resourceId:resource.id,
-  resourceName:resource.name,
-  total:sample.total,
-  fields:sample.fields.map((field)=>field.id),
-  sample:sample.records.slice(0,2),
+  rowCount:sample.total,
+  fieldContract:expectedFields.length,
 },null,2));

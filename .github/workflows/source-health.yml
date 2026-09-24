@@ -60,5 +60,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Inspect aligned Madrid commercial-activity source
+      - name: Validate aligned Madrid commercial-activity source
         run: node scripts/check-madrid-activity-contract.mjs

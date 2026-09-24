@@ -7,7 +7,7 @@ export const metadata = {
 export default function MethodologyPage() {
   return (
     <main className="method-page">
-      <div className="eyebrow">Methodology · v0.3</div>
+      <div className="eyebrow">Methodology · v0.4</div>
       <h1>Useful context without pretending unlike datasets are the same.</h1>
       <section className="method-grid">
         <article>
@@ -23,7 +23,7 @@ export default function MethodologyPage() {
         <article>
           <span>03</span>
           <h2>Local context, not a universal score</h2>
-          <p>Density percentiles are calculated only within the same city and source snapshot. They describe recorded incident concentration, not personal risk. Cross-city source-density ranking is deliberately disabled.</p>
+          <p>Map colours are percentiles calculated only within the same city and source snapshot. Darker means a higher recorded level for the selected metric; it does not mean “dangerous”, and lighter does not mean “safe”. Cross-city source-density ranking is deliberately disabled.</p>
         </article>
         <article>
           <span>04</span>
@@ -47,6 +47,16 @@ export default function MethodologyPage() {
         </article>
         <article>
           <span>08</span>
+          <h2>Resident rates are optional context</h2>
+          <p>Madrid can show selected categories per 10,000 registered residents using the municipal population register from the same month. This is not the default view because visitor-heavy centres can look artificially high when tourists, commuters and nightlife footfall are absent from the resident denominator.</p>
+        </article>
+        <article>
+          <span>09</span>
+          <h2>Exposure proxies stay labelled as proxies</h2>
+          <p>Pedestrian counters and commercial-activity data can help explain central-area exposure, but they are not interchangeable with population. Sparse pedestrian sensors are not used as a citywide denominator. Madrid&apos;s monthly commercial census is monitored as a possible contextual layer, not yet treated as a risk denominator.</p>
+        </article>
+        <article>
+          <span>10</span>
           <h2>No demographic shortcuts</h2>
           <p>dataSec does not infer safety from ethnicity, nationality or neighbourhood reputation. The product is based on documented public-source observations and explicit limitations.</p>
         </article>
