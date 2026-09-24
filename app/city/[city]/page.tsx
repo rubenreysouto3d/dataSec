@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import {
   type CitySlug,
   cityNames,
+  getCityAreaContexts,
   getCitySnapshot,
   getNeighbourhoods,
   monthLabel,
@@ -45,10 +46,15 @@ export default async function CityPage({ params }: Props) {
 
   let areas: Awaited<ReturnType<typeof getNeighbourhoods>> = [];
   let snapshot: Awaited<ReturnType<typeof getCitySnapshot>> = null;
+  let contexts: Awaited<ReturnType<typeof getCityAreaContexts>> = [];
   let error = false;
   try {
     areas = await getNeighbourhoods(city);
-    snapshot = await getCitySnapshot(city, areas.map((area) => area.id));
+    const areaIds = areas.map((area) => area.id);
+    [snapshot, contexts] = await Promise.all([
+      getCitySnapshot(city, areaIds),
+      getCityAreaContexts(city, areaIds),
+    ]);
   } catch {
     error = true;
   }
@@ -113,7 +119,7 @@ export default async function CityPage({ params }: Props) {
         {error ? (
           <div className="notice">The stored dataset is temporarily unavailable.</div>
         ) : (
-          <CityAreaExplorer areas={areas} />
+          <CityAreaExplorer areas={areas} contexts={contexts} />
         )}
       </section>
     </main>
