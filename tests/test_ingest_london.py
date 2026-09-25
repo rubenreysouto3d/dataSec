@@ -12,6 +12,7 @@ from scripts.ingest_london import (
     locate_area,
     multipolygon_wkt,
     parse_boundary_archive,
+    parse_ward_borough_lookup,
     persist,
     point_in_ring,
     slugify,
@@ -108,6 +109,36 @@ class SpatialTests(unittest.TestCase):
         self.assertEqual(len(polygons[0]["holes"]), 1)
 
 
+    def test_ward_borough_lookup_maps_n_suffix_to_official_borough(self):
+        csv_blob = (
+            "WD22CD,WD22NM,LAD22CD,LAD22NM\n"
+            "E05000001,Abbey,E09000001,Alpha Borough\n"
+            "E05000002,Belmont,E09000002,Beta Borough\n"
+        ).encode("utf-8")
+        areas = [
+            {"source_area_id": "E05000001N"},
+            {"source_area_id": "E05000002"},
+        ]
+
+        lookup = parse_ward_borough_lookup(csv_blob, areas)
+
+        self.assertEqual(lookup["E05000001"]["lad_name"], "Alpha Borough")
+        self.assertEqual(lookup["E05000002"]["lad_code"], "E09000002")
+
+    def test_ward_borough_lookup_requires_full_current_ward_coverage(self):
+        csv_blob = (
+            "WD22CD,WD22NM,LAD22CD,LAD22NM\n"
+            "E05000001,Abbey,E09000001,Alpha Borough\n"
+        ).encode("utf-8")
+        areas = [
+            {"source_area_id": "E05000001N"},
+            {"source_area_id": "E05000002N"},
+        ]
+
+        with self.assertRaisesRegex(RuntimeError, "does not cover current Metropolitan wards"):
+            parse_ward_borough_lookup(csv_blob, areas)
+
+
 class SupabaseAuthTests(unittest.TestCase):
     def test_secret_key_uses_apikey_without_bearer(self):
         client = SupabaseRest("https://example.supabase.co", "sb_secret_test")
@@ -176,6 +207,8 @@ class PersistenceGateTests(unittest.TestCase):
                 1,
                 "crime-checksum",
                 "boundary-checksum",
+                {},
+                "ward-borough-checksum",
             )
 
         written_tables = [call.args[0] for call in client.upsert.call_args_list]
@@ -218,23 +251,40 @@ class TransactionalPublicationTests(unittest.TestCase):
             "2026-07",
             [{}],
             [{
-                "source_area_id": "TEST",
+                "source_area_id": "E05000001N",
                 "name": "Test area",
                 "polygons": [{"outer": square, "holes": []}],
             }],
-            {("TEST", "theft"): 1},
+            {("E05000001N", "theft"): 1},
             {"Theft": "theft"},
             0,
             "crime-checksum",
             "boundary-checksum",
+            {
+                "E05000001": {
+                    "ward_name": "Test area",
+                    "lad_code": "E09000001",
+                    "lad_name": "Test Borough",
+                },
+            },
+            "ward-borough-checksum",
         )
 
         staged_types = [call.args[1] for call in client.stage.call_args_list]
         self.assertCountEqual(staged_types, ["metric", "area", "boundary", "observation"])
 
         written_tables = [call.args[0] for call in client.upsert.call_args_list]
-        for table in ("metrics", "areas", "area_boundaries", "observations"):
+        for table in ("metrics", "area_boundaries", "observations"):
             self.assertNotIn(table, written_tables)
+
+        direct_area_calls = [
+            call for call in client.upsert.call_args_list
+            if call.args and call.args[0] == "areas"
+        ]
+        self.assertEqual(len(direct_area_calls), 1)
+        self.assertTrue(
+            all(row["area_type"] == "london_borough" for row in direct_area_calls[0].args[1])
+        )
 
         publish_calls = [
             call
