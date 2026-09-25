@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getCitySnapshot, getNeighbourhoods, monthLabel } from "@/lib/data";
+import { dataHealth } from "@/lib/generated-health";
 
 export default async function Home() {
   let areas = [] as Awaited<ReturnType<typeof getNeighbourhoods>>;
@@ -35,6 +36,12 @@ export default async function Home() {
     },
   ] as const;
 
+  const verificationLabel = dataHealth.checkedAt
+    ? new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" }).format(
+        new Date(dataHealth.checkedAt),
+      )
+    : "pending";
+
   return (
     <main className="home-page home-page-v2">
       <section className="home-entry">
@@ -67,8 +74,9 @@ export default async function Home() {
         )}
 
         <div className="home-entry-note">
-          <span>Same controls in every city</span>
+          <span>Official public sources</span>
           <span>Resident + visitor views</span>
+          <Link href="/status">Data verified {verificationLabel}</Link>
           <Link href="/methodology">How the data works</Link>
         </div>
       </section>
