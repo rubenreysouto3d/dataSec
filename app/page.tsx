@@ -44,15 +44,13 @@ export default async function Home() {
   return (
     <main className="home-page">
       <section className="home-hero">
-        <div className="eyebrow">Official local safety context</div>
+        <div className="eyebrow">Official urban safety data</div>
         <h1>
-          Understand an area
+          Know an area
           <br />
-          <em>before you go or move.</em>
+          <em>before you go.</em>
         </h1>
-        <p>
-          One clear map for residents and visitors, built from official public data and compared only within each city.
-        </p>
+        <p>Resident or visitor. Pick a city, read the colour, open the area.</p>
 
         <form className="search-form home-search" action={`${basePath}/search`} method="get">
           <label className="sr-only" htmlFor="area-search">Search a neighbourhood</label>
@@ -62,21 +60,12 @@ export default async function Home() {
 
         <div className="home-actions">
           <LocateButton />
-          <Link href="/compare">Compare two areas →</Link>
+          <Link href="/compare">Compare areas →</Link>
         </div>
-      </section>
-
-      <section className="home-purpose" aria-label="Ways to use dataSec">
-        <article>
-          <span>RESIDENT</span>
-          <strong>Would I want to live here?</strong>
-          <p>Longer-term residential context, recurring exposure and resident-normalised signals where available.</p>
-        </article>
-        <article>
-          <span>VISITOR</span>
-          <strong>What should I expect while visiting?</strong>
-          <p>Short-stay street exposure with more weight on theft, robbery and concentrated visitor-facing incidents.</p>
-        </article>
+        <div className="home-mode-hint" aria-label="Available views">
+          <span><strong>Resident</strong> living here</span>
+          <span><strong>Visitor</strong> short stay</span>
+        </div>
       </section>
 
       <section className="home-cities" id="areas">
@@ -85,7 +74,6 @@ export default async function Home() {
             <span>EXPLORE</span>
             <h2>Choose a city</h2>
           </div>
-          <p>Every city uses the same filters and colour language. The official source behind them is documented locally.</p>
         </div>
 
         {error ? (
@@ -101,34 +89,18 @@ export default async function Home() {
                   </div>
                   <Link href={`/city/${city.slug}`}>Open map →</Link>
                 </div>
-                <p>{city.description}</p>
                 <div className="home-city-meta">
                   <span><strong>{city.count.toLocaleString("en-GB")}</strong> areas</span>
                   <span><strong>{city.snapshot ? monthLabel(city.snapshot.month) : "—"}</strong> latest data</span>
                 </div>
-                <div className="home-city-examples">
-                  {city.examples.map((name) => <span key={name}>{name}</span>)}
-                </div>
+
               </article>
             ))}
           </div>
         )}
       </section>
 
-      <section className="home-trust">
-        <div>
-          <strong>Official sources</strong>
-          <span>Public-source data, dated and documented.</span>
-        </div>
-        <div>
-          <strong>Same filters everywhere</strong>
-          <span>Resident, Visitor and the same advanced layers in every city.</span>
-        </div>
-        <div>
-          <strong>No hidden “danger score”</strong>
-          <span>Colours show relative signals inside a city, with the method visible.</span>
-        </div>
-      </section>
+
     </main>
   );
 }
