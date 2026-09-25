@@ -16,9 +16,14 @@ import uuid
 from openpyxl import load_workbook
 
 try:
-    from scripts.ingest_london import SupabaseRest, USER_AGENT
+    from scripts.ingest_london import (
+        SupabaseRest,
+        USER_AGENT,
+        fetch_neighbourhoods,
+        latest_month,
+    )
 except ModuleNotFoundError:
-    from ingest_london import SupabaseRest, USER_AGENT
+    from ingest_london import SupabaseRest, USER_AGENT, fetch_neighbourhoods, latest_month
 
 PACKAGE_API = "https://data.london.gov.uk/api/action/package_show?id=vqlx7"
 DATASET_URL = "https://data.london.gov.uk/dataset/2021-census-wards-demography-and-migration-vqlx7"
@@ -107,10 +112,35 @@ def parse_population(blob: bytes) -> dict[str, int]:
 
 
 
-def persist(db: SupabaseRest, resource_id: str, totals: dict[str, int]) -> None:
-    # Source-health independently validates that the official workbook exposes
-    # the same 679 E050 ward identifiers used by dataSec. Database foreign keys
-    # fail closed if any source code is not a stored area.
+def current_police_area_map() -> tuple[str, dict[str, str]]:
+    month = latest_month()
+    areas, _checksum = fetch_neighbourhoods(month)
+    mapped: dict[str, str] = {}
+
+    for area in areas:
+        source_id = str(area["source_area_id"])
+        base_code = source_id[:-1] if source_id.endswith("N") else source_id
+        if not WARD_CODE.fullmatch(base_code):
+            raise RuntimeError(f"Unexpected London police area ID: {source_id}")
+        if base_code in mapped:
+            raise RuntimeError(
+                f"London police area IDs collide after normalisation: "
+                f"{mapped[base_code]} and {source_id}"
+            )
+        mapped[base_code] = source_id
+
+    if len(mapped) != 679:
+        raise RuntimeError(f"Expected 679 current London police areas, got {len(mapped)}")
+    return month, mapped
+
+
+def persist(
+    db: SupabaseRest,
+    resource_id: str,
+    totals: dict[str, int],
+    police_month: str,
+    police_area_map: dict[str, str],
+) -> None:
     db.upsert(
         "sources",
         [{
@@ -145,6 +175,10 @@ def persist(db: SupabaseRest, resource_id: str, totals: dict[str, int]) -> None:
                 "usual_residents": sum(totals.values()),
                 "census_date": CENSUS_DATE,
                 "measurement": "usual_residents",
+                "police_boundary_month": police_month,
+                "normalised_n_suffix_count": sum(
+                    1 for value in police_area_map.values() if value.endswith("N")
+                ),
             },
         }],
         "id",
@@ -153,7 +187,7 @@ def persist(db: SupabaseRest, resource_id: str, totals: dict[str, int]) -> None:
     try:
         rows = [
             {
-                "area_id": f"gb-london-metropolitan:{code}",
+                "area_id": f"gb-london-metropolitan:{police_area_map[code]}",
                 "source_slug": SOURCE_SLUG,
                 "period_start": CENSUS_DATE,
                 "population": population,
@@ -211,9 +245,23 @@ def main() -> int:
     source_url, resource_id = population_resource()
     blob = fetch(source_url)
     totals = parse_population(blob)
+
+    police_month, police_area_map = current_police_area_map()
+    census_codes = set(totals)
+    current_codes = set(police_area_map)
+    if census_codes != current_codes:
+        missing = sorted(current_codes - census_codes)
+        extra = sorted(census_codes - current_codes)
+        raise RuntimeError(
+            "Census wards do not exactly match current police areas after N-suffix normalisation; "
+            f"missing={missing[:20]} extra={extra[:20]}"
+        )
+
+    suffix_count = sum(1 for value in police_area_map.values() if value.endswith("N"))
     log(
         f"Validated London 2021 Census population: {len(totals)} wards; "
-        f"{sum(totals.values()):,} usual residents"
+        f"{sum(totals.values()):,} usual residents; current police boundaries={police_month}; "
+        f"N-suffix mappings={suffix_count}"
     )
 
     if args.dry_run:
@@ -225,7 +273,7 @@ def main() -> int:
     if not supabase_url:
         raise RuntimeError("SUPABASE_URL is required")
     db = SupabaseRest(supabase_url, backend_key)
-    persist(db, resource_id, totals)
+    persist(db, resource_id, totals, police_month, police_area_map)
     log("London 2021 Census population snapshot persisted successfully")
     return 0
 
