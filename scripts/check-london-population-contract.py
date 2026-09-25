@@ -45,8 +45,10 @@ if resource is None:
     raise RuntimeError(f"London population resource not found: {RESOURCE_NAME}")
 
 url = str(resource.get("url") or "").strip()
+if url.startswith("http://"):
+    url = "https://" + url.removeprefix("http://")
 if not url.startswith("https://"):
-    raise RuntimeError("London population resource has no HTTPS URL")
+    raise RuntimeError(f"London population resource has no usable URL: {url!r}")
 
 payload = fetch(url)
 if len(payload) < 50_000:
