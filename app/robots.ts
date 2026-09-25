@@ -1,22 +1,19 @@
 import type { MetadataRoute } from "next";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const dynamic = "force-static";
 
 function siteUrl() {
-  return (process.env.NEXT_PUBLIC_SITE_URL ?? "https://data-sec.vercel.app").replace(/\/$/, "");
+  return (process.env.NEXT_PUBLIC_SITE_URL ?? "https://rubenreysouto3d.github.io/dataSec").replace(/\/$/, "");
 }
 
 export default function robots(): MetadataRoute.Robots {
+  const indexSite = process.env.NEXT_PUBLIC_INDEX_SITE === "true";
   const base = siteUrl();
 
   return {
-    rules: [
-      { userAgent: "Claude-User", allow: "/" },
-      { userAgent: "ClaudeBot", allow: "/" },
-      { userAgent: "Claude-SearchBot", allow: "/" },
-      { userAgent: "*", allow: "/" },
-    ],
+    rules: indexSite
+      ? { userAgent: "*", allow: "/" }
+      : { userAgent: "*", disallow: "/" },
     sitemap: `${base}/sitemap.xml`,
   };
 }
