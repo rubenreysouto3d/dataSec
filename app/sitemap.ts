@@ -5,7 +5,11 @@ import { getNeighbourhoods } from "@/lib/data";
 import { areaHref } from "@/lib/area-route";
 
 function siteUrl() {
-  return (process.env.NEXT_PUBLIC_SITE_URL ?? "https://rubenreysouto3d.github.io/dataSec").replace(/\/$/, "");
+  const fallback =
+    process.env.GITHUB_PAGES === "true"
+      ? "https://rubenreysouto3d.github.io/dataSec"
+      : "https://data-sec.vercel.app";
+  return (process.env.NEXT_PUBLIC_SITE_URL ?? fallback).replace(/\/$/, "");
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -23,6 +27,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: base, changeFrequency: "weekly", priority: 1 },
     { url: `${base}/city/london`, changeFrequency: "monthly", priority: 0.9 },
     { url: `${base}/city/madrid`, changeFrequency: "monthly", priority: 0.9 },
+    { url: `${base}/city/london/trends`, changeFrequency: "monthly", priority: 0.75 },
+    { url: `${base}/city/madrid/trends`, changeFrequency: "monthly", priority: 0.75 },
+    { url: `${base}/status`, changeFrequency: "weekly", priority: 0.55 },
     { url: `${base}/methodology`, changeFrequency: "monthly", priority: 0.5 },
   ];
 
