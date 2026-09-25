@@ -491,19 +491,28 @@ export async function getCitySafetySignals(
 
   if (!personalHarmSlugs.length) return [];
 
-  const rows = await rest<Array<{
+  type HarmObservationRow = {
     area_id: string;
     metric_slug: string;
     period_start: string;
     value: number | string;
-  }>>("observations", {
-    select: "area_id,metric_slug,period_start,value",
-    source_slug: "eq.madrid-police-dispatch-incidents",
-    metric_slug: `in.(${personalHarmSlugs.join(",")})`,
-    period_start: `gte.${firstMonth}-01`,
-    order: "period_start.asc,area_id.asc",
-    limit: "10000",
-  }, { noStore: true });
+  };
+
+  const rows: HarmObservationRow[] = [];
+  const pageSize = 1000;
+  for (let offset = 0; ; offset += pageSize) {
+    const page = await rest<HarmObservationRow[]>("observations", {
+      select: "area_id,metric_slug,period_start,value",
+      source_slug: "eq.madrid-police-dispatch-incidents",
+      metric_slug: `in.(${personalHarmSlugs.join(",")})`,
+      period_start: `gte.${firstMonth}-01`,
+      order: "period_start.asc,area_id.asc,metric_slug.asc",
+      limit: String(pageSize),
+      offset: String(offset),
+    }, { noStore: true });
+    rows.push(...page);
+    if (page.length < pageSize) break;
+  }
 
   const included = new Set(areaIds);
   const populationByArea = new Map(mapMetrics.map((metric) => [metric.areaId, metric.population]));
