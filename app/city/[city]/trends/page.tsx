@@ -11,7 +11,7 @@ import {
   monthLabel,
 } from "@/lib/data";
 
-export const revalidate = 60 * 60 * 12;
+export const revalidate = 43200;
 
 type Props = { params: Promise<{ city: string }> };
 
