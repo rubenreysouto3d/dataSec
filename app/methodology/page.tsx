@@ -37,9 +37,9 @@ export default function MethodologyPage() {
         <article>
           <span>03</span>
           <div>
-            <h2>Green → yellow → red</h2>
+            <h2>Local scale, two ways to read it</h2>
             <p>
-              Colours are relative within the same city. Green means a lower signal compared with other local areas; red means a higher signal. Neither colour is a guarantee or verdict.
+              Colours are relative within the same city and are also encoded as levels 1–5 for accessibility. Green/1 means a lower local signal; red/5 means a higher local signal. Neither is a guarantee or verdict.
             </p>
           </div>
         </article>
@@ -49,7 +49,7 @@ export default function MethodologyPage() {
           <div>
             <h2>Comparable interface, honest methods</h2>
             <p>
-              The filters are identical across cities, but the documented official implementation behind each filter can differ. dataSec does not create a fake Europe-wide ranking from unlike datasets.
+              The filters are identical across cities, but the documented official implementation behind each filter can differ. Percentiles compare areas only inside their own city; dataSec does not create a fake Europe-wide ranking from unlike datasets.
             </p>
           </div>
         </article>
@@ -65,6 +65,7 @@ export default function MethodologyPage() {
           <p>Central areas can appear high because of tourism, nightlife, transport and footfall.</p>
           <p>Resident denominators do not count visitors or commuters.</p>
           <p>Perception data, where used, is clearly identified and kept separate from incident records.</p>
+          <p>Resident and Visitor percentiles from different cities must not be compared as if they shared one universal score.</p>
         </div>
       </section>
 
@@ -84,11 +85,14 @@ export default function MethodologyPage() {
           </article>
           <article>
             <h3>Publication health</h3>
-            <p>Coverage, freshness, map geometry and core public-data queries are checked automatically before deployment.</p>
+            <p>
+              Coverage, freshness, map geometry and core public-data queries are checked automatically before deployment.
+              {" "}<a href="/status">See the latest public status check →</a>
+            </p>
           </article>
           <article>
-            <h3>Shared filter catalog</h3>
-            <p>Resident, Visitor, Violence + property, Theft + robbery, All crime-related and All source activity are defined once and inherited by every city.</p>
+            <h3>Shared categories</h3>
+            <p>Source-specific police labels are mapped into a common user-facing vocabulary. Non-crime responses such as emergency assistance or traffic are kept separate from safety-related categories.</p>
           </article>
         </div>
       </details>
