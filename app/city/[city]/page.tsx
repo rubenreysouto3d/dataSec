@@ -8,6 +8,7 @@ import {
   getCityAreaContexts,
   getCityBoundaries,
   getCityMapMetrics,
+  getCitySafetySignals,
   getCitySnapshot,
   getNeighbourhoods,
   monthLabel,
@@ -71,6 +72,7 @@ export default async function CityPage({ params }: Props) {
   let boundaries: Awaited<ReturnType<typeof getCityBoundaries>> = [];
   let mapMetrics: Awaited<ReturnType<typeof getCityMapMetrics>> = [];
   let activityContexts: Awaited<ReturnType<typeof getCityActivityContexts>> = [];
+  let safetySignals: Awaited<ReturnType<typeof getCitySafetySignals>> = [];
   let error = false;
   try {
     areas = await getNeighbourhoods(city);
@@ -82,6 +84,7 @@ export default async function CityPage({ params }: Props) {
       getCityMapMetrics(city, areaIds),
       city === "madrid" ? getCityActivityContexts(areaIds) : Promise.resolve([]),
     ]);
+    safetySignals = await getCitySafetySignals(city, areaIds, mapMetrics);
   } catch (caught) {
     if (process.env.GITHUB_PAGES !== "true") throw caught;
     error = true;
@@ -132,6 +135,7 @@ export default async function CityPage({ params }: Props) {
             boundaries={boundaries}
             metrics={mapMetrics}
             activityContexts={activityContexts}
+            safetySignals={safetySignals}
           />
         </section>
       ) : null}
