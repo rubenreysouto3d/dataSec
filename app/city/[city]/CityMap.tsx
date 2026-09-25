@@ -134,10 +134,21 @@ function layerFor(metric: MetricKey, normalization: NormalizationKey): LayerKey 
   return metric;
 }
 
+function visitorExposureScore(metric: CityMapMetric | undefined) {
+  if (!metric) return null;
+  const theft = metric.theftDensityPercentile;
+  const violence = metric.violencePropertyDensityPercentile;
+  if (theft === null && violence === null) return null;
+  if (theft === null) return violence;
+  if (violence === null) return theft;
+  return theft * 0.7 + violence * 0.3;
+}
+
 function metricForLayer(
   metric: CityMapMetric | undefined,
   layer: LayerKey,
   safetySignal?: CitySafetySignal,
+  visitorPercentile?: number | null,
 ) {
   if (layer === "contextual-overview") {
     const hasResidentValue =
@@ -167,14 +178,8 @@ function metricForLayer(
     };
   }
   if (layer === "visitor-context") {
-    const theft = metric?.theftDensityPercentile;
-    const violence = metric?.violencePropertyDensityPercentile;
-    const percentile =
-      theft !== null && theft !== undefined && violence !== null && violence !== undefined
-        ? theft * 0.7 + violence * 0.3
-        : theft ?? violence ?? null;
     return {
-      percentile,
+      percentile: visitorPercentile ?? null,
       value: null,
       count: null,
       unit: "",
@@ -422,6 +427,26 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
     () => new Map(safetySignals.map((signal) => [signal.areaId, signal])),
     [safetySignals],
   );
+  const visitorPercentileById = useMemo(() => {
+    const scored = metrics
+      .map((metric) => ({ areaId: metric.areaId, score: visitorExposureScore(metric) }))
+      .filter((item): item is { areaId: string; score: number } =>
+        item.score !== null && Number.isFinite(item.score),
+      )
+      .sort((a, b) => a.score - b.score);
+
+    const denominator = Math.max(scored.length - 1, 1);
+    const firstRankByScore = new Map<number, number>();
+    scored.forEach((item, index) => {
+      if (!firstRankByScore.has(item.score)) {
+        firstRankByScore.set(item.score, index / denominator);
+      }
+    });
+
+    return new Map(
+      scored.map((item) => [item.areaId, firstRankByScore.get(item.score) ?? 0]),
+    );
+  }, [metrics]);
 
   const bounds = useMemo<Bounds | null>(() => {
     let minLng = Number.POSITIVE_INFINITY;
@@ -455,6 +480,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
         metricById.get(boundary.areaId),
         layer,
         safetySignalById.get(boundary.areaId),
+        visitorPercentileById.get(boundary.areaId),
       );
       const coordinates = boundary.rings.map((ring) =>
         ring.map((point) => [Number(point.longitude), Number(point.latitude)]),
@@ -479,7 +505,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
     });
 
     return { type: "FeatureCollection", features };
-  }, [areaById, boundaries, layer, metricById, safetySignalById]);
+  }, [areaById, boundaries, layer, metricById, safetySignalById, visitorPercentileById]);
 
   const fallbackShapes = useMemo(() => {
     if (!bounds) return [];
@@ -490,6 +516,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
         metricById.get(boundary.areaId),
         layer,
         safetySignalById.get(boundary.areaId),
+        visitorPercentileById.get(boundary.areaId),
       );
       return [{
         id: area.id,
@@ -499,20 +526,30 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
         selected: area.id === selectedAreaId,
       }];
     });
-  }, [areaById, boundaries, bounds, layer, metricById, safetySignalById, selectedAreaId]);
+  }, [areaById, boundaries, bounds, layer, metricById, safetySignalById, selectedAreaId, visitorPercentileById]);
 
   const cityMedian = useMemo(() => {
     const values = metrics
-      .map((metric) => metricForLayer(metric, layer, safetySignalById.get(metric.areaId)).value)
+      .map((metric) => metricForLayer(
+        metric,
+        layer,
+        safetySignalById.get(metric.areaId),
+        visitorPercentileById.get(metric.areaId),
+      ).value)
       .filter((value): value is number => value !== null && Number.isFinite(value));
     return median(values);
-  }, [layer, metrics, safetySignalById]);
+  }, [layer, metrics, safetySignalById, visitorPercentileById]);
 
   const selectedArea = selectedAreaId ? areaById.get(selectedAreaId) ?? null : null;
   const selectedBaseMetric = selectedAreaId ? metricById.get(selectedAreaId) : undefined;
   const selectedActivity = selectedAreaId ? activityById.get(selectedAreaId) : undefined;
   const selectedSafetySignal = selectedAreaId ? safetySignalById.get(selectedAreaId) : undefined;
-  const selectedMetric = metricForLayer(selectedBaseMetric, layer, selectedSafetySignal);
+  const selectedMetric = metricForLayer(
+    selectedBaseMetric,
+    layer,
+    selectedSafetySignal,
+    selectedAreaId ? visitorPercentileById.get(selectedAreaId) : null,
+  );
   const selectedPercentile =
     selectedMetric.percentile !== null && Number.isFinite(selectedMetric.percentile)
       ? Math.round(selectedMetric.percentile * 100)
