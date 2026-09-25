@@ -131,7 +131,7 @@ function metricForLayer(
     return {
       percentile,
       value: null,
-      count: metric ? metric.theftCount + metric.violencePropertyCount : null,
+      count: null,
       unit: "",
     };
   }
@@ -732,10 +732,6 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
   }, [mapReady, selectedAreaId]);
 
   const metricOptions: Array<{ key: MetricKey; label: string }> = [
-    ...(citySlug === "madrid" && hasContextualOverview
-      ? [{ key: "contextual-overview" as MetricKey, label: "Resident context" }]
-      : []),
-    { key: "visitor-context", label: "Visitor context" },
     ...(citySlug === "madrid" && hasReliableSafetySignal
       ? [{ key: "residential-harm" as MetricKey, label: `Personal harm · ${safetyWindowLabel}` }]
       : []),
@@ -795,7 +791,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
 
       <div className="map-controls-grid">
         <div className="map-control-group">
-          <span className="map-control-kicker">1 · What do you want to compare?</span>
+          <span className="map-control-kicker">Explore a specific metric · optional</span>
           <div className="map-choice-row" role="group" aria-label="Incident type">
             {metricOptions.map((item) => (
               <button
@@ -1057,10 +1053,12 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
               </p>
 
               <dl>
-                <div>
-                  <dt>{metricKey === "contextual-overview" || metricKey === "residential-harm" ? "Personal-harm records in window" : metricKey === "visitor-context" ? "Relevant recorded incidents" : "Recorded incidents"}</dt>
-                  <dd>{selectedMetric.count?.toLocaleString("en-GB") ?? "—"}</dd>
-                </div>
+                {metricKey !== "visitor-context" ? (
+                  <div>
+                    <dt>{metricKey === "contextual-overview" || metricKey === "residential-harm" ? "Personal-harm records in window" : "Recorded incidents"}</dt>
+                    <dd>{selectedMetric.count?.toLocaleString("en-GB") ?? "—"}</dd>
+                  </div>
+                ) : null}
                 {selectedBaseMetric?.population ? (
                   <div>
                     <dt>Registered residents</dt>
