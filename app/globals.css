@@ -222,3 +222,8 @@
 .map-selection-actions{display:grid;gap:7px}
 .map-selection-compare{display:block;border:1px solid var(--ink);color:var(--ink);text-decoration:none;padding:9px 12px;font-size:10px;font-weight:800;text-align:center}
 .map-selection-compare:hover{background:var(--ink);color:#fff}
+
+
+.map-signal-definition{min-height:48px;border:1px solid var(--ink);background:rgba(34,95,134,.08);padding:8px 12px;display:flex;flex-direction:column;justify-content:center;gap:2px}
+.map-signal-definition strong{font-size:11px}
+.map-signal-definition small{font-size:9px;color:var(--muted);line-height:1.35}
