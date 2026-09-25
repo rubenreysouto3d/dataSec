@@ -131,6 +131,17 @@ export type CityActivityContext = {
   openHostelry: number;
 };
 
+export type CitySafetySignal = {
+  areaId: string;
+  monthStart: string;
+  monthEnd: string;
+  months: number;
+  personalHarmCount: number;
+  averageMonthlyCount: number;
+  personalHarmPer10k: number | null;
+  residentPercentile: number | null;
+};
+
 export type CityMapMetric = {
   areaId: string;
   citySlug: CitySlug;
@@ -427,6 +438,100 @@ export async function getCityMapMetrics(
       violencePropertyResidentPercentile: numberOrNull(row.violence_property_resident_percentile),
       theftResidentPercentile: numberOrNull(row.theft_resident_percentile),
     }));
+}
+
+const MADRID_PERSONAL_HARM_METRICS = [
+  "madrid-dispatch-amenazas-y-atentados-terroristas",
+  "madrid-dispatch-atentado-agresion-a-empleado-publico",
+  "madrid-dispatch-fallecidos-por-delito-o-causa-desconocida",
+  "madrid-dispatch-reyertas-agresiones",
+  "madrid-dispatch-robos-con-violencia-intimidacion",
+  "madrid-dispatch-violencia-de-genero-y-familiar",
+] as const;
+
+function monthOffset(month: string, delta: number) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const date = new Date(Date.UTC(year, monthNumber - 1 + delta, 1));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+export async function getCitySafetySignals(
+  citySlug: CitySlug,
+  areaIds: string[],
+  mapMetrics: CityMapMetric[],
+): Promise<CitySafetySignal[]> {
+  if (citySlug !== "madrid" || !areaIds.length || !mapMetrics.length) return [];
+
+  const latestMonth = mapMetrics.reduce(
+    (latest, metric) => (!latest || metric.month > latest ? metric.month : latest),
+    "",
+  );
+  if (!latestMonth) return [];
+
+  const firstMonth = monthOffset(latestMonth, -5);
+  const rows = await rest<Array<{
+    area_id: string;
+    metric_slug: string;
+    period_start: string;
+    value: number | string;
+  }>>("observations", {
+    select: "area_id,metric_slug,period_start,value",
+    source_slug: "eq.madrid-police-dispatch-incidents",
+    metric_slug: `in.(${MADRID_PERSONAL_HARM_METRICS.join(",")})`,
+    period_start: `gte.${firstMonth}-01`,
+    order: "period_start.asc,area_id.asc",
+    limit: "10000",
+  });
+
+  const included = new Set(areaIds);
+  const populationByArea = new Map(mapMetrics.map((metric) => [metric.areaId, metric.population]));
+  const totals = new Map<string, number>();
+  const months = new Set<string>();
+
+  for (const row of rows) {
+    if (!included.has(row.area_id)) continue;
+    const month = row.period_start.slice(0, 7);
+    if (month < firstMonth || month > latestMonth) continue;
+    months.add(month);
+    totals.set(row.area_id, (totals.get(row.area_id) ?? 0) + Number(row.value));
+  }
+
+  const monthCount = Math.max(months.size, 1);
+  const base = areaIds.map((areaId) => {
+    const personalHarmCount = totals.get(areaId) ?? 0;
+    const averageMonthlyCount = personalHarmCount / monthCount;
+    const population = populationByArea.get(areaId);
+    const personalHarmPer10k =
+      population && population > 0 ? (averageMonthlyCount * 10000) / population : null;
+    return {
+      areaId,
+      monthStart: firstMonth,
+      monthEnd: latestMonth,
+      months: months.size,
+      personalHarmCount,
+      averageMonthlyCount,
+      personalHarmPer10k,
+      residentPercentile: null as number | null,
+    };
+  });
+
+  const ranked = base
+    .filter((item) => item.personalHarmPer10k !== null && Number.isFinite(item.personalHarmPer10k))
+    .sort((a, b) => (a.personalHarmPer10k ?? 0) - (b.personalHarmPer10k ?? 0));
+  const denominator = Math.max(ranked.length - 1, 1);
+  const firstRank = new Map<number, number>();
+  ranked.forEach((item, index) => {
+    const value = item.personalHarmPer10k ?? 0;
+    if (!firstRank.has(value)) firstRank.set(value, index / denominator);
+  });
+
+  return base.map((item) => ({
+    ...item,
+    residentPercentile:
+      item.personalHarmPer10k === null
+        ? null
+        : firstRank.get(item.personalHarmPer10k) ?? null,
+  }));
 }
 
 export async function getCityActivityContexts(areaIds: string[]): Promise<CityActivityContext[]> {
