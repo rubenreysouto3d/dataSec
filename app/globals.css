@@ -1181,3 +1181,185 @@
   .search-page{padding:30px 16px 60px}
   .search-page h1{font-size:46px}
 }
+
+
+/* =========================================================
+   Minimal information layer
+   ========================================================= */
+
+.home-mode-hint{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-top:18px;
+}
+.home-mode-hint span{
+  padding:7px 9px;
+  border:1px solid var(--line);
+  color:var(--muted);
+  font-size:9px;
+}
+.home-mode-hint strong{
+  color:var(--ink);
+  font-size:10px;
+}
+.home-cities{padding-top:48px}
+.home-city-card{display:flex;min-height:220px;flex-direction:column}
+.home-city-meta{margin-top:auto}
+.home-section-head{margin-bottom:18px}
+.home-section-head h2{font-size:38px}
+.home-hero>p{max-width:520px;margin-top:20px;margin-bottom:18px}
+.home-city-top h3{font-size:38px}
+
+/* City map: mode first, map second, explanation on demand */
+.map-audience-switch{
+  grid-template-columns:auto minmax(0,560px)!important;
+  justify-content:start;
+  gap:14px!important;
+  padding:12px 16px!important;
+}
+.map-audience-label{
+  display:flex;
+  align-items:center;
+}
+.map-audience-switch>div:first-child span{
+  font-size:8px;
+  white-space:nowrap;
+}
+.map-audience-switch>div:first-child strong{display:none}
+.map-audience-buttons{gap:6px}
+.map-audience-buttons button{
+  min-height:44px;
+  padding:7px 11px;
+}
+.map-audience-buttons strong{font-size:11px}
+.map-audience-buttons small{
+  margin-top:1px;
+  font-size:8px;
+  white-space:nowrap;
+}
+.map-mode-bar{
+  display:flex;
+  align-items:end;
+  justify-content:space-between;
+  gap:18px;
+  padding:14px 16px 12px;
+  border-bottom:1px solid var(--line);
+}
+.map-mode-bar>div>span{
+  display:block;
+  margin-bottom:3px;
+  color:var(--muted);
+  font-size:8px;
+  font-weight:900;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.map-mode-bar h2{
+  margin:0;
+  font-family:Georgia,serif;
+  font-size:26px;
+  font-weight:400;
+}
+.map-mode-bar>strong{
+  padding-bottom:3px;
+  font-size:9px;
+  font-weight:800;
+  color:var(--muted);
+  white-space:nowrap;
+}
+.map-current-view-compact{
+  display:flex!important;
+  gap:8px!important;
+  padding:8px 16px!important;
+}
+.map-current-view-compact strong{font-size:9px}
+.map-current-view-compact span{font-size:9px}
+.map-advanced-controls summary{
+  min-height:42px;
+  padding:11px 16px!important;
+}
+.map-advanced-controls summary span{font-size:10px}
+.map-advanced-controls summary small{font-size:8px}
+.map-legend-compact{
+  margin:10px 16px 0!important;
+}
+.map-legend-compact .map-legend-bands{
+  gap:2px;
+}
+.map-legend-compact .map-legend-bands i{
+  height:9px;
+  border:0;
+}
+.map-legend-compact .map-legend-bands span{
+  margin-top:0;
+  font-size:8px;
+}
+.map-legend-compact .map-legend-bands>div:nth-child(2) span,
+.map-legend-compact .map-legend-bands>div:nth-child(4) span{
+  display:none;
+}
+.map-explain{
+  margin:9px 16px 14px;
+  border-top:1px solid var(--line);
+}
+.map-explain summary{
+  padding:10px 0 6px;
+  cursor:pointer;
+  color:var(--muted);
+  font-size:9px;
+  font-weight:800;
+}
+.map-explain p{
+  max-width:760px;
+  margin:5px 0;
+  color:var(--muted);
+  font-size:9px;
+  line-height:1.45;
+}
+.map-explain small{
+  display:block;
+  max-width:760px;
+  color:var(--muted);
+  font-size:8px;
+  line-height:1.4;
+}
+.map-empty-detail{padding:22px 20px}
+.map-empty-detail h3{font-size:26px}
+.map-empty-detail>p{font-size:10px}
+.map-empty-example{display:none}
+.city-intro-clean{padding-bottom:18px}
+.city-intro-clean .eyebrow{margin-bottom:7px}
+.city-map-section{margin-top:4px}
+.city-quick-meta span{padding:6px 8px}
+
+/* Keep the actual map visually dominant. */
+.interactive-city-map{
+  height:min(74vh,760px);
+  min-height:560px;
+}
+.map-detail-panel .map-selection-card,
+.map-empty-detail{
+  min-height:560px;
+}
+
+@media(max-width:800px){
+  .home-mode-hint{margin-top:14px}
+  .home-cities{padding-top:34px}
+  .map-audience-switch{
+    grid-template-columns:1fr!important;
+    gap:6px!important;
+  }
+  .map-audience-label{display:none}
+  .map-audience-buttons button{min-height:46px}
+  .map-audience-buttons small{white-space:normal}
+  .map-mode-bar{align-items:start;padding:12px 14px}
+  .map-mode-bar h2{font-size:23px}
+  .map-mode-bar>strong{font-size:8px}
+  .map-current-view-compact{padding:7px 14px!important}
+  .map-current-view-compact span{margin-top:0!important}
+  .map-legend-compact{margin-left:14px!important;margin-right:14px!important}
+  .map-explain{margin-left:14px;margin-right:14px}
+  .interactive-city-map{min-height:500px}
+  .map-detail-panel .map-selection-card,.map-empty-detail{min-height:0}
+}
