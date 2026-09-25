@@ -300,12 +300,10 @@ def fetch_neighbourhoods(month: str) -> tuple[list[dict[str, object]], str]:
     return areas, checksum
 
 
-def fetch_ward_borough_lookup(
+def parse_ward_borough_lookup(
+    blob: bytes,
     areas: list[dict[str, object]],
-) -> tuple[dict[str, dict[str, str]], str]:
-    log(f"Downloading ONS ward-to-borough lookup: {ONS_WARD_LAD_URL}")
-    blob = request_bytes(ONS_WARD_LAD_URL, attempts=4)
-    checksum = hashlib.sha256(blob).hexdigest()
+) -> dict[str, dict[str, str]]:
     text = blob.decode("utf-8-sig")
     reader = csv.DictReader(io.StringIO(text))
 
@@ -352,6 +350,17 @@ def fetch_ward_borough_lookup(
         raise RuntimeError(
             f"Expected {len(current_codes)} London ward/LAD mappings, got {len(lookup)}"
         )
+
+    return lookup
+
+
+def fetch_ward_borough_lookup(
+    areas: list[dict[str, object]],
+) -> tuple[dict[str, dict[str, str]], str]:
+    log(f"Downloading ONS ward-to-borough lookup: {ONS_WARD_LAD_URL}")
+    blob = request_bytes(ONS_WARD_LAD_URL, attempts=4)
+    checksum = hashlib.sha256(blob).hexdigest()
+    lookup = parse_ward_borough_lookup(blob, areas)
 
     boroughs = {item["lad_code"]: item["lad_name"] for item in lookup.values()}
     if not 30 <= len(boroughs) <= 33:
