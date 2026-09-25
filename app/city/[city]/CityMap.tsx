@@ -110,15 +110,30 @@ function metricForLayer(
   safetySignal?: CitySafetySignal,
 ) {
   if (layer === "contextual-overview") {
+    const hasResidentValue =
+      metric?.violencePropertyResidentPercentile !== null &&
+      metric?.violencePropertyResidentPercentile !== undefined &&
+      metric?.violencePropertyPer10k !== null &&
+      metric?.violencePropertyPer10k !== undefined;
     const fallbackPercentile =
       metric?.violencePropertyResidentPercentile ??
       metric?.violencePropertyDensityPercentile ??
       null;
     return {
       percentile: safetySignal?.contextualConcernPercentile ?? fallbackPercentile,
-      value: null,
+      value: safetySignal?.contextualConcernPercentile !== null &&
+        safetySignal?.contextualConcernPercentile !== undefined
+        ? null
+        : hasResidentValue
+          ? metric?.violencePropertyPer10k ?? null
+          : metric?.violencePropertyPerKm2 ?? null,
       count: safetySignal?.personalHarmCount ?? metric?.violencePropertyCount ?? null,
-      unit: "",
+      unit: safetySignal?.contextualConcernPercentile !== null &&
+        safetySignal?.contextualConcernPercentile !== undefined
+        ? ""
+        : hasResidentValue
+          ? "/10k residents"
+          : "/km²",
     };
   }
   if (layer === "visitor-context") {
@@ -332,11 +347,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
     (signal) => signal.months >= 3 && signal.contextualConcernPercentile !== null,
   );
   const [audience, setAudience] = useState<AudienceKey>("resident");
-  const [layer, setLayer] = useState<LayerKey>(() => {
-    if (citySlug === "madrid" && hasContextualOverview) return "contextual-overview";
-    if (hasResidentLayer) return "violence-property-resident";
-    return "violence-property";
-  });
+  const [layer, setLayer] = useState<LayerKey>("contextual-overview");
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
   const [areaSearch, setAreaSearch] = useState("");
 
@@ -474,11 +485,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
       setLayer("visitor-context");
       return;
     }
-    if (citySlug === "madrid" && hasContextualOverview) {
-      setLayer("contextual-overview");
-      return;
-    }
-    setLayer(hasResidentLayer ? "violence-property-resident" : "violence-property");
+    setLayer("contextual-overview");
   }
 
   function chooseMetric(nextMetric: MetricKey) {
@@ -732,13 +739,10 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
   }, [mapReady, selectedAreaId]);
 
   const metricOptions: Array<{ key: MetricKey; label: string }> = [
-    ...(citySlug === "madrid" && hasReliableSafetySignal
-      ? [{ key: "residential-harm" as MetricKey, label: `Personal harm · ${safetyWindowLabel}` }]
-      : []),
     { key: "violence-property", label: "Violence + property" },
     { key: "theft", label: "Theft + robbery" },
     { key: "crime-related", label: "All crime-related" },
-    { key: "activity", label: citySlug === "madrid" ? "All police activity" : "All source activity" },
+    { key: "activity", label: "All source activity" },
   ];
 
   return (
@@ -812,11 +816,21 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
           {metricKey === "contextual-overview" ? (
             <>
               <div className="map-signal-definition map-overview-definition">
-                <strong>Two independent official signals</strong>
-                <small>50% neighbourhood harm position · 50% district night-safety perception</small>
+                <strong>Resident context</strong>
+                <small>
+                  {citySlug === "madrid" && hasContextualOverview
+                    ? "50% neighbourhood harm position · 50% district night-safety perception"
+                    : hasResidentLayer
+                      ? "resident-normalised violence + property context"
+                      : "best available official violence + property context"}
+                </small>
               </div>
               <p className="map-control-help">
-                This separates persistent residential concern from central activity hotspots. Survey perception is district-level, not neighbourhood-level.
+                {citySlug === "madrid" && hasContextualOverview
+                  ? "Madrid adds resident perception to six-month personal-harm data. Survey perception is district-level, not neighbourhood-level."
+                  : hasResidentLayer
+                    ? "Uses the same Resident filter as every city, normalised by registered residents where population coverage is sufficient."
+                    : "The Resident filter remains available, but this city currently lacks enough population coverage for a resident denominator."}
               </p>
             </>
           ) : metricKey === "visitor-context" ? (
@@ -980,14 +994,18 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
                 <strong>{relativeBand(selectedMetric.percentile)}</strong>
                 <p>
                   {metricKey === "contextual-overview"
-                    ? "Residential context from recorded personal harm and resident night-safety perception."
+                    ? citySlug === "madrid" && selectedSafetySignal?.contextualConcernPercentile !== null &&
+                      selectedSafetySignal?.contextualConcernPercentile !== undefined
+                      ? "Residential context from recorded personal harm and resident night-safety perception."
+                      : "Residential context from the best comparable official resident-normalised signal available."
                     : metricKey === "visitor-context"
                       ? "Visitor-oriented position from theft/robbery and violence/property concentration."
                       : medianComparison(selectedMetric.value, cityMedian)}
                 </p>
               </div>
 
-              {metricKey === "contextual-overview" && selectedSafetySignal ? (
+              {metricKey === "contextual-overview" && selectedSafetySignal?.contextualConcernPercentile !== null &&
+              selectedSafetySignal?.contextualConcernPercentile !== undefined ? (
                 <div className="map-overview-components">
                   <div>
                     <span>Recorded personal harm</span>
@@ -1045,7 +1063,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
               <p className="map-percentile-copy">
                 {selectedPercentile !== null
                   ? metricKey === "contextual-overview"
-                    ? `This residential context is higher-concern than about ${selectedPercentile}% of Madrid neighbourhoods.`
+                    ? `This residential context is higher-concern than about ${selectedPercentile}% of ${cityName} areas.`
                     : metricKey === "visitor-context"
                       ? `This visitor-oriented signal is higher than about ${selectedPercentile}% of ${cityName} areas.`
                       : `About ${selectedPercentile}% of ${cityName} areas recorded a lower value for this exact metric.`
