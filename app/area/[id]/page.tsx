@@ -6,7 +6,6 @@ import { areaIdFromPath, areaPathId } from "@/lib/area-route";
 import { buildVisitorPercentileMap, CITY_FILTER_METHODS } from "@/lib/map-filters";
 import {
   areaTypeLabel,
-  dataLabel,
   getAreaContext,
   getAreaProfile,
   getBoundaryRings,
@@ -131,8 +130,6 @@ export default async function AreaPage({ params }: Props) {
   const trend = totals.length < 2 || first === 0 ? null : Math.round(((last - first) / first) * 100);
   const max = Math.max(...totals.map((item) => item.total), 1);
   const path = boundaryPath(boundary.rings);
-  const cityContext = area.citySlug === "london" ? "London police neighbourhoods" : "Madrid municipal neighbourhoods";
-  const densityPosition = context ? Math.round(context.densityPercentile * 100) : null;
   const topShare = top[0] && latest.total > 0 ? Math.round((top[0].count / latest.total) * 100) : null;
   const cityMetric = cityMapMetrics.find((item) => item.areaId === area.id);
   const safetySignal = safetySignals.find((item) => item.areaId === area.id);
@@ -200,56 +197,30 @@ export default async function AreaPage({ params }: Props) {
         </article>
       </section>
 
-      <section className="area-glance">
-        <div className="area-glance-title">
-          <span>AT A GLANCE</span>
-          <h2>What stands out here?</h2>
-        </div>
+      <section className="area-key-facts">
         <article>
-          <span>Recorded density</span>
-          <strong>{densityBand(context?.densityPercentile)}</strong>
-          <p>
-            {context && densityPosition !== null
-              ? `About ${densityPosition}% of ${cityContext} recorded a lower all-source density in the same snapshot.`
-              : "City-relative context is unavailable for this snapshot."}
-          </p>
-        </article>
-        <article>
-          <span>Recent movement</span>
-          <strong>{movementCopy(trend)}</strong>
-          <p>Based only on the {totals.length} stored monthly snapshots currently available.</p>
-        </article>
-        <article>
-          <span>Largest category</span>
-          <strong>{top[0]?.label ?? "No category data"}</strong>
-          <p>
-            {top[0]
-              ? `${top[0].count.toLocaleString("en-GB")} records${topShare !== null ? ` · about ${topShare}% of this snapshot` : ""}.`
-              : "No category mix is available."}
-          </p>
-        </article>
-      </section>
-
-      <section className="stat-strip">
-        <article>
-          <span>{dataLabel(area.citySlug)}</span>
+          <span>LATEST SNAPSHOT</span>
           <strong>{latest.total.toLocaleString("en-GB")}</strong>
-          <small>{monthLabel(latest.month)}</small>
+          <small>{monthLabel(latest.month)} recorded source incidents</small>
         </article>
         <article>
-          <span>Recorded density</span>
-          <strong>{context ? `${Math.round(context.incidentsPerKm2).toLocaleString("en-GB")}/km²` : "—"}</strong>
-          <small>{context ? densityBand(context.densityPercentile) : "Context unavailable"}</small>
+          <span>RELATIVE DENSITY</span>
+          <strong>{densityBand(context?.densityPercentile)}</strong>
+          <small>{context ? `${Math.round(context.incidentsPerKm2).toLocaleString("en-GB")}/km²` : "Context unavailable"}</small>
         </article>
         <article>
-          <span>{totals.length >= 2 ? `${totals.length}-month movement` : "Trend history"}</span>
-          <strong>{trend === null ? "—" : `${trend > 0 ? "+" : ""}${trend}%`}</strong>
-          <small>{totals.length >= 2 ? "Not a risk score" : "Builds with each source ingest"}</small>
+          <span>RECENT MOVEMENT</span>
+          <strong>{trend === null ? "Building history" : `${trend > 0 ? "+" : ""}${trend}%`}</strong>
+          <small>{movementCopy(trend)}</small>
         </article>
         <article>
-          <span>Largest category</span>
-          <strong>{top[0]?.label ?? "—"}</strong>
-          <small>{top[0]?.count.toLocaleString("en-GB") ?? 0} incidents</small>
+          <span>LARGEST CATEGORY</span>
+          <strong>{top[0]?.label ?? "No category data"}</strong>
+          <small>
+            {top[0]
+              ? `${top[0].count.toLocaleString("en-GB")} records${topShare !== null ? ` · ${topShare}% of snapshot` : ""}`
+              : "No category mix available"}
+          </small>
         </article>
       </section>
 
@@ -302,8 +273,11 @@ export default async function AreaPage({ params }: Props) {
         </section>
       </div>
 
-      <section className="source-box">
-        <div><div className="eyebrow">Source & limitations</div><h2>What this page actually says</h2></div>
+      <details className="area-data-details">
+        <summary>
+          <span>About the data for {area.name}</span>
+          <small>Source, interpretation and limitations</small>
+        </summary>
         <div>
           {area.citySlug === "london" ? (
             <>
@@ -325,11 +299,11 @@ export default async function AreaPage({ params }: Props) {
             </>
           )}
           <p>
-            dataSec deliberately keeps each city&apos;s official definitions separate instead of forcing unlike datasets into one Europe-wide score.
+            Resident and Visitor use the same global filters as the city map. The underlying official implementation is documented per city rather than pretending different source systems are identical.
           </p>
           <a href={area.sourceUrl} target="_blank" rel="noreferrer">Open the official source ↗</a>
         </div>
-      </section>
+      </details>
     </main>
   );
 }
