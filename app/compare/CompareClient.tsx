@@ -3,31 +3,124 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { areaDisplayName, type Neighbourhood } from "@/lib/data";
+import {
+  areaDisplayName,
+  type CityMapMetric,
+  type CitySafetySignal,
+  type Neighbourhood,
+} from "@/lib/data";
+import {
+  buildVisitorPercentileMap,
+} from "@/lib/map-filters";
+import {
+  bandMode,
+  bandNumber,
+  isMapLayerKey,
+  mapLayerLabel,
+  metricForLayer,
+  metricKeyForLayer,
+  relativeBand,
+  type MapLayerKey,
+  type MapLayerMetric,
+} from "@/lib/map-view";
 import { getCompareProfile, type CompareProfile } from "@/lib/public-data-client";
 import { areaHref } from "@/lib/area-route";
 
 type Props = {
   areas: Neighbourhood[];
+  metrics: CityMapMetric[];
+  safetySignals: CitySafetySignal[];
   sourceError: boolean;
 };
 
-export default function CompareClient({ areas, sourceError }: Props) {
+const LAYER_OPTIONS: Array<{ value: MapLayerKey; label: string }> = [
+  { value: "contextual-overview", label: "Resident context" },
+  { value: "visitor-context", label: "Visitor context" },
+  { value: "violence-property", label: "Violence + property · per km²" },
+  { value: "violence-property-resident", label: "Violence + property · per 10,000 residents" },
+  { value: "theft", label: "Theft + robbery · per km²" },
+  { value: "theft-resident", label: "Theft + robbery · per 10,000 residents" },
+  { value: "crime-related", label: "All crime-related · per km²" },
+  { value: "crime-related-resident", label: "All crime-related · per 10,000 residents" },
+  { value: "activity", label: "All source activity · per km²" },
+];
+
+function compareHref(a: string, b: string, layer: MapLayerKey) {
+  const params = new URLSearchParams();
+  if (a) params.set("a", a);
+  if (b) params.set("b", b);
+  params.set("layer", layer);
+  return `/compare?${params.toString()}`;
+}
+
+function percentileLabel(percentile: number | null) {
+  if (percentile === null || !Number.isFinite(percentile)) return "Unavailable";
+  return `${Math.round(percentile * 100)}th percentile`;
+}
+
+function formatLayerValue(metric: MapLayerMetric) {
+  if (metric.value === null || !Number.isFinite(metric.value)) return "—";
+  return `${metric.value.toLocaleString("en-GB", { maximumFractionDigits: 1 })}${metric.unit}`;
+}
+
+export default function CompareClient({
+  areas,
+  metrics,
+  safetySignals,
+  sourceError,
+}: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const a = searchParams.get("a") ?? "";
   const b = searchParams.get("b") ?? "";
+  const requestedLayer = searchParams.get("layer");
+  const layer: MapLayerKey = isMapLayerKey(requestedLayer)
+    ? requestedLayer
+    : "contextual-overview";
+
   const [left, setLeft] = useState(a);
   const [right, setRight] = useState(b);
-  const [profiles, setProfiles] = useState<[CompareProfile | null, CompareProfile | null]>([null, null]);
+  const [profiles, setProfiles] = useState<[CompareProfile | null, CompareProfile | null]>([
+    null,
+    null,
+  ]);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
 
   const byId = useMemo(() => new Map(areas.map((area) => [area.id, area])), [areas]);
+  const metricById = useMemo(
+    () => new Map(metrics.map((metric) => [metric.areaId, metric])),
+    [metrics],
+  );
+  const safetyById = useMemo(
+    () => new Map(safetySignals.map((signal) => [signal.areaId, signal])),
+    [safetySignals],
+  );
+  const visitorById = useMemo(() => {
+    const result = new Map<string, number>();
+    for (const citySlug of ["london", "madrid"] as const) {
+      const cityMetrics = metrics.filter((metric) => metric.citySlug === citySlug);
+      for (const [areaId, percentile] of buildVisitorPercentileMap(cityMetrics)) {
+        result.set(areaId, percentile);
+      }
+    }
+    return result;
+  }, [metrics]);
+
   const leftArea = byId.get(left);
   const rightArea = byId.get(right);
-  const sameCity =
-    !left || !right || leftArea?.citySlug === rightArea?.citySlug;
+  const sameCity = !left || !right || leftArea?.citySlug === rightArea?.citySlug;
+
+  const signalFor = (areaId: string) =>
+    metricForLayer(
+      metricById.get(areaId),
+      layer,
+      safetyById.get(areaId),
+      visitorById.get(areaId),
+    );
+
+  const leftSignal = left ? signalFor(left) : null;
+  const rightSignal = right ? signalFor(right) : null;
 
   useEffect(() => {
     setLeft(a);
@@ -59,7 +152,7 @@ export default function CompareClient({ areas, sourceError }: Props) {
 
   const grouped = useMemo(() => {
     const result = new Map<string, Neighbourhood[]>();
-    for (const area of areas.slice().sort((x, y) => x.name.localeCompare(y.name))) {
+    for (const area of areas.slice().sort((x, y) => areaDisplayName(x).localeCompare(areaDisplayName(y)))) {
       const bucket = result.get(area.cityName) ?? [];
       bucket.push(area);
       result.set(area.cityName, bucket);
@@ -70,7 +163,11 @@ export default function CompareClient({ areas, sourceError }: Props) {
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!left || !right || left === right || !sameCity) return;
-    router.push(`/compare?a=${encodeURIComponent(left)}&b=${encodeURIComponent(right)}`);
+    router.push(compareHref(left, right, layer));
+  }
+
+  function changeLayer(nextLayer: MapLayerKey) {
+    router.push(compareHref(left, right, nextLayer));
   }
 
   if (sourceError) {
@@ -109,12 +206,29 @@ export default function CompareClient({ areas, sourceError }: Props) {
     setLeft(right);
     setRight(left);
     if (left && right) {
-      router.push(`/compare?a=${encodeURIComponent(right)}&b=${encodeURIComponent(left)}`);
+      router.push(compareHref(right, left, layer));
     }
   }
 
   return (
     <>
+      <div className="compare-view-control">
+        <label>
+          <span>Compare using</span>
+          <select
+            value={layer}
+            onChange={(event) => changeLayer(event.target.value as MapLayerKey)}
+          >
+            {LAYER_OPTIONS.map((option) => (
+              <option value={option.value} key={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </label>
+        <small>
+          Uses the same city-local signal as the map. Changing this control never creates a cross-city score.
+        </small>
+      </div>
+
       <form className="compare-form" onSubmit={submit}>
         <label>
           <span>Area A</span>
@@ -146,53 +260,47 @@ export default function CompareClient({ areas, sourceError }: Props) {
       </form>
 
       {left === right && left ? <div className="notice">Choose two different areas.</div> : null}
-      {!left ? (
-        <div className="compare-start-hint">Choose Area A first.</div>
-      ) : null}
+      {!left ? <div className="compare-start-hint">Choose Area A first.</div> : null}
       {loading ? <div className="notice">Loading official comparison…</div> : null}
       {failed ? <div className="notice">The comparison data could not be loaded.</div> : null}
 
-      {!loading && profiles[0] && profiles[1] ? (
+      {!loading &&
+      profiles[0] &&
+      profiles[1] &&
+      leftSignal &&
+      rightSignal &&
+      leftArea &&
+      rightArea ? (
         <Comparison
           left={profiles[0]}
           right={profiles[1]}
-          leftLabel={leftArea ? areaDisplayName(leftArea) : profiles[0].name}
-          rightLabel={rightArea ? areaDisplayName(rightArea) : profiles[1].name}
+          leftSignal={leftSignal}
+          rightSignal={rightSignal}
+          leftLabel={areaDisplayName(leftArea)}
+          rightLabel={areaDisplayName(rightArea)}
+          layer={layer}
         />
       ) : null}
     </>
   );
 }
 
-function densityBand(percentile: number) {
-  if (percentile < 0.2) return "Among the lowest recorded densities";
-  if (percentile < 0.4) return "Lower than most areas";
-  if (percentile < 0.6) return "Around the city middle";
-  if (percentile < 0.8) return "Higher than most areas";
-  return "Among the highest recorded densities";
-}
-
-function differenceCopy(leftValue: number, rightValue: number, unit: string) {
-  if (!Number.isFinite(leftValue) || !Number.isFinite(rightValue)) return "Comparison unavailable";
-  const high = Math.max(leftValue, rightValue);
-  const low = Math.min(leftValue, rightValue);
-  if (high === 0) return "Same recorded value";
-  if (low === 0) return `${high.toLocaleString("en-GB")} ${unit} vs 0`;
-  const pct = Math.round(((high - low) / low) * 100);
-  if (pct < 5) return "Very similar recorded values";
-  return `${pct}% higher on this measure`;
-}
-
 function Comparison({
   left,
   right,
+  leftSignal,
+  rightSignal,
   leftLabel,
   rightLabel,
+  layer,
 }: {
   left: CompareProfile;
   right: CompareProfile;
+  leftSignal: MapLayerMetric;
+  rightSignal: MapLayerMetric;
   leftLabel: string;
   rightLabel: string;
+  layer: MapLayerKey;
 }) {
   const categories = Array.from(new Set([
     ...left.categories.slice(0, 7).map((item) => item.slug),
@@ -207,16 +315,21 @@ function Comparison({
   const valueFor = (profile: CompareProfile, slug: string) =>
     profile.categories.find((item) => item.slug === slug)?.count ?? 0;
 
-  const densityContext =
-    left.citySlug === "london"
-      ? "police neighbourhoods"
-      : "municipal neighbourhoods";
-
-  const leftDensityPct = Math.round(left.densityPercentile * 100);
-  const rightDensityPct = Math.round(right.densityPercentile * 100);
-  const densityHigher = left.incidentsPerKm2 === right.incidentsPerKm2
-    ? null
-    : left.incidentsPerKm2 > right.incidentsPerKm2 ? leftLabel : rightLabel;
+  const mode = bandMode(metricKeyForLayer(layer));
+  const leftPercentile = leftSignal.percentile;
+  const rightPercentile = rightSignal.percentile;
+  const leftPct = leftPercentile === null ? null : Math.round(leftPercentile * 100);
+  const rightPct = rightPercentile === null ? null : Math.round(rightPercentile * 100);
+  const sameRelativePosition =
+    leftPercentile !== null &&
+    rightPercentile !== null &&
+    Math.abs(leftPercentile - rightPercentile) < 0.01;
+  const higherLabel =
+    leftPercentile === null || rightPercentile === null || sameRelativePosition
+      ? null
+      : leftPercentile > rightPercentile
+        ? leftLabel
+        : rightLabel;
 
   return (
     <section className="compare-results">
@@ -234,44 +347,68 @@ function Comparison({
       </div>
 
       <div className="compare-takeaway compare-takeaway-clean">
-        <span>QUICK READ</span>
+        <span>{mapLayerLabel(layer).toUpperCase()}</span>
         <div>
           <strong>
-            {densityHigher
-              ? `${densityHigher} has the higher recorded density`
-              : "Both areas have the same recorded density"}
+            {higherLabel
+              ? `${higherLabel} has the higher relative signal on this view`
+              : sameRelativePosition
+                ? "Both areas are at almost the same relative position"
+                : "A relative comparison is unavailable for one of these areas"}
           </strong>
-          <p>{differenceCopy(left.incidentsPerKm2, right.incidentsPerKm2, "incidents/km²")}.</p>
+          <p>
+            This compares the same {mapLayerLabel(layer).toLowerCase()} signal used on the {left.cityName} map.
+          </p>
         </div>
       </div>
 
       <div className="compare-metrics">
-        <Metric label="Recorded incidents" left={left.total.toLocaleString("en-GB")} right={right.total.toLocaleString("en-GB")} />
-        <Metric label="Area size" left={`${left.areaKm2.toFixed(2)} km²`} right={`${right.areaKm2.toFixed(2)} km²`} />
-        <Metric label="Recorded density" left={`${Math.round(left.incidentsPerKm2).toLocaleString("en-GB")}/km²`} right={`${Math.round(right.incidentsPerKm2).toLocaleString("en-GB")}/km²`} />
+        <Metric
+          label="Local level"
+          left={bandNumber(leftPercentile) ? `Level ${bandNumber(leftPercentile)}/5` : "—"}
+          right={bandNumber(rightPercentile) ? `Level ${bandNumber(rightPercentile)}/5` : "—"}
+        />
+        <Metric
+          label="City position"
+          left={percentileLabel(leftPercentile)}
+          right={percentileLabel(rightPercentile)}
+        />
+        {(leftSignal.value !== null || rightSignal.value !== null) ? (
+          <Metric
+            label="Recorded value"
+            left={formatLayerValue(leftSignal)}
+            right={formatLayerValue(rightSignal)}
+          />
+        ) : null}
       </div>
 
       <div className="compare-position">
         <article>
           <span>{leftLabel}</span>
-          <strong>{densityBand(left.densityPercentile)}</strong>
-          <div className="compare-position-track"><i style={{ width: `${leftDensityPct}%` }} /></div>
+          <strong>{relativeBand(leftPercentile, mode)}</strong>
+          <p>{leftPct === null ? "No local percentile" : `${leftPct}th percentile within ${left.cityName}`}</p>
+          <div className="compare-position-track">
+            <i style={{ width: `${leftPct ?? 0}%` }} />
+          </div>
         </article>
         <article>
           <span>{rightLabel}</span>
-          <strong>{densityBand(right.densityPercentile)}</strong>
-          <div className="compare-position-track"><i style={{ width: `${rightDensityPct}%` }} /></div>
+          <strong>{relativeBand(rightPercentile, mode)}</strong>
+          <p>{rightPct === null ? "No local percentile" : `${rightPct}th percentile within ${right.cityName}`}</p>
+          <div className="compare-position-track">
+            <i style={{ width: `${rightPct ?? 0}%` }} />
+          </div>
         </article>
       </div>
 
       <details className="compare-details">
         <summary>
-          <span>Detailed incident mix</span>
-          <small>Compare source categories side by side</small>
+          <span>Detailed source incident mix</span>
+          <small>Raw recorded categories, separate from the selected comparison signal</small>
         </summary>
         <div className="compare-category-table">
           <div className="compare-row compare-row-head">
-            <span>{leftLabel}</span><strong>Incident mix · {left.month}</strong><span>{rightLabel}</span>
+            <span>{leftLabel}</span><strong>Source mix · {left.month}</strong><span>{rightLabel}</span>
           </div>
           {categories.map((slug) => (
             <div className="compare-row" key={slug}>
@@ -281,15 +418,13 @@ function Comparison({
             </div>
           ))}
         </div>
-
-
       </details>
 
       <details className="compare-note compare-note-details">
         <summary>How to read this comparison</summary>
         <p>
-          Bars compare recorded source incidents per km² across {left.cityName} {densityContext} for the same snapshot.
-          Higher does not automatically mean more dangerous.
+          The primary comparison above uses the same {mapLayerLabel(layer).toLowerCase()} definition as the city map.
+          Percentiles and levels are local to {left.cityName}; they are not a Europe-wide safety score and do not predict personal risk.
         </p>
       </details>
     </section>

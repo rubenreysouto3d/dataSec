@@ -11,8 +11,19 @@ import {
   MAP_AUDIENCES,
   MAP_COLOR_BANDS,
   type MapAudienceKey,
-  type MapAdvancedFilterKey,
 } from "@/lib/map-filters";
+import {
+  bandMode,
+  bandNumber,
+  layerFor,
+  metricForLayer,
+  metricKeyForLayer,
+  normalizationForLayer,
+  relativeBand,
+  type MapLayerKey as LayerKey,
+  type MapMetricKey as MetricKey,
+  type MapNormalizationKey as NormalizationKey,
+} from "@/lib/map-view";
 import type {
   CityActivityContext,
   CityBoundary,
@@ -32,19 +43,6 @@ type Props = {
 };
 
 type AudienceKey = MapAudienceKey | "advanced";
-type MetricKey = "contextual-overview" | "visitor-context" | "residential-harm" | MapAdvancedFilterKey;
-type NormalizationKey = "density" | "resident";
-type LayerKey =
-  | "contextual-overview"
-  | "visitor-context"
-  | "residential-harm"
-  | "violence-property"
-  | "theft"
-  | "crime-related"
-  | "activity"
-  | "violence-property-resident"
-  | "theft-resident"
-  | "crime-related-resident";
 
 type Bounds = [[number, number], [number, number]];
 
@@ -111,128 +109,6 @@ function methodForMetric(
   return methods.activityMethod;
 }
 
-function metricKeyForLayer(layer: LayerKey): MetricKey {
-  return layer.replace("-resident", "") as MetricKey;
-}
-
-function normalizationForLayer(layer: LayerKey): NormalizationKey {
-  return layer.endsWith("-resident") ? "resident" : "density";
-}
-
-function layerFor(metric: MetricKey, normalization: NormalizationKey): LayerKey {
-  if (metric === "contextual-overview") return "contextual-overview";
-  if (metric === "visitor-context") return "visitor-context";
-  if (metric === "residential-harm") return "residential-harm";
-  if (normalization === "resident" && metric !== "activity") {
-    return `${metric}-resident` as LayerKey;
-  }
-  return metric;
-}
-
-function metricForLayer(
-  metric: CityMapMetric | undefined,
-  layer: LayerKey,
-  safetySignal?: CitySafetySignal,
-  visitorPercentile?: number | null,
-) {
-  if (layer === "contextual-overview") {
-    const hasResidentValue =
-      metric?.violencePropertyResidentPercentile !== null &&
-      metric?.violencePropertyResidentPercentile !== undefined &&
-      metric?.violencePropertyPer10k !== null &&
-      metric?.violencePropertyPer10k !== undefined;
-    const fallbackPercentile =
-      metric?.violencePropertyResidentPercentile ??
-      metric?.violencePropertyDensityPercentile ??
-      null;
-    return {
-      percentile: safetySignal?.contextualConcernPercentile ?? fallbackPercentile,
-      value: safetySignal?.contextualConcernPercentile !== null &&
-        safetySignal?.contextualConcernPercentile !== undefined
-        ? null
-        : hasResidentValue
-          ? metric?.violencePropertyPer10k ?? null
-          : metric?.violencePropertyPerKm2 ?? null,
-      count: safetySignal?.personalHarmCount ?? metric?.violencePropertyCount ?? null,
-      unit: safetySignal?.contextualConcernPercentile !== null &&
-        safetySignal?.contextualConcernPercentile !== undefined
-        ? ""
-        : hasResidentValue
-          ? "/10k residents"
-          : "/km²",
-    };
-  }
-  if (layer === "visitor-context") {
-    return {
-      percentile: visitorPercentile ?? null,
-      value: null,
-      count: null,
-      unit: "",
-    };
-  }
-  if (layer === "residential-harm") {
-    return {
-      percentile: safetySignal?.residentPercentile ?? null,
-      value: safetySignal?.personalHarmPer10k ?? null,
-      count: safetySignal?.personalHarmCount ?? null,
-      unit: "/10k residents / month",
-    };
-  }
-  if (!metric) return { percentile: null, value: null, count: null, unit: "" };
-
-  switch (layer) {
-    case "activity":
-      return {
-        percentile: metric.densityPercentile,
-        value: metric.incidentsPerKm2,
-        count: metric.totalIncidents,
-        unit: "/km²",
-      };
-    case "crime-related":
-      return {
-        percentile: metric.crimeRelatedDensityPercentile,
-        value: metric.crimeRelatedPerKm2,
-        count: metric.crimeRelatedCount,
-        unit: "/km²",
-      };
-    case "theft":
-      return {
-        percentile: metric.theftDensityPercentile,
-        value: metric.theftPerKm2,
-        count: metric.theftCount,
-        unit: "/km²",
-      };
-    case "violence-property-resident":
-      return {
-        percentile: metric.violencePropertyResidentPercentile,
-        value: metric.violencePropertyPer10k,
-        count: metric.violencePropertyCount,
-        unit: "/10k residents",
-      };
-    case "theft-resident":
-      return {
-        percentile: metric.theftResidentPercentile,
-        value: metric.theftPer10k,
-        count: metric.theftCount,
-        unit: "/10k residents",
-      };
-    case "crime-related-resident":
-      return {
-        percentile: metric.crimeRelatedResidentPercentile,
-        value: metric.crimeRelatedPer10k,
-        count: metric.crimeRelatedCount,
-        unit: "/10k residents",
-      };
-    default:
-      return {
-        percentile: metric.violencePropertyDensityPercentile,
-        value: metric.violencePropertyPerKm2,
-        count: metric.violencePropertyCount,
-        unit: "/km²",
-      };
-  }
-}
-
 function ensureMapLibreCss() {
   if (document.querySelector("link[data-datasec-maplibre]")) return;
   const link = document.createElement("link");
@@ -272,11 +148,6 @@ function boundaryBounds(boundary: CityBoundary): Bounds | null {
 function colorForPercentile(percentile: number | null) {
   if (percentile === null || !Number.isFinite(percentile)) return "#c8c6bf";
   return MAP_COLOR_BANDS.find((band) => percentile < band.max)?.color ?? MAP_COLOR_BANDS.at(-1)!.color;
-}
-
-function bandNumber(percentile: number | null) {
-  if (percentile === null || !Number.isFinite(percentile)) return null;
-  return Math.min(5, Math.max(1, Math.floor(percentile * 5) + 1));
 }
 
 const MAP_COLOR_STYLE = {
@@ -348,41 +219,6 @@ function formatMonth(month: string | undefined) {
   return new Intl.DateTimeFormat("en-GB", { month: "short", year: "numeric" }).format(
     new Date(Date.UTC(year, value - 1, 1)),
   );
-}
-
-function relativeBand(
-  percentile: number | null,
-  mode: "resident" | "visitor" | "recorded" = "recorded",
-) {
-  if (percentile === null || !Number.isFinite(percentile)) return "No city comparison";
-
-  if (mode === "resident") {
-    if (percentile < 0.2) return "Lowest residential concern";
-    if (percentile < 0.4) return "Lower residential concern";
-    if (percentile < 0.6) return "Around the city middle";
-    if (percentile < 0.8) return "Higher residential concern";
-    return "Highest residential concern";
-  }
-
-  if (mode === "visitor") {
-    if (percentile < 0.2) return "Lowest visitor exposure";
-    if (percentile < 0.4) return "Lower visitor exposure";
-    if (percentile < 0.6) return "Around the city middle";
-    if (percentile < 0.8) return "Higher visitor exposure";
-    return "Highest visitor exposure";
-  }
-
-  if (percentile < 0.2) return "Lowest 20% of areas";
-  if (percentile < 0.4) return "Lower than most areas";
-  if (percentile < 0.6) return "Around the city middle";
-  if (percentile < 0.8) return "Higher than most areas";
-  return "Highest 20% of areas";
-}
-
-function bandMode(metricKey: MetricKey): "resident" | "visitor" | "recorded" {
-  if (metricKey === "contextual-overview") return "resident";
-  if (metricKey === "visitor-context") return "visitor";
-  return "recorded";
 }
 
 function median(values: number[]) {
@@ -1222,7 +1058,10 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
                 <a className="map-selection-link" href={areaHref(selectedArea.id)}>
                   Details
                 </a>
-                <a className="map-selection-compare" href={`/compare?a=${encodeURIComponent(selectedArea.id)}`}>
+                <a
+                  className="map-selection-compare"
+                  href={`/compare?a=${encodeURIComponent(selectedArea.id)}&layer=${encodeURIComponent(layer)}`}
+                >
                   Compare
                 </a>
               </div>

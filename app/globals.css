@@ -2251,3 +2251,35 @@
 @media(max-width:800px){
   .site-footer-links{margin-top:10px;flex-wrap:wrap}
 }
+
+.compare-view-control{
+  display:grid;
+  grid-template-columns:minmax(260px,420px) 1fr;
+  gap:18px;
+  align-items:end;
+  margin:0 0 12px;
+  padding:14px 16px;
+  border:1px solid var(--line);
+  background:rgba(255,255,255,.18);
+}
+.compare-view-control label{display:flex;flex-direction:column;gap:7px}
+.compare-view-control label span{
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.compare-view-control select{
+  height:42px;
+  border:1px solid var(--line);
+  background:var(--panel);
+  color:var(--ink);
+  padding:0 10px;
+  font:inherit;
+  font-size:12px;
+}
+.compare-view-control small{color:var(--muted);font-size:10px;line-height:1.45}
+@media(max-width:800px){
+  .compare-view-control{grid-template-columns:1fr;align-items:start}
+}
