@@ -801,7 +801,6 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
             layout: {
               "text-field": ["to-string", ["get", "bandNumber"]],
               "text-size": 11,
-              "text-font": ["Noto Sans Regular"],
               "text-allow-overlap": false,
               "text-ignore-placement": false,
             },
@@ -1199,6 +1198,9 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
           The same scale is also encoded as levels 1–5, so colour is not the only signal. These percentiles are not comparable with another city. {" "}{currentMethod}
         </p>
       </details>
+      <p className="density-caution map-safety-disclaimer">
+        Context only — not a prediction or guarantee of personal safety. Recorded official-source data can be affected by reporting, footfall, nightlife and source methodology.
+      </p>
     </section>
   );
 }
