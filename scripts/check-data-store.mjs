@@ -19,7 +19,7 @@ const SUPABASE_PUBLISHABLE_KEY = readPublicConstant("SUPABASE_PUBLISHABLE_KEY");
 
 const CITY_RULES = {
   london: {
-    areaType: null,
+    areaType: "police_neighbourhood",
     stablePrefix: "gb-london-metropolitan:",
     maxAgeMonths: 4,
     minimumCoverage: 0.9,

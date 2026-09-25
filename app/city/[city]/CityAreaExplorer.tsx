@@ -27,7 +27,11 @@ export default function CityAreaExplorer({
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
     const result = normalized
-      ? areas.filter((area) => area.name.toLocaleLowerCase().includes(normalized))
+      ? areas.filter(
+          (area) =>
+            area.name.toLocaleLowerCase().includes(normalized) ||
+            area.parentName?.toLocaleLowerCase().includes(normalized),
+        )
       : areas.slice();
 
     result.sort((a, b) => {
@@ -78,7 +82,11 @@ export default function CityAreaExplorer({
                 <Link className="area-card" href={areaHref(area.id)} key={area.stableId}>
                   <span className="area-city">
                     {area.cityName}
-                    {duplicate ? ` · official area ${area.sourceAreaId}` : ""}
+                    {area.parentName
+                      ? ` · ${area.parentName}`
+                      : duplicate
+                        ? ` · official area ${area.sourceAreaId}`
+                        : ""}
                   </span>
                   <h3>{area.name}</h3>
                   <small className="area-context">

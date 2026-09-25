@@ -42,6 +42,11 @@ API = f"{BASE}/api"
 DATA_FORM = f"{BASE}/data/"
 FORCE = "metropolitan"
 SOURCE_SLUG = "uk-police-open-data"
+ONS_WARD_LAD_SOURCE_SLUG = "ons-ward-lad-lookup-2022"
+ONS_WARD_LAD_URL = (
+    "https://open-geography-portalx-ons.hub.arcgis.com/api/download/v1/items/"
+    "823978f94c5543fea5d59722adc2a0ea/csv?layers=0"
+)
 CITY_SLUG = "london"
 COUNTRY_CODE = "GB"
 CELL_SIZE = 0.02
@@ -295,6 +300,76 @@ def fetch_neighbourhoods(month: str) -> tuple[list[dict[str, object]], str]:
     return areas, checksum
 
 
+def parse_ward_borough_lookup(
+    blob: bytes,
+    areas: list[dict[str, object]],
+) -> dict[str, dict[str, str]]:
+    text = blob.decode("utf-8-sig")
+    reader = csv.DictReader(io.StringIO(text))
+
+    required = {"WD22CD", "WD22NM", "LAD22CD", "LAD22NM"}
+    missing = required - set(reader.fieldnames or [])
+    if missing:
+        raise RuntimeError(f"ONS ward/LAD lookup schema changed; missing: {sorted(missing)}")
+
+    current_codes = {
+        str(area["source_area_id"]).removesuffix("N")
+        for area in areas
+    }
+    lookup: dict[str, dict[str, str]] = {}
+
+    for row in reader:
+        ward_code = (row.get("WD22CD") or "").strip()
+        if ward_code not in current_codes:
+            continue
+
+        ward_name = (row.get("WD22NM") or "").strip()
+        lad_code = (row.get("LAD22CD") or "").strip()
+        lad_name = (row.get("LAD22NM") or "").strip()
+        if not ward_name or not lad_code.startswith("E09") or not lad_name:
+            raise RuntimeError(
+                f"Invalid London ward/LAD lookup row for {ward_code}: "
+                f"{ward_name!r}, {lad_code!r}, {lad_name!r}"
+            )
+        if ward_code in lookup:
+            raise RuntimeError(f"Duplicate ward code in ONS ward/LAD lookup: {ward_code}")
+
+        lookup[ward_code] = {
+            "ward_name": ward_name,
+            "lad_code": lad_code,
+            "lad_name": lad_name,
+        }
+
+    missing_codes = sorted(current_codes - set(lookup))
+    if missing_codes:
+        raise RuntimeError(
+            "ONS ward/LAD lookup does not cover current Metropolitan wards: "
+            f"{missing_codes[:20]}"
+        )
+    if len(lookup) != len(current_codes):
+        raise RuntimeError(
+            f"Expected {len(current_codes)} London ward/LAD mappings, got {len(lookup)}"
+        )
+
+    return lookup
+
+
+def fetch_ward_borough_lookup(
+    areas: list[dict[str, object]],
+) -> tuple[dict[str, dict[str, str]], str]:
+    log(f"Downloading ONS ward-to-borough lookup: {ONS_WARD_LAD_URL}")
+    blob = request_bytes(ONS_WARD_LAD_URL, attempts=4)
+    checksum = hashlib.sha256(blob).hexdigest()
+    lookup = parse_ward_borough_lookup(blob, areas)
+
+    boroughs = {item["lad_code"]: item["lad_name"] for item in lookup.values()}
+    if not 30 <= len(boroughs) <= 33:
+        raise RuntimeError(f"Implausible London borough count from ONS lookup: {len(boroughs)}")
+
+    log(f"Matched {len(lookup)} wards to {len(boroughs)} London boroughs")
+    return lookup, checksum
+
+
 def grid_cell(lon: float, lat: float) -> tuple[int, int]:
     return (math.floor(lon / CELL_SIZE), math.floor(lat / CELL_SIZE))
 
@@ -544,6 +619,8 @@ def persist(
     unmatched: int,
     checksum: str,
     boundary_checksum: str,
+    ward_borough_lookup: dict[str, dict[str, str]],
+    ward_borough_checksum: str,
 ) -> None:
     url = os.environ.get("SUPABASE_URL")
     key = os.environ.get("SUPABASE_SECRET_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
@@ -564,16 +641,28 @@ def persist(
     )
     db.upsert(
         "sources",
-        [{
-            "slug": SOURCE_SLUG,
-            "authority": "Single Online Home National Digital Team / UK Police",
-            "source_url": "https://data.police.uk/",
-            "licence": "Open Government Licence v3.0",
-            "update_frequency": "monthly",
-            "source_type": "police-recorded street-level crime",
-            "granularity": "anonymised point locations and neighbourhood policing boundaries",
-            "notes": "Locations are approximate; recorded crime is not equivalent to personal risk.",
-        }],
+        [
+            {
+                "slug": SOURCE_SLUG,
+                "authority": "Single Online Home National Digital Team / UK Police",
+                "source_url": "https://data.police.uk/",
+                "licence": "Open Government Licence v3.0",
+                "update_frequency": "monthly",
+                "source_type": "police-recorded street-level crime",
+                "granularity": "anonymised point locations and neighbourhood policing boundaries",
+                "notes": "Locations are approximate; recorded crime is not equivalent to personal risk.",
+            },
+            {
+                "slug": ONS_WARD_LAD_SOURCE_SLUG,
+                "authority": "Office for National Statistics",
+                "source_url": ONS_WARD_LAD_URL,
+                "licence": "Open Government Licence v3.0",
+                "update_frequency": "static 2022 geography lookup",
+                "source_type": "administrative geography lookup",
+                "granularity": "electoral ward to local authority district",
+                "notes": "Used only to label London police neighbourhoods with their borough/local authority.",
+            },
+        ],
         "slug",
     )
 
@@ -592,12 +681,37 @@ def persist(
                 "crime_zip_sha256": checksum,
                 "boundary_zip_sha256": boundary_checksum,
                 "boundary_model": "same_month_police_neighbourhood_archive",
+                "ward_borough_lookup_sha256": ward_borough_checksum,
+                "ward_borough_lookup_version": "December 2022",
+                "borough_count": len({item["lad_code"] for item in ward_borough_lookup.values()}),
             },
         }],
         "id",
     )
 
     try:
+        boroughs = {
+            item["lad_code"]: item["lad_name"]
+            for item in ward_borough_lookup.values()
+        }
+        borough_rows = [
+            {
+                "id": f"gb-london-borough:{lad_code}",
+                "city_slug": CITY_SLUG,
+                "source_slug": ONS_WARD_LAD_SOURCE_SLUG,
+                "source_area_id": lad_code,
+                "parent_area_id": None,
+                "area_type": "london_borough",
+                "slug": slugify(lad_name),
+                "name": lad_name,
+                "population": None,
+                "active": True,
+            }
+            for lad_code, lad_name in sorted(boroughs.items())
+        ]
+        if borough_rows:
+            db.upsert("areas", borough_rows, "id", batch=100)
+
         unmatched_ratio = unmatched / max(len(rows), 1)
         if unmatched:
             severity = "warning" if unmatched_ratio <= 0.05 else "error"
@@ -634,13 +748,17 @@ def persist(
             source_id = str(area["source_area_id"])
             area_id = f"gb-london-metropolitan:{source_id}"
             name = str(area["name"])
+            base_code = source_id.removesuffix("N")
+            borough = ward_borough_lookup.get(base_code)
+            if borough is None:
+                raise RuntimeError(f"Missing borough lookup for London area {source_id}")
             area_rows.append(
                 {
                     "id": area_id,
                     "city_slug": CITY_SLUG,
                     "source_slug": SOURCE_SLUG,
                     "source_area_id": source_id,
-                    "parent_area_id": None,
+                    "parent_area_id": f"gb-london-borough:{borough['lad_code']}",
                     "area_type": "police_neighbourhood",
                     "slug": slugify(name),
                     "name": name,
@@ -743,6 +861,7 @@ def main() -> int:
 
     categories = source_categories(month)
     areas, boundary_checksum = fetch_neighbourhoods(month)
+    ward_borough_lookup, ward_borough_checksum = fetch_ward_borough_lookup(areas)
     grid = build_grid(areas)
     log(f"Built spatial index for {len(areas)} neighbourhoods")
 
@@ -808,10 +927,23 @@ def main() -> int:
             "top_area_metric_counts": busiest,
             "crime_zip_sha256": checksum,
             "boundary_zip_sha256": boundary_checksum,
+            "ward_borough_lookup_sha256": ward_borough_checksum,
+            "boroughs": len({item["lad_code"] for item in ward_borough_lookup.values()}),
         }, indent=2))
         return 0
 
-    persist(month, rows, areas, aggregates, categories, unmatched, checksum, boundary_checksum)
+    persist(
+        month,
+        rows,
+        areas,
+        aggregates,
+        categories,
+        unmatched,
+        checksum,
+        boundary_checksum,
+        ward_borough_lookup,
+        ward_borough_checksum,
+    )
     log("Supabase ingest passed")
     return 0
 
