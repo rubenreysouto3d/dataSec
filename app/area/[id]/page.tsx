@@ -3,12 +3,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { boundaryPath } from "@/lib/boundary";
 import { areaIdFromPath, areaPathId } from "@/lib/area-route";
+import { buildVisitorPercentileMap, CITY_FILTER_METHODS } from "@/lib/map-filters";
 import {
   areaTypeLabel,
   dataLabel,
   getAreaContext,
   getAreaProfile,
   getBoundaryRings,
+  getCityMapMetrics,
+  getCitySafetySignals,
   getMonthlySummaries,
   getNeighbourhoods,
   monthLabel,
@@ -26,6 +29,17 @@ function densityBand(percentile: number | null | undefined) {
   if (percentile < 0.6) return "Around the city middle";
   if (percentile < 0.8) return "Higher than most areas";
   return "Among the highest recorded densities";
+}
+
+function signalBand(percentile: number | null | undefined) {
+  if (percentile === null || percentile === undefined || !Number.isFinite(percentile)) {
+    return "Comparison unavailable";
+  }
+  if (percentile < 0.2) return "Low relative signal";
+  if (percentile < 0.4) return "Lower than most areas";
+  if (percentile < 0.6) return "Around the city middle";
+  if (percentile < 0.8) return "Higher than most areas";
+  return "High relative signal";
 }
 
 function movementCopy(trend: number | null) {
@@ -69,15 +83,27 @@ export default async function AreaPage({ params }: Props) {
   let boundary: Awaited<ReturnType<typeof getBoundaryRings>> = null;
   let context: Awaited<ReturnType<typeof getAreaContext>> = null;
   let monthly: Awaited<ReturnType<typeof getMonthlySummaries>> = [];
+  let cityMapMetrics: Awaited<ReturnType<typeof getCityMapMetrics>> = [];
+  let safetySignals: Awaited<ReturnType<typeof getCitySafetySignals>> = [];
 
   try {
     area = await getAreaProfile(areaId);
     if (area) {
-      [boundary, context, monthly] = await Promise.all([
+      const [nextBoundary, nextContext, nextMonthly, allAreas] = await Promise.all([
         getBoundaryRings(area.id),
         getAreaContext(area.id),
         getMonthlySummaries(area.id, 6),
+        getNeighbourhoods(),
       ]);
+      boundary = nextBoundary;
+      context = nextContext;
+      monthly = nextMonthly;
+
+      const cityAreaIds = allAreas
+        .filter((item) => item.citySlug === area!.citySlug)
+        .map((item) => item.id);
+      cityMapMetrics = await getCityMapMetrics(area.citySlug, cityAreaIds);
+      safetySignals = await getCitySafetySignals(area.citySlug, cityAreaIds, cityMapMetrics);
     }
   } catch (error) {
     console.error(error);
@@ -108,6 +134,24 @@ export default async function AreaPage({ params }: Props) {
   const cityContext = area.citySlug === "london" ? "London police neighbourhoods" : "Madrid municipal neighbourhoods";
   const densityPosition = context ? Math.round(context.densityPercentile * 100) : null;
   const topShare = top[0] && latest.total > 0 ? Math.round((top[0].count / latest.total) * 100) : null;
+  const cityMetric = cityMapMetrics.find((item) => item.areaId === area.id);
+  const safetySignal = safetySignals.find((item) => item.areaId === area.id);
+  const visitorPercentile = buildVisitorPercentileMap(cityMapMetrics).get(area.id) ?? null;
+  const residentPercentile =
+    safetySignal?.contextualConcernPercentile ??
+    cityMetric?.violencePropertyResidentPercentile ??
+    cityMetric?.violencePropertyDensityPercentile ??
+    null;
+  const methods = CITY_FILTER_METHODS[area.citySlug];
+  const residentMethod =
+    safetySignal?.contextualConcernPercentile !== null &&
+    safetySignal?.contextualConcernPercentile !== undefined
+      ? "6-month personal harm + resident night-safety perception"
+      : cityMetric?.violencePropertyResidentPercentile !== null &&
+          cityMetric?.violencePropertyResidentPercentile !== undefined
+        ? methods.residentFallbackMethod
+        : "violence + property density";
+  const visitorMethod = "70% theft + robbery concentration · 30% violence + property concentration";
 
   return (
     <main className="area-page">
@@ -128,6 +172,32 @@ export default async function AreaPage({ params }: Props) {
             Compare with another area →
           </Link>
         </div>
+      </section>
+
+      <section className="area-perspectives">
+        <div className="area-perspectives-title">
+          <span>SAME CITY FILTERS</span>
+          <h2>Resident or visitor?</h2>
+          <p>The same two views used on every city map, applied to this area.</p>
+        </div>
+        <article>
+          <span>RESIDENT</span>
+          <strong>{signalBand(residentPercentile)}</strong>
+          <p>{residentMethod}.</p>
+          {cityMetric?.population ? (
+            <small>{methods.residentPopulationLabel}: {cityMetric.population.toLocaleString("en-GB")}</small>
+          ) : null}
+        </article>
+        <article>
+          <span>VISITOR</span>
+          <strong>{signalBand(visitorPercentile)}</strong>
+          <p>{visitorMethod}.</p>
+          {cityMetric ? (
+            <small>
+              Theft + robbery: {signalBand(cityMetric.theftDensityPercentile)} · Violence + property: {signalBand(cityMetric.violencePropertyDensityPercentile)}
+            </small>
+          ) : null}
+        </article>
       </section>
 
       <section className="area-glance">
