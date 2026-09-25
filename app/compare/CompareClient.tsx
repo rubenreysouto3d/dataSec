@@ -204,7 +204,6 @@ function Comparison({ left, right }: { left: CompareProfile; right: CompareProfi
   const densityHigher = left.incidentsPerKm2 === right.incidentsPerKm2
     ? null
     : left.incidentsPerKm2 > right.incidentsPerKm2 ? left.name : right.name;
-  const countHigher = left.total === right.total ? null : left.total > right.total ? left.name : right.name;
 
   return (
     <section className="compare-results">
@@ -221,7 +220,7 @@ function Comparison({ left, right }: { left: CompareProfile; right: CompareProfi
         </div>
       </div>
 
-      <div className="compare-takeaway">
+      <div className="compare-takeaway compare-takeaway-clean">
         <span>QUICK READ</span>
         <div>
           <strong>
@@ -229,15 +228,10 @@ function Comparison({ left, right }: { left: CompareProfile; right: CompareProfi
               ? `${densityHigher} has the higher recorded density`
               : "Both areas have the same recorded density"}
           </strong>
-          <p>{differenceCopy(left.incidentsPerKm2, right.incidentsPerKm2, "incidents/km²")}.</p>
-        </div>
-        <div>
-          <strong>
-            {countHigher
-              ? `${countHigher} has the higher raw count`
-              : "Both areas have the same raw count"}
-          </strong>
-          <p>Raw counts are affected by area size, activity and source coverage, so they are not a safety verdict.</p>
+          <p>
+            {differenceCopy(left.incidentsPerKm2, right.incidentsPerKm2, "incidents/km²")}.
+            This is source context, not a safety verdict.
+          </p>
         </div>
       </div>
 
@@ -262,18 +256,26 @@ function Comparison({ left, right }: { left: CompareProfile; right: CompareProfi
         </article>
       </div>
 
-      <div className="compare-category-table">
-        <div className="compare-row compare-row-head">
-          <span>{left.name}</span><strong>Incident mix · {left.month}</strong><span>{right.name}</span>
-        </div>
-        {categories.map((slug) => (
-          <div className="compare-row" key={slug}>
-            <span>{valueFor(left, slug).toLocaleString("en-GB")}</span>
-            <strong>{labelFor(slug)}</strong>
-            <span>{valueFor(right, slug).toLocaleString("en-GB")}</span>
+      <details className="compare-details">
+        <summary>
+          <span>Detailed incident mix</span>
+          <small>Compare source categories side by side</small>
+        </summary>
+        <div className="compare-category-table">
+          <div className="compare-row compare-row-head">
+            <span>{left.name}</span><strong>Incident mix · {left.month}</strong><span>{right.name}</span>
           </div>
-        ))}
-      </div>
+          {categories.map((slug) => (
+            <div className="compare-row" key={slug}>
+              <span>{valueFor(left, slug).toLocaleString("en-GB")}</span>
+              <strong>{labelFor(slug)}</strong>
+              <span>{valueFor(right, slug).toLocaleString("en-GB")}</span>
+            </div>
+          ))}
+        </div>
+
+
+      </details>
 
       <p className="compare-note">
         The city-position bars compare recorded source incidents per km² across {left.cityName} {densityContext} for the same snapshot.
