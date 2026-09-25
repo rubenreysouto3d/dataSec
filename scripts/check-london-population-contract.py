@@ -12,7 +12,7 @@ from openpyxl import load_workbook
 
 PACKAGE_API = (
     "https://data.london.gov.uk/api/action/package_show"
-    "?id=2021-census-wards-demography-and-migration-vqlx7"
+    "?id=vqlx7"
 )
 RESOURCE_NAME = "Usual Residents.xlsx"
 WARD_CODE = re.compile(r"^E050\d{5}$")
