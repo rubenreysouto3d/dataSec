@@ -95,3 +95,20 @@ Constraints:
 - OpenStreetMap attribution is shown next to the lookup;
 - the geocoder endpoint is isolated in `lib/public-data-client.ts` so it can be replaced without changing the area model;
 - production-scale or monetised traffic must move to a suitable hosted/self-hosted geocoder rather than relying on the public Nominatim capacity.
+
+## Cross-city filter contract
+
+The user-facing map vocabulary is global, not city-specific. Every supported city exposes the same primary modes and advanced filters:
+
+- Resident
+- Visitor
+- Violence + property
+- Theft + robbery
+- All crime-related
+- All source activity
+
+A city adapter may use a different official source definition or denominator behind a filter when local data is not directly equivalent, but it must preserve the filter's user intent and disclose the city-specific method in the interface.
+
+Resident prefers recurring-exposure context and a resident denominator when official population coverage exists. Visitor avoids resident denominators and prioritises theft/robbery plus violence/property concentration because short-stay visitors are not represented in registered-population counts.
+
+City-specific datasets may add evidence to a common mode (for example Madrid resident-perception survey data), but they must not add a city-only public filter. New cities inherit this contract by default.
