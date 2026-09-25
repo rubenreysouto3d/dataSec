@@ -23,16 +23,16 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body>
         <header className="site-header">
           <Link className="brand" href="/">data<span>Sec</span></Link>
-          <nav>
-            <Link href="/#areas">Explore</Link>
+          <nav aria-label="Primary navigation">
+            <Link href="/#areas">Cities</Link>
             <Link href="/compare">Compare</Link>
-            <Link href="/methodology">Methodology</Link>
+            <Link href="/methodology">How it works</Link>
           </nav>
         </header>
         {children}
         <footer className="site-footer">
-          <p>Official data, translated into useful local context.</p>
-          <p>Prototype · London + Madrid</p>
+          <p><strong>dataSec</strong> · Official local safety context.</p>
+          <p>London · Madrid</p>
         </footer>
       </body>
     </html>
