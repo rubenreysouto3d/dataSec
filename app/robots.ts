@@ -11,7 +11,9 @@ export default function robots(): MetadataRoute.Robots {
   const base = siteUrl();
 
   return {
-    rules: { userAgent: "*", allow: "/" },
+    rules: indexSite
+      ? { userAgent: "*", allow: "/" }
+      : { userAgent: "*", disallow: "/" },
     sitemap: `${base}/sitemap.xml`,
   };
 }
