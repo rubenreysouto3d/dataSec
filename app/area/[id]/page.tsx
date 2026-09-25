@@ -1,34 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { boundaryPath } from "@/lib/boundary";
 import { areaIdFromPath, areaPathId } from "@/lib/area-route";
 import { buildVisitorPercentileMap, CITY_FILTER_METHODS } from "@/lib/map-filters";
 import {
   areaTypeLabel,
-  getAreaContext,
   getAreaProfile,
-  getBoundaryRings,
   getCityMapMetrics,
   getCitySafetySignals,
   getMonthlySummaries,
   getNeighbourhoods,
   monthLabel,
-  sourceExplanation,
 } from "@/lib/data";
 
 type Props = { params: Promise<{ id: string }> };
-
-function densityBand(percentile: number | null | undefined) {
-  if (percentile === null || percentile === undefined || !Number.isFinite(percentile)) {
-    return "City comparison unavailable";
-  }
-  if (percentile < 0.2) return "Among the lowest recorded densities";
-  if (percentile < 0.4) return "Lower than most areas";
-  if (percentile < 0.6) return "Around the city middle";
-  if (percentile < 0.8) return "Higher than most areas";
-  return "Among the highest recorded densities";
-}
 
 function signalBand(percentile: number | null | undefined) {
   if (percentile === null || percentile === undefined || !Number.isFinite(percentile)) {
@@ -79,8 +64,6 @@ export default async function AreaPage({ params }: Props) {
   const areaId = areaIdFromPath(id);
 
   let area: Awaited<ReturnType<typeof getAreaProfile>> = null;
-  let boundary: Awaited<ReturnType<typeof getBoundaryRings>> = null;
-  let context: Awaited<ReturnType<typeof getAreaContext>> = null;
   let monthly: Awaited<ReturnType<typeof getMonthlySummaries>> = [];
   let cityMapMetrics: Awaited<ReturnType<typeof getCityMapMetrics>> = [];
   let safetySignals: Awaited<ReturnType<typeof getCitySafetySignals>> = [];
@@ -88,14 +71,10 @@ export default async function AreaPage({ params }: Props) {
   try {
     area = await getAreaProfile(areaId);
     if (area) {
-      const [nextBoundary, nextContext, nextMonthly, allAreas] = await Promise.all([
-        getBoundaryRings(area.id),
-        getAreaContext(area.id),
+      const [nextMonthly, allAreas] = await Promise.all([
         getMonthlySummaries(area.id, 6),
         getNeighbourhoods(),
       ]);
-      boundary = nextBoundary;
-      context = nextContext;
       monthly = nextMonthly;
 
       const cityAreaIds = allAreas
@@ -118,7 +97,7 @@ export default async function AreaPage({ params }: Props) {
     );
   }
 
-  if (!area || !boundary || monthly.length === 0) notFound();
+  if (!area || monthly.length === 0) notFound();
 
   const latest = monthly[0];
   const top = latest.categories.slice(0, 6);
@@ -129,7 +108,6 @@ export default async function AreaPage({ params }: Props) {
   const last = totals.at(-1)?.total ?? 0;
   const trend = totals.length < 2 || first === 0 ? null : Math.round(((last - first) / first) * 100);
   const max = Math.max(...totals.map((item) => item.total), 1);
-  const path = boundaryPath(boundary.rings);
   const topShare = top[0] && latest.total > 0 ? Math.round((top[0].count / latest.total) * 100) : null;
   const cityMetric = cityMapMetrics.find((item) => item.areaId === area.id);
   const safetySignal = safetySignals.find((item) => item.areaId === area.id);
@@ -153,93 +131,57 @@ export default async function AreaPage({ params }: Props) {
   return (
     <main className="area-page">
       <Link className="back" href={`/city/${area.citySlug}`}>← {area.cityName}</Link>
-      <section className="area-intro">
+      <section className="area-intro area-intro-minimal">
         <div>
           <div className="eyebrow">{area.cityName} · {areaTypeLabel(area)}</div>
           <h1>{area.name}</h1>
-          <p>
-            Latest stored month: <strong>{monthLabel(latest.month)}</strong>. {sourceExplanation(area)}
-          </p>
         </div>
-        <div className="freshness">
-          <span>DATA STATUS</span>
-          <strong>Official / stored</strong>
-          <small>Validated source snapshot</small>
+        <div className="area-intro-actions">
+          <span>{monthLabel(latest.month)}</span>
           <Link className="area-compare-link" href={`/compare?a=${encodeURIComponent(area.id)}`}>
-            Compare with another area →
+            Compare →
           </Link>
         </div>
       </section>
 
-      <section className="area-perspectives">
+      <section className="area-perspectives area-perspectives-compact">
         <div className="area-perspectives-title">
-          <span>SAME CITY FILTERS</span>
+          <span>QUICK VIEW</span>
           <h2>Resident or visitor?</h2>
-          <p>The same two views used on every city map, applied to this area.</p>
         </div>
         <article>
           <span>RESIDENT</span>
           <strong>{signalBand(residentPercentile)}</strong>
-          <p>{residentMethod}.</p>
-          {cityMetric?.population ? (
-            <small>{methods.residentPopulationLabel}: {cityMetric.population.toLocaleString("en-GB")}</small>
-          ) : null}
+          <small>Living here</small>
         </article>
         <article>
           <span>VISITOR</span>
           <strong>{signalBand(visitorPercentile)}</strong>
-          <p>{visitorMethod}.</p>
-          {cityMetric ? (
-            <small>
-              Theft + robbery: {signalBand(cityMetric.theftDensityPercentile)} · Violence + property: {signalBand(cityMetric.violencePropertyDensityPercentile)}
-            </small>
-          ) : null}
+          <small>Short stay</small>
         </article>
       </section>
 
-      <section className="area-key-facts">
+      <section className="area-key-facts area-key-facts-three">
         <article>
-          <span>LATEST SNAPSHOT</span>
+          <span>RECORDED</span>
           <strong>{latest.total.toLocaleString("en-GB")}</strong>
-          <small>{monthLabel(latest.month)} recorded source incidents</small>
+          <small>{monthLabel(latest.month)}</small>
         </article>
         <article>
-          <span>RELATIVE DENSITY</span>
-          <strong>{densityBand(context?.densityPercentile)}</strong>
-          <small>{context ? `${Math.round(context.incidentsPerKm2).toLocaleString("en-GB")}/km²` : "Context unavailable"}</small>
+          <span>TREND</span>
+          <strong>{trend === null ? "—" : `${trend > 0 ? "+" : ""}${trend}%`}</strong>
+          <small>{trend === null ? "More history needed" : Math.abs(trend) < 5 ? "Stable" : trend > 0 ? "Up" : "Down"}</small>
         </article>
         <article>
-          <span>RECENT MOVEMENT</span>
-          <strong>{trend === null ? "Building history" : `${trend > 0 ? "+" : ""}${trend}%`}</strong>
-          <small>{movementCopy(trend)}</small>
-        </article>
-        <article>
-          <span>LARGEST CATEGORY</span>
-          <strong>{top[0]?.label ?? "No category data"}</strong>
-          <small>
-            {top[0]
-              ? `${top[0].count.toLocaleString("en-GB")} records${topShare !== null ? ` · ${topShare}% of snapshot` : ""}`
-              : "No category mix available"}
-          </small>
+          <span>MAIN CATEGORY</span>
+          <strong>{top[0]?.label ?? "—"}</strong>
+          <small>{topShare !== null ? `${topShare}% of latest snapshot` : "No category mix"}</small>
         </article>
       </section>
 
       <div className="content-grid">
-        <section className="panel map-panel">
-          <div className="panel-head">
-            <div><span>AREA</span><h2>Official boundary</h2></div>
-            <small>Not a street-risk heatmap</small>
-          </div>
-          <svg className="boundary" viewBox="0 0 700 360" role="img" aria-label={`Boundary of ${area.name}`}>
-            <path d={path} />
-          </svg>
-          <p className="caption">
-            Boundaries are stored with the source snapshot and are used to keep geographic comparisons internally consistent.
-          </p>
-        </section>
-
         <section className="panel">
-          <div className="panel-head"><div><span>LATEST SNAPSHOT</span><h2>Incident mix</h2></div></div>
+          <div className="panel-head"><div><span>NOW</span><h2>What stands out</h2></div></div>
           <div className="category-list">
             {top.map((item) => (
               <div className="category-row" key={item.category}>
@@ -258,8 +200,7 @@ export default async function AreaPage({ params }: Props) {
 
         <section className="panel wide">
           <div className="panel-head">
-            <div><span>HISTORY</span><h2>Stored snapshots</h2></div>
-            <small>Raw source incident counts</small>
+            <div><span>TREND</span><h2>Recent months</h2></div>
           </div>
           <div className="trend-chart">
             {totals.map((item) => (
@@ -298,9 +239,8 @@ export default async function AreaPage({ params }: Props) {
               </p>
             </>
           )}
-          <p>
-            Resident and Visitor use the same global filters as the city map. The underlying official implementation is documented per city rather than pretending different source systems are identical.
-          </p>
+          <p><strong>Resident:</strong> {residentMethod}.</p>
+          <p><strong>Visitor:</strong> {visitorMethod}.</p>
           <a href={area.sourceUrl} target="_blank" rel="noreferrer">Open the official source ↗</a>
         </div>
       </details>
