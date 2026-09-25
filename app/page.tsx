@@ -24,67 +24,54 @@ export default async function Home() {
     {
       slug: "madrid",
       name: "Madrid",
-      description: "Municipal neighbourhoods from official Madrid Municipal Police dispatch data.",
       snapshot: madridSnapshot,
       count: areas.filter((area) => area.citySlug === "madrid").length,
-      examples: ["Sol", "Lavapiés", "San Diego", "San Cristóbal"],
     },
     {
       slug: "london",
       name: "London",
-      description: "Metropolitan Police neighbourhoods from official police-recorded street-level crime data.",
       snapshot: londonSnapshot,
       count: areas.filter((area) => area.citySlug === "london").length,
-      examples: ["West End", "Camden", "Brixton", "Shoreditch"],
     },
   ] as const;
 
   return (
-    <main className="home-page">
-      <section className="home-hero">
-        <div className="eyebrow">Official urban safety data</div>
-        <h1>
-          Know an area
-          <br />
-          <em>before you go.</em>
-        </h1>
-        <p>Choose a city, then switch between living there and visiting.</p>
-
-      </section>
-
-      <section className="home-cities" id="areas">
-        <div className="home-section-head">
-          <div>
-            <span>EXPLORE</span>
-            <h2>Choose a city</h2>
-          </div>
+    <main className="home-page home-page-v2">
+      <section className="home-entry">
+        <div className="home-entry-copy">
+          <div className="eyebrow">Urban safety explorer</div>
+          <h1>
+            Pick a city.
+            <br />
+            <em>Read the map.</em>
+          </h1>
+          <p>Official local data, simplified for residents and visitors.</p>
         </div>
 
         {error ? (
           <div className="notice">The validated data store is temporarily unavailable.</div>
         ) : (
-          <div className="home-city-grid">
+          <div className="home-city-choice" aria-label="Choose a city">
             {cityCards.map((city) => (
-              <article className="home-city-card" key={city.slug}>
-                <div className="home-city-top">
-                  <div>
-                    <span>LIVE CITY</span>
-                    <h3>{city.name}</h3>
-                  </div>
-                  <Link href={`/city/${city.slug}`}>Explore →</Link>
-                </div>
-                <div className="home-city-meta">
-                  <span><strong>{city.count.toLocaleString("en-GB")}</strong> areas</span>
-                  <span><strong>{city.snapshot ? monthLabel(city.snapshot.month) : "—"}</strong> latest data</span>
-                </div>
-
-              </article>
+              <Link className="home-city-choice-card" href={`/city/${city.slug}`} key={city.slug}>
+                <span className="home-city-choice-name">{city.name}</span>
+                <span className="home-city-choice-meta">
+                  <strong>{city.count.toLocaleString("en-GB")}</strong> areas
+                  <i aria-hidden="true">·</i>
+                  <strong>{city.snapshot ? monthLabel(city.snapshot.month) : "—"}</strong>
+                </span>
+                <b>Open map →</b>
+              </Link>
             ))}
           </div>
         )}
+
+        <div className="home-entry-note">
+          <span>Same controls in every city</span>
+          <span>Resident + visitor views</span>
+          <Link href="/methodology">How the data works</Link>
+        </div>
       </section>
-
-
     </main>
   );
 }
