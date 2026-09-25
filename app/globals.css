@@ -2242,3 +2242,5 @@
   .explorer-active-definition{grid-template-columns:1fr;gap:3px}
   .explorer-active-definition small{white-space:normal}
 }
+
+.area-quick-disclaimer{margin:9px 0 0!important;padding:0 2px;max-width:980px!important}
