@@ -100,7 +100,6 @@ export default async function CityPage({ params }: Props) {
         <div>
           <div className="eyebrow">{copy.eyebrow}</div>
           <h1>{cityNames[city]}</h1>
-          <p>{copy.intro}</p>
         </div>
         {snapshot ? (
           <div className="city-quick-meta" aria-label="City data status">
@@ -128,8 +127,8 @@ export default async function CityPage({ params }: Props) {
 
       <details className="city-data-details">
         <summary>
-          <span>About this city&apos;s data</span>
-          <small>Source, coverage and limitations</small>
+          <span>About the data</span>
+          <small>Source & limits</small>
         </summary>
         <div>
           <article>
@@ -150,10 +149,9 @@ export default async function CityPage({ params }: Props) {
       <section className="areas-section city-area-list">
         <div className="section-heading city-area-heading">
           <div>
-            <div className="eyebrow">Neighbourhoods</div>
-            <h2>Explore areas</h2>
+            <div className="eyebrow">{areas.length.toLocaleString("en-GB")} areas</div>
+            <h2>Neighbourhoods</h2>
           </div>
-          <p>{areas.length.toLocaleString("en-GB")} official areas · search, sort or open a full profile.</p>
         </div>
 
         {error ? (
