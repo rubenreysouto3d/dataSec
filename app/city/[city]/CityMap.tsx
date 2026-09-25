@@ -832,10 +832,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
 
   return (
     <section className="city-map-panel interactive-map-panel" style={MAP_COLOR_STYLE}>
-      <div className="map-audience-switch">
-        <div className="map-audience-label">
-          <span>VIEW AS</span>
-        </div>
+      <div className="map-audience-switch map-audience-switch-simple">
         <div className="map-audience-buttons" role="group" aria-label="Map audience">
           {MAP_AUDIENCES.map((item) => (
             <button
@@ -850,14 +847,12 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
             </button>
           ))}
         </div>
-      </div>
-
-      <div className="map-mode-bar">
-        <div>
-          <span>{formatMonth(latestMonth)}</span>
-          <h2>{metricCopy[metricKey].label}</h2>
+        <div className="map-color-key" aria-label="Colour meaning">
+          <i />
+          <span>Lower</span>
+          <b>→</b>
+          <span>Higher</span>
         </div>
-        <strong>Green = lower · Red = higher</strong>
       </div>
 
       <details className="map-advanced-controls">
@@ -965,18 +960,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
 
       </details>
 
-      <div className="map-current-view map-current-view-compact">
-        <strong>
-          {metricKey === "contextual-overview"
-            ? "Resident"
-            : metricKey === "visitor-context"
-              ? "Visitor"
-              : metricCopy[metricKey].short}
-        </strong>
-        <span>Relative to other {cityName} areas</span>
-      </div>
-
-      <div className="map-stage">
+      <div className={`map-stage ${selectedArea ? "has-selection" : ""}`}>
         <div className="interactive-map-wrap">
           {!mapReady && bounds ? (
             <svg
@@ -1004,8 +988,8 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
           ) : null}
           <div ref={containerRef} className={`interactive-city-map ${mapReady ? "is-ready" : ""}`} />
 
-        <div className="map-area-finder">
-          <label htmlFor="area-map-search">Find a neighbourhood</label>
+        <div className="map-area-finder map-area-finder-simple">
+          <label className="sr-only" htmlFor="area-map-search">Find a neighbourhood</label>
           <div>
             <input
               id="area-map-search"
@@ -1018,7 +1002,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
                   findArea();
                 }
               }}
-              placeholder="e.g. Sol, Lavapiés, Camden…"
+              placeholder="Find a neighbourhood…"
             />
             <button type="button" onClick={findArea} disabled={!mapReady}>Find</button>
           </div>
@@ -1027,16 +1011,14 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
           </datalist>
         </div>
 
-        <div className="map-tap-hint">Tap or click an area for details</div>
-
           {!mapReady && !mapError ? (
             <div className="map-fallback-status">Loading interactive basemap…</div>
           ) : null}
           {mapError ? <div className="map-fallback-status map-error">{mapError}</div> : null}
         </div>
 
-        <aside className="map-detail-panel" aria-live="polite">
-          {selectedArea ? (
+        {selectedArea ? (
+          <aside className="map-detail-panel" aria-live="polite">
             <div className="map-selection-card">
               <button
                 type="button"
@@ -1049,18 +1031,8 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
               <span>{citySlug === "madrid" ? "Municipal neighbourhood" : "Police neighbourhood"}</span>
               <h3>{selectedArea.name}</h3>
 
-              <div className="map-selection-summary">
+              <div className="map-selection-summary map-selection-summary-clean">
                 <strong>{relativeBand(selectedMetric.percentile, bandMode(metricKey))}</strong>
-                <p>
-                  {metricKey === "contextual-overview"
-                    ? citySlug === "madrid" && selectedSafetySignal?.contextualConcernPercentile !== null &&
-                      selectedSafetySignal?.contextualConcernPercentile !== undefined
-                      ? "Residential context from recorded personal harm and resident night-safety perception."
-                      : "Residential context from the best comparable official resident-normalised signal available."
-                    : metricKey === "visitor-context"
-                      ? "Visitor-oriented position from theft/robbery and violence/property concentration."
-                      : medianComparison(selectedMetric.value, cityMedian)}
-                </p>
               </div>
 
               {metricKey === "contextual-overview" && selectedSafetySignal?.contextualConcernPercentile !== null &&
@@ -1119,16 +1091,6 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
                 </div>
               ) : null}
 
-              <p className="map-percentile-copy">
-                {selectedPercentile !== null
-                  ? metricKey === "contextual-overview"
-                    ? `This residential context is higher-concern than about ${selectedPercentile}% of ${cityName} areas.`
-                    : metricKey === "visitor-context"
-                      ? `This visitor-oriented signal is higher than about ${selectedPercentile}% of ${cityName} areas.`
-                      : `About ${selectedPercentile}% of ${cityName} areas recorded a lower value for this exact metric.`
-                  : "There is no comparable city percentile for this area."}
-              </p>
-
               <dl>
                 {metricKey !== "visitor-context" ? (
                   <div>
@@ -1173,27 +1135,11 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
                 </a>
               </div>
             </div>
-          ) : (
-            <div className="map-empty-detail">
-              <span>AREA DETAILS</span>
-              <h3>Select a neighbourhood</h3>
-              <p>Tap a coloured area or use the search box. This panel will explain the result against the city median and the rest of the city.</p>
-              <div className="map-empty-example">
-                <strong>Colour answers one question:</strong>
-                <span>
-                  {metricKey === "contextual-overview"
-                    ? "“How strong is the residential concern signal compared with other areas in this city?”"
-                    : metricKey === "visitor-context"
-                      ? "“How exposed is a short-stay visitor here compared with other areas in this city?”"
-                      : "“How high is this recorded value compared with other areas in the same city?”"}
-                </span>
-              </div>
-            </div>
-          )}
-        </aside>
+          </aside>
+        ) : null}
       </div>
 
-      <div className="map-legend-block map-legend-compact" aria-label="Map legend">
+      <div className="map-legend-block map-legend-compact map-legend-simple" aria-label="Map legend">
         <div className="map-legend-bands">
           <div><i className="legend-q1" /><span>Lower</span></div>
           <div><i className="legend-q2" /></div>
@@ -1201,15 +1147,13 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
           <div><i className="legend-q4" /></div>
           <div><i className="legend-q5" /><span>Higher</span></div>
         </div>
+        <span className="map-legend-note">Relative within {cityName} · {formatMonth(latestMonth)}</span>
       </div>
 
-      <details className="map-explain">
-        <summary>How to read this map</summary>
-        <p>
-          Colours compare areas only within {cityName}. Green means a lower relative signal and red a higher one.
-          They do not guarantee that an area is safe or dangerous.
-        </p>
-        <small>{currentMethod}</small>
+      <details className="map-explain map-explain-compact">
+        <summary>What does this view measure?</summary>
+        <p>{currentMethod}</p>
+        <small>Green means a lower relative signal and red a higher one. It is context, not a guarantee of safety.</small>
       </details>
     </section>
   );
