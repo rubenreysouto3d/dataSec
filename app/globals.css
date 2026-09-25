@@ -1438,3 +1438,23 @@
     border-top:1px solid var(--line);
   }
 }
+
+
+.compare-note-details{
+  margin:12px 0 0;
+  padding:0;
+  border-top:1px solid var(--line);
+  color:var(--muted);
+  font-size:9px;
+}
+.compare-note-details summary{
+  padding:10px 0;
+  cursor:pointer;
+  font-weight:800;
+}
+.compare-note-details p{
+  max-width:720px;
+  margin:0 0 10px;
+  font-size:9px;
+  line-height:1.45;
+}
