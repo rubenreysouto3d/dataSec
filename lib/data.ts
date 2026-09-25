@@ -140,6 +140,10 @@ export type CitySafetySignal = {
   averageMonthlyCount: number;
   personalHarmPer10k: number | null;
   residentPercentile: number | null;
+  districtName: string | null;
+  districtNightSafety: number | null;
+  districtConcernPercentile: number | null;
+  contextualConcernPercentile: number | null;
 };
 
 export type CityMapMetric = {
@@ -444,6 +448,50 @@ export async function getCityMapMetrics(
     }));
 }
 
+const MADRID_DISTRICT_NIGHT_SAFETY_2025: Record<string, { name: string; score: number }> = {
+  "01": { name: "Centro", score: 6.5 },
+  "02": { name: "Arganzuela", score: 7.0 },
+  "03": { name: "Retiro", score: 7.4 },
+  "04": { name: "Salamanca", score: 7.5 },
+  "05": { name: "Chamartín", score: 7.3 },
+  "06": { name: "Tetuán", score: 6.1 },
+  "07": { name: "Chamberí", score: 7.7 },
+  "08": { name: "Fuencarral-El Pardo", score: 7.2 },
+  "09": { name: "Moncloa-Aravaca", score: 7.3 },
+  "10": { name: "Latina", score: 6.2 },
+  "11": { name: "Carabanchel", score: 5.8 },
+  "12": { name: "Usera", score: 5.2 },
+  "13": { name: "Puente de Vallecas", score: 5.1 },
+  "14": { name: "Moratalaz", score: 6.8 },
+  "15": { name: "Ciudad Lineal", score: 6.2 },
+  "16": { name: "Hortaleza", score: 7.0 },
+  "17": { name: "Villaverde", score: 4.9 },
+  "18": { name: "Villa de Vallecas", score: 6.1 },
+  "19": { name: "Vicálvaro", score: 6.5 },
+  "20": { name: "San Blas-Canillejas", score: 6.1 },
+  "21": { name: "Barajas", score: 7.7 },
+};
+
+function madridDistrictCode(areaId: string) {
+  const code = areaId.match(/:(\d{3})$/)?.[1];
+  return code ? code.slice(0, 2) : null;
+}
+
+function percentileByValue(
+  items: Array<{ key: string; value: number }>,
+  direction: "ascending" | "descending" = "ascending",
+) {
+  const sorted = [...items].sort((a, b) =>
+    direction === "ascending" ? a.value - b.value : b.value - a.value,
+  );
+  const denominator = Math.max(sorted.length - 1, 1);
+  const firstRank = new Map<number, number>();
+  sorted.forEach((item, index) => {
+    if (!firstRank.has(item.value)) firstRank.set(item.value, index / denominator);
+  });
+  return new Map(items.map((item) => [item.key, firstRank.get(item.value) ?? 0]));
+}
+
 function isMadridPersonalHarmMetric(metric: MetricRow) {
   const text = `${metric.slug} ${metric.label}`
     .normalize("NFD")
@@ -556,12 +604,52 @@ export async function getCitySafetySignals(
     if (!firstRank.has(value)) firstRank.set(value, index / denominator);
   });
 
-  return base.map((item) => ({
+  const withResident = base.map((item) => ({
     ...item,
     residentPercentile:
       item.personalHarmPer10k === null
         ? null
         : firstRank.get(item.personalHarmPer10k) ?? null,
+  }));
+
+  const districtConcern = percentileByValue(
+    Object.entries(MADRID_DISTRICT_NIGHT_SAFETY_2025).map(([key, value]) => ({
+      key,
+      value: value.score,
+    })),
+    "descending",
+  );
+
+  const withContext = withResident.map((item) => {
+    const districtCode = madridDistrictCode(item.areaId);
+    const district = districtCode ? MADRID_DISTRICT_NIGHT_SAFETY_2025[districtCode] : undefined;
+    const districtConcernPercentile =
+      districtCode && district ? districtConcern.get(districtCode) ?? null : null;
+    const contextualRaw =
+      item.residentPercentile !== null && districtConcernPercentile !== null
+        ? (item.residentPercentile + districtConcernPercentile) / 2
+        : null;
+    return {
+      ...item,
+      districtName: district?.name ?? null,
+      districtNightSafety: district?.score ?? null,
+      districtConcernPercentile,
+      contextualRaw,
+    };
+  });
+
+  const overviewRanks = percentileByValue(
+    withContext
+      .filter((item) => item.contextualRaw !== null)
+      .map((item) => ({ key: item.areaId, value: item.contextualRaw ?? 0 })),
+  );
+
+  return withContext.map(({ contextualRaw: _contextualRaw, ...item }) => ({
+    ...item,
+    contextualConcernPercentile:
+      item.residentPercentile === null || item.districtConcernPercentile === null
+        ? null
+        : overviewRanks.get(item.areaId) ?? null,
   }));
 }
 
