@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { areaHref } from "@/lib/area-route";
+import { cityNames } from "@/lib/data";
 import {
+  CITY_FILTER_METHODS,
   MAP_ADVANCED_FILTERS,
   MAP_AUDIENCES,
   MAP_COLOR_BANDS,
@@ -84,36 +86,27 @@ const metricCopy: Record<MetricKey, { label: string; short: string; note: string
   "crime-related": {
     label: "All crime-related",
     short: "All crime-related",
-    note: "Crime-related source categories. London anti-social behaviour and Madrid non-crime dispatch activity are excluded.",
+    note: "Crime-related categories mapped from the city’s official source; non-crime activity is excluded when the source contains it.",
   },
   activity: {
     label: "All source activity",
     short: "All activity",
-    note: "Everything in the source, including non-crime Madrid police dispatch activity.",
+    note: "Everything in the city’s official source, including non-crime activity when that source contains it.",
   },
 };
 
-function methodForMetric(metricKey: MetricKey, citySlug: CitySlug, residentMethod: string, visitorMethod: string) {
+function methodForMetric(
+  metricKey: MetricKey,
+  methods: (typeof CITY_FILTER_METHODS)[CitySlug],
+  residentMethod: string,
+  visitorMethod: string,
+) {
   if (metricKey === "contextual-overview") return residentMethod;
   if (metricKey === "visitor-context") return visitorMethod;
-  if (metricKey === "violence-property") {
-    return citySlug === "madrid"
-      ? "Madrid dispatch categories mapped to violence + property"
-      : "Met Police recorded-crime categories mapped to violence + property";
-  }
-  if (metricKey === "theft") {
-    return citySlug === "madrid"
-      ? "Madrid theft, robbery and vehicle/property-theft dispatch categories"
-      : "Met Police theft, robbery and vehicle-crime categories";
-  }
-  if (metricKey === "crime-related") {
-    return citySlug === "madrid"
-      ? "Madrid crime-related dispatch categories; non-crime responses excluded"
-      : "Met Police crime-related categories; anti-social behaviour excluded";
-  }
-  return citySlug === "madrid"
-    ? "All Madrid Municipal Police dispatch activity in the source"
-    : "All Metropolitan Police source activity in the stored snapshot";
+  if (metricKey === "violence-property") return methods.violencePropertyMethod;
+  if (metricKey === "theft") return methods.theftMethod;
+  if (metricKey === "crime-related") return methods.crimeRelatedMethod;
+  return methods.activityMethod;
 }
 
 function metricKeyForLayer(layer: LayerKey): MetricKey {
@@ -408,14 +401,13 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
   const [areaSearch, setAreaSearch] = useState("");
 
-  const cityName = citySlug === "madrid" ? "Madrid" : "London";
+  const cityName = cityNames[citySlug];
+  const cityMethods = CITY_FILTER_METHODS[citySlug];
   const residentMethod =
     citySlug === "madrid" && hasContextualOverview
       ? "6-month personal harm + 2025 resident night-safety perception"
       : hasResidentLayer
-        ? citySlug === "london"
-          ? "violence + property per 10,000 residents · 2021 Census denominator"
-          : "violence + property per 10,000 registered residents"
+        ? cityMethods.residentFallbackMethod
         : "violence + property density (population denominator unavailable)";
   const visitorMethod = "70% theft + robbery concentration · 30% violence + property concentration";
 
@@ -425,7 +417,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
     : "recent history";
   const metricKey = metricKeyForLayer(layer);
   const normalization = normalizationForLayer(layer);
-  const currentMethod = methodForMetric(metricKey, citySlug, residentMethod, visitorMethod);
+  const currentMethod = methodForMetric(metricKey, cityMethods, residentMethod, visitorMethod);
   const latestMonth = metrics.reduce(
     (latest, metric) => (!latest || metric.month > latest ? metric.month : latest),
     "",
@@ -968,9 +960,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
                 >
                   <strong>By residents</strong>
                   <small>
-                    {citySlug === "london"
-                      ? "per 10,000 residents · 2021 Census"
-                      : "per 10,000 registered residents"}
+                    {cityMethods.residentUnitLabel}
                   </small>
                 </button>
               </div>
@@ -978,9 +968,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
                 <p className="map-control-help">All source activity is only available by area density.</p>
               ) : normalization === "resident" ? (
                 <p className="map-control-help">
-                  {citySlug === "london"
-                    ? "Uses the 2021 Census resident denominator. Useful for residential context, but visitor-heavy centres can still look artificially high."
-                    : "Useful for residential context, but visitor-heavy centres can look artificially high."}
+                  Uses the city&apos;s documented resident denominator. Useful for residential context, but visitor-heavy centres can still look artificially high.
                 </p>
               ) : (
                 <p className="map-control-help">
@@ -1180,7 +1168,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
                 ) : null}
                 {selectedBaseMetric?.population ? (
                   <div>
-                    <dt>{citySlug === "london" ? "2021 Census residents" : "Registered residents"}</dt>
+                    <dt>{cityMethods.residentPopulationLabel}</dt>
                     <dd>{selectedBaseMetric.population.toLocaleString("en-GB")}</dd>
                   </div>
                 ) : null}
