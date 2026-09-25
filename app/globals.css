@@ -315,18 +315,18 @@
 /* Green → yellow → red relative scale */
 .map-relative-track{
   background:linear-gradient(90deg,
-    #3f9b63 0 20%,
-    #8ab85b 20% 40%,
-    #dfc64c 40% 60%,
-    #e28a43 60% 80%,
-    #c84c3f 80% 100%
+    var(--map-q1) 0 20%,
+    var(--map-q2) 20% 40%,
+    var(--map-q3) 40% 60%,
+    var(--map-q4) 60% 80%,
+    var(--map-q5) 80% 100%
   )!important;
 }
-.legend-q1{background:#3f9b63!important}
-.legend-q2{background:#8ab85b!important}
-.legend-q3{background:#dfc64c!important}
-.legend-q4{background:#e28a43!important}
-.legend-q5{background:#c84c3f!important}
+.legend-q1{background:var(--map-q1)!important}
+.legend-q2{background:var(--map-q2)!important}
+.legend-q3{background:var(--map-q3)!important}
+.legend-q4{background:var(--map-q4)!important}
+.legend-q5{background:var(--map-q5)!important}
 .map-current-view{background:rgba(223,198,76,.07)}
 .map-percentile-copy{background:rgba(223,198,76,.08)}
 
