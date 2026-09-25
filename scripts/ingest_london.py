@@ -45,7 +45,7 @@ SOURCE_SLUG = "uk-police-open-data"
 ONS_WARD_LAD_SOURCE_SLUG = "ons-ward-lad-lookup-2022"
 ONS_WARD_LAD_URL = (
     "https://open-geography-portalx-ons.hub.arcgis.com/api/download/v1/items/"
-    "823978f94c5543fea5d59722adc2a0ea/csv?layers=0"
+    "f1392f9766be400b85613e6a7885bd5b/csv?layers=0"
 )
 CITY_SLUG = "london"
 COUNTRY_CODE = "GB"
