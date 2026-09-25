@@ -427,11 +427,11 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
   const cityMethods = CITY_FILTER_METHODS[citySlug];
   const residentMethod =
     citySlug === "madrid" && hasContextualOverview
-      ? "6-month personal harm + 2025 resident night-safety perception"
+      ? "50% recent personal-harm percentile + 50% 2025 district night-safety perception percentile"
       : hasResidentLayer
         ? cityMethods.residentFallbackMethod
         : "violence + property density (population denominator unavailable)";
-  const visitorMethod = "70% theft + robbery concentration · 30% violence + property concentration";
+  const visitorMethod = "70% theft + robbery concentration + 30% violence + property concentration";
 
   const safetyWindowMonths = safetySignals.reduce((max, signal) => Math.max(max, signal.months), 0);
   const safetyWindowLabel = safetyWindowMonths
@@ -1013,6 +1013,18 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
           <i />
           <span>5 · Higher in {cityName}</span>
         </div>
+      </div>
+
+      <div className="explorer-active-definition">
+        <strong>
+          {audience === "resident"
+            ? `${cityName} Resident`
+            : audience === "visitor"
+              ? `${cityName} Visitor`
+              : `${cityName} filter`}
+        </strong>
+        <span>{currentMethod}</span>
+        <small>Local comparison only · not comparable as one score across cities</small>
       </div>
 
       <div className={`map-stage ${selectedArea ? "has-selection" : ""}`}>
