@@ -62,12 +62,12 @@ const metricCopy: Record<MetricKey, { label: string; short: string; note: string
   "contextual-overview": {
     label: "Resident context",
     short: "Resident context",
-    note: "Residential context using the best comparable official signals available in this city.",
+    note: "Residential context using the best official signals available for this city. The percentile is local to this city and is not a cross-city score.",
   },
   "visitor-context": {
     label: "Visitor context",
     short: "Visitor context",
-    note: "Short-stay context weighted toward theft and robbery, with a smaller violence/property component. It uses area concentration rather than registered residents.",
+    note: "Short-stay context weighted toward theft and robbery, with a smaller violence/property component. It uses area concentration rather than registered residents. The percentile is local to this city.",
   },
   "residential-harm": {
     label: "Personal harm · recent history",
@@ -903,14 +903,14 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
               </div>
             ) : null}
 
-            <small className="explorer-filter-method">{currentMethod}</small>
+            <small className="explorer-filter-method">Local to {cityName} · {currentMethod}</small>
           </div>
         </details>
 
-        <div className="map-color-key explorer-color-key" aria-label="Colour scale">
-          <span>Lower</span>
+        <div className="map-color-key explorer-color-key" aria-label={`Relative colour scale within ${cityName}`}>
+          <span>Lower in {cityName}</span>
           <i />
-          <span>Higher</span>
+          <span>Higher in {cityName}</span>
         </div>
       </div>
 
@@ -997,7 +997,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
                   <strong>{relativeBand(selectedMetric.percentile, bandMode(metricKey))}</strong>
                   <small>
                     {selectedPercentile !== null
-                      ? `Relative position: ${selectedPercentile}th percentile in ${cityName}`
+                      ? `Local position: ${selectedPercentile}th percentile among ${cityName} areas`
                       : "No city comparison available"}
                   </small>
                 </div>
@@ -1075,8 +1075,8 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
       <details className="map-explain map-explain-compact explorer-explain">
         <summary>How to read this map</summary>
         <p>
-          Colours compare neighbourhoods inside {cityName}: green is lower relative to the city and red is higher.
-          {" "}{currentMethod}
+          Colours compare neighbourhoods only inside {cityName}: green is lower relative to this city and red is higher.
+          These percentiles are not comparable with another city. {" "}{currentMethod}
         </p>
       </details>
     </section>
