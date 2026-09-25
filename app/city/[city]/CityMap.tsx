@@ -1028,10 +1028,9 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
               >
                 ×
               </button>
-              <span>{citySlug === "madrid" ? "Municipal neighbourhood" : "Police neighbourhood"}</span>
               <h3>{selectedArea.name}</h3>
 
-              <div className="map-selection-summary map-selection-summary-clean">
+                <div className="map-selection-summary map-selection-summary-clean">
                 <strong>{relativeBand(selectedMetric.percentile, bandMode(metricKey))}</strong>
               </div>
 
@@ -1084,54 +1083,18 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
               {selectedPercentile !== null ? (
                 <div className="map-relative-scale" aria-label={`Relative position: ${selectedPercentile}%`}>
                   <div className="map-relative-track">
-                    <b aria-hidden="true" />
                     <i style={{ left: `${Math.min(100, Math.max(0, selectedPercentile))}%` }} />
                   </div>
-                  <div><span>Lower</span><span>City middle</span><span>Higher</span></div>
+                  <div><span>Lower</span><span>Higher</span></div>
                 </div>
-              ) : null}
-
-              <dl>
-                {metricKey !== "visitor-context" ? (
-                  <div>
-                    <dt>{metricKey === "contextual-overview" || metricKey === "residential-harm" ? "Personal-harm records in window" : "Recorded incidents"}</dt>
-                    <dd>{selectedMetric.count?.toLocaleString("en-GB") ?? "—"}</dd>
-                  </div>
-                ) : null}
-                {selectedBaseMetric?.population ? (
-                  <div>
-                    <dt>{cityMethods.residentPopulationLabel}</dt>
-                    <dd>{selectedBaseMetric.population.toLocaleString("en-GB")}</dd>
-                  </div>
-                ) : null}
-                {selectedActivity ? (
-                  <div>
-                    <dt>Open premises</dt>
-                    <dd>{selectedActivity.openPremises.toLocaleString("en-GB")}</dd>
-                  </div>
-                ) : null}
-                <div>
-                  <dt>{metricKey === "contextual-overview" || metricKey === "residential-harm" ? "Window" : "Snapshot"}</dt>
-                  <dd>
-                    {(metricKey === "contextual-overview" || metricKey === "residential-harm") && selectedSafetySignal
-                      ? `${formatMonth(selectedSafetySignal.monthStart)}–${formatMonth(selectedSafetySignal.monthEnd)}`
-                      : formatMonth(selectedBaseMetric?.month)}
-                  </dd>
-                </div>
-              </dl>
-
-              {selectedActivity ? (
-                <p className="map-context-note">
-                  Commercial census is shown only as local context; it is not used as a risk denominator.
-                </p>
               ) : null}
 
               <div className="map-selection-actions">
                 <a className="map-selection-link" href={areaHref(selectedArea.id)}>
-                  Open full area profile →
+                  View details →
                 </a>
                 <a className="map-selection-compare" href={`/compare?a=${encodeURIComponent(selectedArea.id)}`}>
-                  Compare this area
+                  Compare
                 </a>
               </div>
             </div>
@@ -1139,21 +1102,9 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
         ) : null}
       </div>
 
-      <div className="map-legend-block map-legend-compact map-legend-simple" aria-label="Map legend">
-        <div className="map-legend-bands">
-          <div><i className="legend-q1" /><span>Lower</span></div>
-          <div><i className="legend-q2" /></div>
-          <div><i className="legend-q3" /><span>Middle</span></div>
-          <div><i className="legend-q4" /></div>
-          <div><i className="legend-q5" /><span>Higher</span></div>
-        </div>
-        <span className="map-legend-note">Relative within {cityName} · {formatMonth(latestMonth)}</span>
-      </div>
-
       <details className="map-explain map-explain-compact">
-        <summary>What does this view measure?</summary>
+        <summary>How is this calculated?</summary>
         <p>{currentMethod}</p>
-        <small>Green means a lower relative signal and red a higher one. It is context, not a guarantee of safety.</small>
       </details>
     </section>
   );
