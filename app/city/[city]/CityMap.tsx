@@ -2,6 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { areaHref } from "@/lib/area-route";
+import {
+  MAP_ADVANCED_FILTERS,
+  MAP_AUDIENCES,
+  MAP_COLOR_BANDS,
+  type MapAudienceKey,
+  type MapAdvancedFilterKey,
+} from "@/lib/map-filters";
 import type {
   CityActivityContext,
   CityBoundary,
@@ -20,8 +27,8 @@ type Props = {
   safetySignals: CitySafetySignal[];
 };
 
-type AudienceKey = "resident" | "visitor" | "advanced";
-type MetricKey = "contextual-overview" | "visitor-context" | "residential-harm" | "violence-property" | "theft" | "crime-related" | "activity";
+type AudienceKey = MapAudienceKey | "advanced";
+type MetricKey = "contextual-overview" | "visitor-context" | "residential-harm" | MapAdvancedFilterKey;
 type NormalizationKey = "density" | "resident";
 type LayerKey =
   | "contextual-overview"
@@ -47,13 +54,6 @@ type MapLibreModule = {
 const MAPLIBRE_URL = "https://unpkg.com/maplibre-gl@6.11.1/dist/maplibre-gl.mjs";
 const MAPLIBRE_CSS = "https://unpkg.com/maplibre-gl@6.11.1/dist/maplibre-gl.css";
 const MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
-
-const COMMON_ADVANCED_FILTERS: ReadonlyArray<{ key: MetricKey; label: string }> = [
-  { key: "violence-property", label: "Violence + property" },
-  { key: "theft", label: "Theft + robbery" },
-  { key: "crime-related", label: "All crime-related" },
-  { key: "activity", label: "All source activity" },
-];
 
 const metricCopy: Record<MetricKey, { label: string; short: string; note: string }> = {
   "contextual-overview": {
@@ -286,11 +286,7 @@ function boundaryBounds(boundary: CityBoundary): Bounds | null {
 
 function colorForPercentile(percentile: number | null) {
   if (percentile === null || !Number.isFinite(percentile)) return "#c8c6bf";
-  if (percentile < 0.2) return "#3f9b63";
-  if (percentile < 0.4) return "#8ab85b";
-  if (percentile < 0.6) return "#dfc64c";
-  if (percentile < 0.8) return "#e28a43";
-  return "#c84c3f";
+  return MAP_COLOR_BANDS.find((band) => percentile < band.max)?.color ?? MAP_COLOR_BANDS.at(-1)!.color;
 }
 
 function fallbackPath(boundary: CityBoundary, bounds: Bounds) {
@@ -855,7 +851,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
     );
   }, [mapReady, selectedAreaId]);
 
-  const metricOptions = COMMON_ADVANCED_FILTERS;
+  const metricOptions = MAP_ADVANCED_FILTERS;
 
   return (
     <section className="city-map-panel interactive-map-panel">
@@ -865,24 +861,18 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
           <strong>Choose how you will use the area</strong>
         </div>
         <div className="map-audience-buttons" role="group" aria-label="Map audience">
-          <button
-            type="button"
-            className={audience === "resident" ? "is-active" : ""}
-            aria-pressed={audience === "resident"}
-            onClick={() => chooseAudience("resident")}
-          >
-            <strong>Resident</strong>
-            <small>Living here · recurring exposure</small>
-          </button>
-          <button
-            type="button"
-            className={audience === "visitor" ? "is-active" : ""}
-            aria-pressed={audience === "visitor"}
-            onClick={() => chooseAudience("visitor")}
-          >
-            <strong>Visitor</strong>
-            <small>Tourism · short stay · street exposure</small>
-          </button>
+          {MAP_AUDIENCES.map((item) => (
+            <button
+              type="button"
+              key={item.key}
+              className={audience === item.key ? "is-active" : ""}
+              aria-pressed={audience === item.key}
+              onClick={() => chooseAudience(item.key)}
+            >
+              <strong>{item.label}</strong>
+              <small>{item.detail}</small>
+            </button>
+          ))}
         </div>
       </div>
 
