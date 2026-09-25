@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { areaHref } from "@/lib/area-route";
 import { cityNames } from "@/lib/data";
 import {
@@ -281,6 +281,29 @@ function colorForPercentile(percentile: number | null) {
   if (percentile === null || !Number.isFinite(percentile)) return "#c8c6bf";
   return MAP_COLOR_BANDS.find((band) => percentile < band.max)?.color ?? MAP_COLOR_BANDS.at(-1)!.color;
 }
+
+const MAP_COLOR_STYLE = {
+  "--map-q1": MAP_COLOR_BANDS[0].color,
+  "--map-q2": MAP_COLOR_BANDS[1].color,
+  "--map-q3": MAP_COLOR_BANDS[2].color,
+  "--map-q4": MAP_COLOR_BANDS[3].color,
+  "--map-q5": MAP_COLOR_BANDS[4].color,
+} as CSSProperties;
+
+const MAP_FILL_COLOR_EXPRESSION = [
+  "case",
+  ["==", ["get", "percentile"], null],
+  "#c8c6bf",
+  [
+    "step",
+    ["to-number", ["get", "percentile"]],
+    MAP_COLOR_BANDS[0].color,
+    MAP_COLOR_BANDS[0].max, MAP_COLOR_BANDS[1].color,
+    MAP_COLOR_BANDS[1].max, MAP_COLOR_BANDS[2].color,
+    MAP_COLOR_BANDS[2].max, MAP_COLOR_BANDS[3].color,
+    MAP_COLOR_BANDS[3].max, MAP_COLOR_BANDS[4].color,
+  ],
+];
 
 function fallbackPath(boundary: CityBoundary, bounds: Bounds) {
   const width = 1000;
@@ -707,20 +730,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
             type: "fill",
             source: "datasec-areas",
             paint: {
-              "fill-color": [
-                "case",
-                ["==", ["get", "percentile"], null],
-                "#c8c6bf",
-                [
-                  "step",
-                  ["to-number", ["get", "percentile"]],
-                  "#3f9b63",
-                  0.2, "#8ab85b",
-                  0.4, "#dfc64c",
-                  0.6, "#e28a43",
-                  0.8, "#c84c3f",
-                ],
-              ],
+              "fill-color": MAP_FILL_COLOR_EXPRESSION,
               "fill-opacity": 0.74,
             },
           }, firstLabelLayer);
@@ -846,7 +856,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
   const metricOptions = MAP_ADVANCED_FILTERS;
 
   return (
-    <section className="city-map-panel interactive-map-panel">
+    <section className="city-map-panel interactive-map-panel" style={MAP_COLOR_STYLE}>
       <div className="map-audience-switch">
         <div>
           <span>WHO IS THIS FOR?</span>
