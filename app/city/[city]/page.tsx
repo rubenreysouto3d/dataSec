@@ -98,16 +98,12 @@ export default async function CityPage({ params }: Props) {
 
       <section className="city-intro city-intro-clean">
         <div>
-          <div className="eyebrow">{copy.eyebrow}</div>
           <h1>{cityNames[city]}</h1>
         </div>
         {snapshot ? (
           <div className="city-quick-meta" aria-label="City data status">
             <span><strong>{snapshot.areaCount.toLocaleString("en-GB")}</strong> areas</span>
             <span><strong>{monthLabel(snapshot.month)}</strong> latest data</span>
-            <span>
-              <strong>{Math.round((snapshot.coveredAreaCount / snapshot.areaCount) * 100)}%</strong> coverage
-            </span>
           </div>
         ) : null}
       </section>
