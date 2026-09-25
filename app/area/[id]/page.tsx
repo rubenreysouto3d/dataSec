@@ -26,6 +26,13 @@ function signalBand(percentile: number | null | undefined) {
   return "High relative signal";
 }
 
+function signalLevel(percentile: number | null | undefined) {
+  if (percentile === null || percentile === undefined || !Number.isFinite(percentile)) {
+    return null;
+  }
+  return Math.min(5, Math.max(1, Math.floor(percentile * 5) + 1));
+}
+
 function movementCopy(trend: number | null) {
   if (trend === null) return "Not enough stored history yet";
   if (Math.abs(trend) < 5) return "Broadly stable across stored months";
@@ -131,12 +138,12 @@ export default async function AreaPage({ params }: Props) {
   const residentMethod =
     safetySignal?.contextualConcernPercentile !== null &&
     safetySignal?.contextualConcernPercentile !== undefined
-      ? "6-month personal harm + resident night-safety perception"
+      ? "50% recent personal-harm percentile + 50% 2025 district night-safety perception percentile"
       : cityMetric?.violencePropertyResidentPercentile !== null &&
           cityMetric?.violencePropertyResidentPercentile !== undefined
         ? methods.residentFallbackMethod
         : "violence + property density";
-  const visitorMethod = "70% theft + robbery concentration · 30% violence + property concentration";
+  const visitorMethod = "70% theft + robbery concentration + 30% violence + property concentration";
 
   return (
     <main className="area-page">
@@ -162,14 +169,23 @@ export default async function AreaPage({ params }: Props) {
         <article>
           <span>RESIDENT</span>
           <strong>{signalBand(residentPercentile)}</strong>
-          <small>Living here · compared only within {area.cityName}</small>
+          <small>
+            {signalLevel(residentPercentile) ? `Level ${signalLevel(residentPercentile)}/5 · ` : ""}
+            Living here · local to {area.cityName}
+          </small>
         </article>
         <article>
           <span>VISITOR</span>
           <strong>{signalBand(visitorPercentile)}</strong>
-          <small>Short stay · compared only within {area.cityName}</small>
+          <small>
+            {signalLevel(visitorPercentile) ? `Level ${signalLevel(visitorPercentile)}/5 · ` : ""}
+            Short stay · local to {area.cityName}
+          </small>
         </article>
       </section>
+      <p className="density-caution area-quick-disclaimer">
+        Context only — these local indicators describe official-source patterns and do not predict or guarantee personal safety.
+      </p>
 
       <section className="area-key-facts area-key-facts-three">
         <article>
