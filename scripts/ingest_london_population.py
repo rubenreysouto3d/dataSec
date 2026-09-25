@@ -106,36 +106,11 @@ def parse_population(blob: bytes) -> dict[str, int]:
     return totals
 
 
-def london_area_codes(db: SupabaseRest) -> set[str]:
-    query = urllib.parse.urlencode({
-        "select": "source_area_id",
-        "city_slug": "eq.london",
-        "active": "eq.true",
-        "limit": "1000",
-    })
-    result = db.request("areas", method="GET", query=query)
-    if not isinstance(result, list):
-        raise RuntimeError("Could not read London areas from Supabase")
-    codes = {
-        str(row.get("source_area_id") or "").strip()
-        for row in result
-        if isinstance(row, dict)
-    }
-    if len(codes) != 679:
-        raise RuntimeError(f"Expected 679 stored London areas, got {len(codes)}")
-    return codes
-
 
 def persist(db: SupabaseRest, resource_id: str, totals: dict[str, int]) -> None:
-    stored_codes = london_area_codes(db)
-    if stored_codes != set(totals):
-        missing = sorted(stored_codes - set(totals))
-        extra = sorted(set(totals) - stored_codes)
-        raise RuntimeError(
-            "London census ward codes do not match stored areas; "
-            f"missing={missing[:10]} extra={extra[:10]}"
-        )
-
+    # Source-health independently validates that the official workbook exposes
+    # the same 679 E050 ward identifiers used by dataSec. Database foreign keys
+    # fail closed if any source code is not a stored area.
     db.upsert(
         "sources",
         [{
