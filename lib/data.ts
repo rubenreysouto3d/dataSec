@@ -131,6 +131,27 @@ export type CityActivityContext = {
   openHostelry: number;
 };
 
+export type CityHarmTrend = {
+  areaId: string;
+  monthStart: string;
+  monthEnd: string;
+  previousAverageMonthly: number;
+  recentAverageMonthly: number;
+  previousRatePer10k: number | null;
+  recentRatePer10k: number | null;
+  deltaRatePer10k: number | null;
+  percentChange: number | null;
+};
+
+export type CityHarmTrendSummary = {
+  citySlug: CitySlug;
+  signalLabel: string;
+  latestMonth: string;
+  previousMonths: string[];
+  recentMonths: string[];
+  areas: CityHarmTrend[];
+};
+
 export type CitySafetySignal = {
   areaId: string;
   monthStart: string;
@@ -728,6 +749,129 @@ export async function getCitySafetySignals(
         ? null
         : overviewRanks.get(item.areaId) ?? null,
   }));
+}
+
+export async function getCityHarmTrends(
+  citySlug: CitySlug,
+  areaIds: string[],
+  mapMetrics: CityMapMetric[],
+): Promise<CityHarmTrendSummary | null> {
+  if (!areaIds.length || !mapMetrics.length) return null;
+
+  const latestMonth = mapMetrics.reduce(
+    (latest, metric) => (!latest || metric.month > latest ? metric.month : latest),
+    "",
+  );
+  if (!latestMonth) return null;
+
+  const months = Array.from({ length: 6 }, (_, index) => monthOffset(latestMonth, index - 5));
+  const previousMonths = months.slice(0, 3);
+  const recentMonths = months.slice(3);
+  const firstMonth = months[0];
+
+  const metrics = await getMetrics();
+  const metricSlugs =
+    citySlug === "madrid"
+      ? metrics
+          .filter((metric) => metric.slug.startsWith("madrid-dispatch-"))
+          .filter(isMadridPersonalHarmMetric)
+          .map((metric) => metric.slug)
+      : [
+          "violent-crime",
+          "robbery",
+          "burglary",
+          "criminal-damage-arson",
+          "vehicle-crime",
+          "possession-of-weapons",
+        ].filter((slug) => metrics.some((metric) => metric.slug === slug));
+
+  if (!metricSlugs.length) return null;
+
+  const sourceSlug =
+    citySlug === "madrid" ? "madrid-police-dispatch-incidents" : "uk-police-open-data";
+
+  type TrendObservationRow = {
+    area_id: string;
+    period_start: string;
+    value: number | string;
+  };
+
+  const rows: TrendObservationRow[] = [];
+  const pageSize = 1000;
+  for (let offset = 0; ; offset += pageSize) {
+    const page = await rest<TrendObservationRow[]>("observations", {
+      select: "area_id,period_start,value",
+      source_slug: `eq.${sourceSlug}`,
+      metric_slug: `in.(${metricSlugs.join(",")})`,
+      period_start: `gte.${firstMonth}-01`,
+      order: "period_start.asc,area_id.asc",
+      limit: String(pageSize),
+      offset: String(offset),
+    });
+    rows.push(...page);
+    if (page.length < pageSize) break;
+  }
+
+  const included = new Set(areaIds);
+  const monthSet = new Set(months);
+  const totals = new Map<string, number>();
+
+  for (const row of rows) {
+    if (!included.has(row.area_id)) continue;
+    const month = row.period_start.slice(0, 7);
+    if (!monthSet.has(month)) continue;
+    const key = `${row.area_id}|${month}`;
+    totals.set(key, (totals.get(key) ?? 0) + Number(row.value));
+  }
+
+  const populationByArea = new Map(mapMetrics.map((metric) => [metric.areaId, metric.population]));
+  const averageFor = (areaId: string, selectedMonths: string[]) =>
+    selectedMonths.reduce(
+      (sum, month) => sum + (totals.get(`${areaId}|${month}`) ?? 0),
+      0,
+    ) / selectedMonths.length;
+
+  const areas = areaIds.map((areaId) => {
+    const previousAverageMonthly = averageFor(areaId, previousMonths);
+    const recentAverageMonthly = averageFor(areaId, recentMonths);
+    const population = populationByArea.get(areaId);
+    const previousRatePer10k =
+      population && population > 0 ? (previousAverageMonthly * 10000) / population : null;
+    const recentRatePer10k =
+      population && population > 0 ? (recentAverageMonthly * 10000) / population : null;
+    const deltaRatePer10k =
+      previousRatePer10k !== null && recentRatePer10k !== null
+        ? recentRatePer10k - previousRatePer10k
+        : null;
+    const percentChange =
+      previousAverageMonthly > 0
+        ? ((recentAverageMonthly - previousAverageMonthly) / previousAverageMonthly) * 100
+        : null;
+
+    return {
+      areaId,
+      monthStart: firstMonth,
+      monthEnd: latestMonth,
+      previousAverageMonthly,
+      recentAverageMonthly,
+      previousRatePer10k,
+      recentRatePer10k,
+      deltaRatePer10k,
+      percentChange,
+    };
+  });
+
+  return {
+    citySlug,
+    signalLabel:
+      citySlug === "madrid"
+        ? "Personal-harm police dispatches"
+        : "Violence + property police-recorded crime",
+    latestMonth,
+    previousMonths,
+    recentMonths,
+    areas,
+  };
 }
 
 export async function getCityActivityContexts(areaIds: string[]): Promise<CityActivityContext[]> {
