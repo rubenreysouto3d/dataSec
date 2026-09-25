@@ -20,7 +20,6 @@ export default async function Home() {
     error = true;
   }
 
-  const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
   const cityCards = [
     {
       slug: "madrid",
@@ -49,13 +48,7 @@ export default async function Home() {
           <br />
           <em>before you go.</em>
         </h1>
-        <p>Pick a city. Read the map. Check the neighbourhood.</p>
-
-        <form className="search-form home-search" action={`${basePath}/search`} method="get">
-          <label className="sr-only" htmlFor="area-search">Search a neighbourhood</label>
-          <input id="area-search" name="q" placeholder="Search a neighbourhood…" autoComplete="off" />
-          <button type="submit">Search</button>
-        </form>
+        <p>Choose a city, then switch between living there and visiting.</p>
 
       </section>
 
@@ -78,7 +71,7 @@ export default async function Home() {
                     <span>LIVE CITY</span>
                     <h3>{city.name}</h3>
                   </div>
-                  <Link href={`/city/${city.slug}`}>Open map →</Link>
+                  <Link href={`/city/${city.slug}`}>Explore →</Link>
                 </div>
                 <div className="home-city-meta">
                   <span><strong>{city.count.toLocaleString("en-GB")}</strong> areas</span>
