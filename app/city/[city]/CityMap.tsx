@@ -243,8 +243,9 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
   const [mapError, setMapError] = useState("");
   const residentCoverage = metrics.filter((metric) => metric.population !== null).length;
   const hasResidentLayer = residentCoverage >= Math.max(1, Math.floor(areas.length * 0.8));
+  const hasReliableSafetySignal = safetySignals.some((signal) => signal.months >= 3);
   const [layer, setLayer] = useState<LayerKey>(() =>
-    citySlug === "madrid" && safetySignals.length ? "residential-harm" : "violence-property",
+    citySlug === "madrid" && hasReliableSafetySignal ? "residential-harm" : "violence-property",
   );
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
   const [areaSearch, setAreaSearch] = useState("");
@@ -585,7 +586,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
   }, [mapReady, selectedAreaId]);
 
   const metricOptions: Array<{ key: MetricKey; label: string }> = [
-    ...(citySlug === "madrid" && safetySignals.length
+    ...(citySlug === "madrid" && hasReliableSafetySignal
       ? [{ key: "residential-harm" as MetricKey, label: `Personal harm · ${safetyWindowLabel}` }]
       : []),
     { key: "violence-property", label: "Violence + property" },
