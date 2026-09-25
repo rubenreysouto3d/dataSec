@@ -147,9 +147,7 @@ export default function CompareClient({ areas, sourceError }: Props) {
 
       {left === right && left ? <div className="notice">Choose two different areas.</div> : null}
       {!left ? (
-        <div className="compare-start-hint">
-          Choose the first area; the second selector will then show only areas from the same city and source.
-        </div>
+        <div className="compare-start-hint">Choose Area A first.</div>
       ) : null}
       {loading ? <div className="notice">Loading official comparison…</div> : null}
       {failed ? <div className="notice">The comparison data could not be loaded.</div> : null}
@@ -228,10 +226,7 @@ function Comparison({ left, right }: { left: CompareProfile; right: CompareProfi
               ? `${densityHigher} has the higher recorded density`
               : "Both areas have the same recorded density"}
           </strong>
-          <p>
-            {differenceCopy(left.incidentsPerKm2, right.incidentsPerKm2, "incidents/km²")}.
-            This is source context, not a safety verdict.
-          </p>
+          <p>{differenceCopy(left.incidentsPerKm2, right.incidentsPerKm2, "incidents/km²")}.</p>
         </div>
       </div>
 
@@ -245,13 +240,11 @@ function Comparison({ left, right }: { left: CompareProfile; right: CompareProfi
         <article>
           <span>{left.name}</span>
           <strong>{densityBand(left.densityPercentile)}</strong>
-          <p>About {leftDensityPct}% of {left.cityName} {densityContext} recorded a lower density.</p>
           <div className="compare-position-track"><i style={{ width: `${leftDensityPct}%` }} /></div>
         </article>
         <article>
           <span>{right.name}</span>
           <strong>{densityBand(right.densityPercentile)}</strong>
-          <p>About {rightDensityPct}% of {right.cityName} {densityContext} recorded a lower density.</p>
           <div className="compare-position-track"><i style={{ width: `${rightDensityPct}%` }} /></div>
         </article>
       </div>
@@ -277,10 +270,13 @@ function Comparison({ left, right }: { left: CompareProfile; right: CompareProfi
 
       </details>
 
-      <p className="compare-note">
-        The city-position bars compare recorded source incidents per km² across {left.cityName} {densityContext} for the same snapshot.
-        Higher does not mean more dangerous and lower does not mean safe; this is descriptive source context, not a personal-risk score.
-      </p>
+      <details className="compare-note compare-note-details">
+        <summary>How to read this comparison</summary>
+        <p>
+          Bars compare recorded source incidents per km² across {left.cityName} {densityContext} for the same snapshot.
+          Higher does not automatically mean more dangerous.
+        </p>
+      </details>
     </section>
   );
 }
