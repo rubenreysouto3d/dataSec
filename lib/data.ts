@@ -203,7 +203,11 @@ export function sourceExplanation(area: AreaProfile): string {
   return "Incidents handled by Madrid Municipal Police central dispatch and assigned to the official municipal area. This source is broader than crime and includes traffic, public-space, assistance and other police responses.";
 }
 
-async function rest<T>(table: string, params: Record<string, string>): Promise<T> {
+async function rest<T>(
+  table: string,
+  params: Record<string, string>,
+  options: { noStore?: boolean } = {},
+): Promise<T> {
   const query = new URLSearchParams(params);
   const url = `${SUPABASE_URL}/rest/v1/${table}?${query.toString()}`;
   const retryable = new Set([429, 500, 502, 503, 504]);
@@ -215,7 +219,7 @@ async function rest<T>(table: string, params: Record<string, string>): Promise<T
         "User-Agent": "dataSec/0.3 (+https://github.com/rubenreysouto3d/dataSec)",
         "X-dataSec-attempt": String(attempt),
       },
-      ...(attempt > 1
+      ...(options.noStore || attempt > 1
         ? { cache: "no-store" as const }
         : process.env.GITHUB_PAGES === "true"
           ? { cache: "force-cache" as const }
@@ -481,7 +485,7 @@ export async function getCitySafetySignals(
     period_start: `gte.${firstMonth}-01`,
     order: "period_start.asc,area_id.asc",
     limit: "10000",
-  });
+  }, { noStore: true });
 
   const included = new Set(areaIds);
   const populationByArea = new Map(mapMetrics.map((metric) => [metric.areaId, metric.population]));
