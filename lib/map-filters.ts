@@ -4,12 +4,12 @@ export const MAP_AUDIENCES = [
   {
     key: "resident",
     label: "Resident",
-    detail: "Living here · recurring exposure",
+    detail: "Living here",
   },
   {
     key: "visitor",
     label: "Visitor",
-    detail: "Tourism · short stay · street exposure",
+    detail: "Short stay",
   },
 ] as const;
 
