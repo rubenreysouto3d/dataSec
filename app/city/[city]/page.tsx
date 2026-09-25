@@ -146,20 +146,19 @@ export default async function CityPage({ params }: Props) {
         </div>
       </details>
 
-      <section className="areas-section city-area-list">
-        <div className="section-heading city-area-heading">
-          <div>
-            <div className="eyebrow">{areas.length.toLocaleString("en-GB")} areas</div>
-            <h2>Neighbourhoods</h2>
-          </div>
+      <details className="city-area-browser">
+        <summary>
+          <span>Browse neighbourhoods</span>
+          <small>{areas.length.toLocaleString("en-GB")} areas</small>
+        </summary>
+        <div className="city-area-browser-body">
+          {error ? (
+            <div className="notice">The stored dataset is temporarily unavailable.</div>
+          ) : (
+            <CityAreaExplorer areas={areas} contexts={contexts} />
+          )}
         </div>
-
-        {error ? (
-          <div className="notice">The stored dataset is temporarily unavailable.</div>
-        ) : (
-          <CityAreaExplorer areas={areas} contexts={contexts} />
-        )}
-      </section>
+      </details>
     </main>
   );
 }
