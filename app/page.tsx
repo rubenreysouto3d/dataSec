@@ -52,7 +52,7 @@ export default async function Home() {
             <br />
             <em>Read the map.</em>
           </h1>
-          <p>Official local data, simplified for residents and visitors.</p>
+          <p>Official local data with separate Resident and Visitor context, verified before publication.</p>
         </div>
 
         {error ? (
