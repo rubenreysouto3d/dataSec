@@ -63,6 +63,23 @@ for worksheet in workbook.worksheets:
             if WARD_CODE.fullmatch(text):
                 codes.add(text)
 
+sheet_2021 = workbook["2021"]
+first_code_row = None
+for row_index, row in enumerate(sheet_2021.iter_rows(values_only=True), start=1):
+    if any(WARD_CODE.fullmatch(str(value or "").strip()) for value in row):
+        first_code_row = row_index
+        break
+if first_code_row is None:
+    raise RuntimeError("London 2021 population sheet contains no ward data rows")
+
+inspection_rows = []
+for row in sheet_2021.iter_rows(
+    min_row=max(1, first_code_row - 3),
+    max_row=min(sheet_2021.max_row, first_code_row + 2),
+    values_only=True,
+):
+    inspection_rows.append([value for value in row])
+
 missing_known = sorted(KNOWN_DATASEC_CODES - codes)
 if missing_known:
     raise RuntimeError(
@@ -82,6 +99,8 @@ print(
             "worksheets": workbook.sheetnames,
             "wardCodeCount": len(codes),
             "knownDataSecCodesPresent": sorted(KNOWN_DATASEC_CODES),
+            "first2021WardRow": first_code_row,
+            "inspectionRows": inspection_rows,
         },
         indent=2,
     )
