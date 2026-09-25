@@ -7,7 +7,7 @@ export const metadata = {
 export default function MethodologyPage() {
   return (
     <main className="method-page">
-      <div className="eyebrow">Methodology · v0.4</div>
+      <div className="eyebrow">Methodology · v0.5</div>
       <h1>Useful context without pretending unlike datasets are the same.</h1>
       <section className="method-grid">
         <article>
@@ -22,8 +22,8 @@ export default function MethodologyPage() {
         </article>
         <article>
           <span>03</span>
-          <h2>Local context, not a universal score</h2>
-          <p>Map colours are percentiles calculated only within the same city and source snapshot. Darker means a higher recorded level for the selected metric; it does not mean “dangerous”, and lighter does not mean “safe”. Cross-city source-density ranking is deliberately disabled.</p>
+          <h2>One visual language, local comparisons</h2>
+          <p>Every city uses the same green → yellow → red relative scale. Green means a lower signal and red a higher signal compared with other areas in that city. Colours are not guarantees of safety, and cross-city rankings remain disabled because source definitions differ.</p>
         </article>
         <article>
           <span>04</span>
@@ -47,16 +47,21 @@ export default function MethodologyPage() {
         </article>
         <article>
           <span>08</span>
-          <h2>Resident rates are optional context</h2>
-          <p>Madrid can show selected categories per 10,000 registered residents using the municipal population register from the same month. This is not the default view because visitor-heavy centres can look artificially high when tourists, commuters and nightlife footfall are absent from the resident denominator.</p>
+          <h2>Resident is a stable product filter</h2>
+          <p>The Resident view exists in every city and means recurring residential exposure. The implementation uses the best official denominator and contextual signal available locally: Madrid can combine six-month personal-harm data with resident night-safety perception, while London uses resident-normalised recorded categories where appropriate.</p>
         </article>
         <article>
           <span>09</span>
-          <h2>Exposure proxies stay labelled as proxies</h2>
-          <p>Pedestrian counters and commercial-activity data can help explain central-area exposure, but they are not interchangeable with population. Sparse pedestrian sensors are not used as a citywide denominator. Madrid&apos;s monthly commercial census is monitored as a possible contextual layer, not yet treated as a risk denominator.</p>
+          <h2>Visitor is a stable product filter</h2>
+          <p>The Visitor view also exists in every city and represents short-stay street exposure. It prioritises theft and robbery concentration, with a smaller violence/property component, and deliberately avoids resident denominators because tourists and commuters are not represented in the resident population.</p>
         </article>
         <article>
           <span>10</span>
+          <h2>Same filters in every city</h2>
+          <p>Resident, Visitor, Violence + property, Theft + robbery, All crime-related and All source activity are a shared global filter catalog. New cities inherit the same controls automatically; only the documented source implementation behind each filter may differ.</p>
+        </article>
+        <article>
+          <span>11</span>
           <h2>No demographic shortcuts</h2>
           <p>dataSec does not infer safety from ethnicity, nationality or neighbourhood reputation. The product is based on documented public-source observations and explicit limitations.</p>
         </article>
