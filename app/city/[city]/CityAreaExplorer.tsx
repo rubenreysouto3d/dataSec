@@ -2,28 +2,27 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import type { CityAreaContext, Neighbourhood } from "@/lib/data";
+import type { Neighbourhood } from "@/lib/data";
 import { areaHref } from "@/lib/area-route";
 
 const PAGE_SIZE = 48;
 
-type SortMode = "name" | "density-desc" | "density-asc";
-
 export default function CityAreaExplorer({
   areas,
-  contexts,
 }: {
   areas: Neighbourhood[];
-  contexts: CityAreaContext[];
 }) {
   const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<SortMode>("name");
   const [limit, setLimit] = useState(PAGE_SIZE);
 
-  const contextByArea = useMemo(
-    () => new Map(contexts.map((context) => [context.areaId, context])),
-    [contexts],
-  );
+  const duplicateNames = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const area of areas) {
+      const key = area.name.trim().toLocaleLowerCase();
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return counts;
+  }, [areas]);
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
@@ -32,20 +31,13 @@ export default function CityAreaExplorer({
       : areas.slice();
 
     result.sort((a, b) => {
-      if (sort === "name") return a.name.localeCompare(b.name);
-
-      const aDensity = contextByArea.get(a.id)?.incidentsPerKm2;
-      const bDensity = contextByArea.get(b.id)?.incidentsPerKm2;
-      if (aDensity === undefined && bDensity === undefined) return a.name.localeCompare(b.name);
-      if (aDensity === undefined) return 1;
-      if (bDensity === undefined) return -1;
-
-      const densityOrder = sort === "density-desc" ? bDensity - aDensity : aDensity - bDensity;
-      return densityOrder || a.name.localeCompare(b.name);
+      const byName = a.name.localeCompare(b.name);
+      if (byName) return byName;
+      return a.sourceAreaId.localeCompare(b.sourceAreaId);
     });
 
     return result;
-  }, [areas, contextByArea, query, sort]);
+  }, [areas, query]);
 
   const visible = filtered.slice(0, limit);
   const remaining = filtered.length - visible.length;
@@ -67,62 +59,31 @@ export default function CityAreaExplorer({
           />
         </label>
 
-        <label className="city-sort">
-          <span>Order</span>
-          <select
-            value={sort}
-            onChange={(event) => {
-              setSort(event.target.value as SortMode);
-              setLimit(PAGE_SIZE);
-            }}
-          >
-            <option value="name">Name A–Z</option>
-            <option value="density-desc">Recorded density · higher first</option>
-            <option value="density-asc">Recorded density · lower first</option>
-          </select>
-        </label>
-
         <p>
           {filtered.length.toLocaleString("en-GB")} area{filtered.length === 1 ? "" : "s"}
           {query.trim() ? " matched" : " available"}
         </p>
       </div>
 
-      {sort !== "name" ? (
-        <p className="density-caution">
-          This orders areas by recorded incidents per km² in the same source and snapshot. It is not a personal-risk or safety ranking.
-        </p>
-      ) : null}
+      <p className="density-caution">
+        Directory only. Relative levels are shown on the map above, where the active Resident, Visitor or filter view defines the comparison.
+      </p>
 
       {visible.length ? (
         <>
           <div className="area-grid">
             {visible.map((area) => {
-              const context = contextByArea.get(area.id);
+              const duplicate = (duplicateNames.get(area.name.trim().toLocaleLowerCase()) ?? 0) > 1;
               return (
                 <Link className="area-card" href={areaHref(area.id)} key={area.stableId}>
-                  <span className="area-city">{area.cityName}</span>
+                  <span className="area-city">
+                    {area.cityName}
+                    {duplicate ? ` · official area ${area.sourceAreaId}` : ""}
+                  </span>
                   <h3>{area.name}</h3>
-                  {context ? (
-                    <small className="area-context">
-                      <strong>
-                        {context.densityPercentile < 0.2
-                          ? "Among the lowest recorded levels"
-                          : context.densityPercentile < 0.4
-                            ? "Lower than most areas"
-                            : context.densityPercentile < 0.6
-                              ? "Around the city middle"
-                              : context.densityPercentile < 0.8
-                                ? "Higher than most areas"
-                                : "Among the highest recorded levels"}
-                      </strong>
-                      <span>
-                        {Math.round(context.incidentsPerKm2).toLocaleString("en-GB")}/km² · about {Math.round(context.densityPercentile * 100)}% of areas are lower
-                      </span>
-                    </small>
-                  ) : (
-                    <small className="area-context">Context unavailable</small>
-                  )}
+                  <small className="area-context">
+                    Open the profile for local Resident and Visitor context.
+                  </small>
                   <span className="arrow">View profile →</span>
                 </Link>
               );
