@@ -244,9 +244,11 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
   const residentCoverage = metrics.filter((metric) => metric.population !== null).length;
   const hasResidentLayer = residentCoverage >= Math.max(1, Math.floor(areas.length * 0.8));
   const hasReliableSafetySignal = safetySignals.some((signal) => signal.months >= 3);
-  const [layer, setLayer] = useState<LayerKey>(() =>
-    citySlug === "madrid" && hasReliableSafetySignal ? "residential-harm" : "violence-property",
-  );
+  const [layer, setLayer] = useState<LayerKey>(() => {
+    if (citySlug === "madrid" && hasReliableSafetySignal) return "residential-harm";
+    if (citySlug === "madrid" && hasResidentLayer) return "violence-property-resident";
+    return "violence-property";
+  });
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
   const [areaSearch, setAreaSearch] = useState("");
 
