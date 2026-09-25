@@ -341,13 +341,39 @@ function formatMonth(month: string | undefined) {
   );
 }
 
-function relativeBand(percentile: number | null) {
+function relativeBand(
+  percentile: number | null,
+  mode: "resident" | "visitor" | "recorded" = "recorded",
+) {
   if (percentile === null || !Number.isFinite(percentile)) return "No city comparison";
+
+  if (mode === "resident") {
+    if (percentile < 0.2) return "Lowest residential concern";
+    if (percentile < 0.4) return "Lower residential concern";
+    if (percentile < 0.6) return "Around the city middle";
+    if (percentile < 0.8) return "Higher residential concern";
+    return "Highest residential concern";
+  }
+
+  if (mode === "visitor") {
+    if (percentile < 0.2) return "Lowest visitor exposure";
+    if (percentile < 0.4) return "Lower visitor exposure";
+    if (percentile < 0.6) return "Around the city middle";
+    if (percentile < 0.8) return "Higher visitor exposure";
+    return "Highest visitor exposure";
+  }
+
   if (percentile < 0.2) return "Lowest 20% of areas";
   if (percentile < 0.4) return "Lower than most areas";
   if (percentile < 0.6) return "Around the city middle";
   if (percentile < 0.8) return "Higher than most areas";
   return "Highest 20% of areas";
+}
+
+function bandMode(metricKey: MetricKey): "resident" | "visitor" | "recorded" {
+  if (metricKey === "contextual-overview") return "resident";
+  if (metricKey === "visitor-context") return "visitor";
+  return "recorded";
 }
 
 function median(values: number[]) {
@@ -497,6 +523,8 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
           count: selected.count,
           unit: selected.unit,
           population: metricById.get(area.id)?.population ?? null,
+          band: relativeBand(selected.percentile, bandMode(metricKey)),
+          displayMode: bandMode(metricKey),
         },
         geometry: boundary.rings.length === 1
           ? { type: "Polygon", coordinates: [coordinates[0]] }
@@ -749,13 +777,21 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
             const detail = document.createElement("span");
             const value = Number(props.value);
             const percentile = Number(props.percentile);
-            detail.textContent = Number.isFinite(value)
-              ? `${value.toLocaleString("en-GB", { maximumFractionDigits: 1 })}${props.unit ?? ""}`
-              : "No value";
+            const displayMode = String(props.displayMode ?? "recorded");
+            detail.textContent =
+              displayMode === "resident" || displayMode === "visitor"
+                ? String(props.band ?? "No city comparison")
+                : Number.isFinite(value)
+                  ? `${value.toLocaleString("en-GB", { maximumFractionDigits: 1 })}${props.unit ?? ""}`
+                  : String(props.band ?? "No value");
 
             const context = document.createElement("small");
             context.textContent = Number.isFinite(percentile)
-              ? `Higher than about ${Math.round(percentile * 100)}% of ${cityName} areas`
+              ? displayMode === "resident"
+                ? `Residential concern is higher than about ${Math.round(percentile * 100)}% of ${cityName} areas`
+                : displayMode === "visitor"
+                  ? `Visitor exposure is higher than about ${Math.round(percentile * 100)}% of ${cityName} areas`
+                  : `Recorded level is higher than about ${Math.round(percentile * 100)}% of ${cityName} areas`
               : "No city comparison available";
 
             const hint = document.createElement("small");
@@ -1058,7 +1094,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
               <h3>{selectedArea.name}</h3>
 
               <div className="map-selection-summary">
-                <strong>{relativeBand(selectedMetric.percentile)}</strong>
+                <strong>{relativeBand(selectedMetric.percentile, bandMode(metricKey))}</strong>
                 <p>
                   {metricKey === "contextual-overview"
                     ? citySlug === "madrid" && selectedSafetySignal?.contextualConcernPercentile !== null &&
@@ -1188,7 +1224,13 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
               <p>Tap a coloured area or use the search box. This panel will explain the result against the city median and the rest of the city.</p>
               <div className="map-empty-example">
                 <strong>Colour answers one question:</strong>
-                <span>“How high is this recorded value compared with other areas in the same city?”</span>
+                <span>
+                  {metricKey === "contextual-overview"
+                    ? "“How strong is the residential concern signal compared with other areas in this city?”"
+                    : metricKey === "visitor-context"
+                      ? "“How exposed is a short-stay visitor here compared with other areas in this city?”"
+                      : "“How high is this recorded value compared with other areas in the same city?”"}
+                </span>
               </div>
             </div>
           )}
@@ -1213,11 +1255,17 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
           </span>
         </div>
         <div className="map-legend-bands">
-          <div><i className="legend-q1" /><span>Lowest 20%</span></div>
+          <div>
+            <i className="legend-q1" />
+            <span>{metricKey === "contextual-overview" ? "Lowest concern" : metricKey === "visitor-context" ? "Lowest exposure" : "Lowest 20%"}</span>
+          </div>
           <div><i className="legend-q2" /><span>Lower</span></div>
           <div><i className="legend-q3" /><span>Middle</span></div>
           <div><i className="legend-q4" /><span>Higher</span></div>
-          <div><i className="legend-q5" /><span>Highest 20%</span></div>
+          <div>
+            <i className="legend-q5" />
+            <span>{metricKey === "contextual-overview" ? "Highest concern" : metricKey === "visitor-context" ? "Highest exposure" : "Highest 20%"}</span>
+          </div>
         </div>
       </div>
 
