@@ -1,3 +1,5 @@
+import type { CitySlug } from "@/lib/data";
+
 export const MAP_AUDIENCES = [
   {
     key: "resident",
@@ -40,3 +42,33 @@ export const MAP_COLOR_BANDS = [
 
 export type MapAudienceKey = (typeof MAP_AUDIENCES)[number]["key"];
 export type MapAdvancedFilterKey = (typeof MAP_ADVANCED_FILTERS)[number]["key"];
+
+
+export const CITY_FILTER_METHODS: Record<CitySlug, {
+  residentPopulationLabel: string;
+  residentUnitLabel: string;
+  residentFallbackMethod: string;
+  violencePropertyMethod: string;
+  theftMethod: string;
+  crimeRelatedMethod: string;
+  activityMethod: string;
+}> = {
+  london: {
+    residentPopulationLabel: "2021 Census residents",
+    residentUnitLabel: "per 10,000 residents · 2021 Census",
+    residentFallbackMethod: "violence + property per 10,000 residents · 2021 Census denominator",
+    violencePropertyMethod: "Met Police recorded-crime categories mapped to violence + property",
+    theftMethod: "Met Police theft, robbery and vehicle-crime categories",
+    crimeRelatedMethod: "Met Police crime-related categories; anti-social behaviour excluded",
+    activityMethod: "All Metropolitan Police source activity in the stored snapshot",
+  },
+  madrid: {
+    residentPopulationLabel: "Registered residents",
+    residentUnitLabel: "per 10,000 registered residents",
+    residentFallbackMethod: "violence + property per 10,000 registered residents",
+    violencePropertyMethod: "Madrid dispatch categories mapped to violence + property",
+    theftMethod: "Madrid theft, robbery and vehicle/property-theft dispatch categories",
+    crimeRelatedMethod: "Madrid crime-related dispatch categories; non-crime responses excluded",
+    activityMethod: "All Madrid Municipal Police dispatch activity in the source",
+  },
+};
