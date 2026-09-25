@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { areaHref } from "@/lib/area-route";
 import { cityNames } from "@/lib/data";
 import {
+  buildVisitorPercentileMap,
   CITY_FILTER_METHODS,
   MAP_ADVANCED_FILTERS,
   MAP_AUDIENCES,
@@ -125,16 +126,6 @@ function layerFor(metric: MetricKey, normalization: NormalizationKey): LayerKey 
     return `${metric}-resident` as LayerKey;
   }
   return metric;
-}
-
-function visitorExposureScore(metric: CityMapMetric | undefined) {
-  if (!metric) return null;
-  const theft = metric.theftDensityPercentile;
-  const violence = metric.violencePropertyDensityPercentile;
-  if (theft === null && violence === null) return null;
-  if (theft === null) return violence;
-  if (violence === null) return theft;
-  return theft * 0.7 + violence * 0.3;
 }
 
 function metricForLayer(
@@ -466,26 +457,10 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
     () => new Map(safetySignals.map((signal) => [signal.areaId, signal])),
     [safetySignals],
   );
-  const visitorPercentileById = useMemo(() => {
-    const scored = metrics
-      .map((metric) => ({ areaId: metric.areaId, score: visitorExposureScore(metric) }))
-      .filter((item): item is { areaId: string; score: number } =>
-        item.score !== null && Number.isFinite(item.score),
-      )
-      .sort((a, b) => a.score - b.score);
-
-    const denominator = Math.max(scored.length - 1, 1);
-    const firstRankByScore = new Map<number, number>();
-    scored.forEach((item, index) => {
-      if (!firstRankByScore.has(item.score)) {
-        firstRankByScore.set(item.score, index / denominator);
-      }
-    });
-
-    return new Map(
-      scored.map((item) => [item.areaId, firstRankByScore.get(item.score) ?? 0]),
-    );
-  }, [metrics]);
+  const visitorPercentileById = useMemo(
+    () => buildVisitorPercentileMap(metrics),
+    [metrics],
+  );
 
   const bounds = useMemo<Bounds | null>(() => {
     let minLng = Number.POSITIVE_INFINITY;
