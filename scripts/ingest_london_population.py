@@ -14,6 +14,7 @@ import io
 import os
 import re
 import time
+import urllib.parse
 import urllib.request
 import uuid
 from typing import Any
