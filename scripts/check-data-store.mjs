@@ -60,6 +60,12 @@ async function request(path, init = {}) {
   throw new Error(`Data API retries exhausted for ${path}`);
 }
 
+function shiftMonth(month, delta) {
+  const [year, value] = month.split("-").map(Number);
+  const date = new Date(Date.UTC(year, value - 1 + delta, 1));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
 function monthAge(month) {
   if (!/^\d{4}-\d{2}$/.test(month)) {
     throw new Error(`Invalid source month: ${month}`);
@@ -219,6 +225,36 @@ if (
 }
 
 
+const madridHarmSlugs = [
+  "madrid-dispatch-amenazas-y-atentados-terroristas",
+  "madrid-dispatch-atentado-agresion-a-empleado-publico",
+  "madrid-dispatch-fallecidos-por-delito-o-causa-desconocida",
+  "madrid-dispatch-reyertas-agresiones",
+  "madrid-dispatch-robos-con-violencia-intimidacion",
+  "madrid-dispatch-violencia-de-genero-y-familiar",
+];
+const madridHistoryStart = shiftMonth(madrid.latestMonth, -5);
+const madridHarmParams = new URLSearchParams({
+  select: "area_id,metric_slug,period_start,value",
+  source_slug: "eq.madrid-police-dispatch-incidents",
+  metric_slug: `in.(${madridHarmSlugs.join(",")})`,
+  period_start: `gte.${madridHistoryStart}-01`,
+  order: "period_start.asc,area_id.asc",
+  limit: "10000",
+});
+const madridHarmRows = await request(`observations?${madridHarmParams.toString()}`);
+const madridHarmMonths = [...new Set(
+  (Array.isArray(madridHarmRows) ? madridHarmRows : [])
+    .map((row) => String(row.period_start ?? "").slice(0, 7))
+    .filter(Boolean),
+)].sort();
+
+if (madridHarmMonths.length < 3) {
+  console.warn(
+    `Madrid rolling-harm history currently has only ${madridHarmMonths.length} stored months: ${madridHarmMonths.join(", ")}`,
+  );
+}
+
 const [madridMapMetrics, madridPopulation, madridActivity] = await Promise.all([
   request(
     "latest_area_map_metrics?select=area_id,period_start,population,violence_property_density_percentile,violence_property_resident_percentile&city_slug=eq.madrid&limit=500",
@@ -287,6 +323,8 @@ console.log(
       checkedAt: new Date().toISOString(),
       cities: [london, madrid],
       madridContext: {
+        harmHistoryMonths: madridHarmMonths,
+        harmHistoryRows: Array.isArray(madridHarmRows) ? madridHarmRows.length : 0,
         populationMonth: madridPopulationMonth,
         populationCoverage: madridPopulation.length,
         commercialMonth: madridActivityMonth,
