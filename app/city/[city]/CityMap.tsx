@@ -47,9 +47,9 @@ const MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
 
 const metricCopy: Record<MetricKey, { label: string; short: string; note: string }> = {
   "residential-harm": {
-    label: "Personal harm · 6 months",
-    short: "Personal harm · 6 months",
-    note: "Rolling Madrid signal using violence, aggression, violent robbery, family/gender violence and closely related dispatch categories, normalised by registered residents.",
+    label: "Personal harm · recent history",
+    short: "Personal harm · recent history",
+    note: "Madrid signal using available recent months of violence, aggression, violent robbery, family/gender violence and closely related dispatch categories, normalised by registered residents.",
   },
   "violence-property": {
     label: "Violence & property",
@@ -250,6 +250,10 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
   const [areaSearch, setAreaSearch] = useState("");
 
   const cityName = citySlug === "madrid" ? "Madrid" : "London";
+  const safetyWindowMonths = safetySignals.reduce((max, signal) => Math.max(max, signal.months), 0);
+  const safetyWindowLabel = safetyWindowMonths
+    ? `${safetyWindowMonths} month${safetyWindowMonths === 1 ? "" : "s"}`
+    : "recent history";
   const metricKey = metricKeyForLayer(layer);
   const normalization = normalizationForLayer(layer);
   const latestMonth = metrics.reduce(
@@ -582,7 +586,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
 
   const metricOptions: Array<{ key: MetricKey; label: string }> = [
     ...(citySlug === "madrid" && safetySignals.length
-      ? [{ key: "residential-harm" as MetricKey, label: "Personal harm · 6 months" }]
+      ? [{ key: "residential-harm" as MetricKey, label: `Personal harm · ${safetyWindowLabel}` }]
       : []),
     { key: "violence-property", label: "Violence + property" },
     { key: "theft", label: "Theft + robbery" },
@@ -632,10 +636,10 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
             <>
               <div className="map-signal-definition">
                 <strong>Rolling resident rate</strong>
-                <small>average monthly records per 10,000 registered residents</small>
+                <small>{safetyWindowLabel} · average monthly records per 10,000 registered residents</small>
               </div>
               <p className="map-control-help">
-                Six-month smoothing reduces one-month noise. Theft without violence, traffic and administrative activity are excluded.
+                Uses up to six available months to reduce one-month noise. Theft without violence, traffic and administrative activity are excluded.
               </p>
             </>
           ) : (
@@ -684,7 +688,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
       <div className="map-current-view">
         <strong>Currently showing</strong>
         <span>
-          {metricCopy[metricKey].short} · {metricKey === "residential-harm"
+          {metricKey === "residential-harm" ? `Personal harm · ${safetyWindowLabel}` : metricCopy[metricKey].short} · {metricKey === "residential-harm"
             ? "rolling resident rate"
             : normalization === "resident"
               ? "per 10,000 residents"
