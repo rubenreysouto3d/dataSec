@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { getCitySnapshot, getNeighbourhoods, monthLabel } from "@/lib/data";
-import LocateButton from "@/components/LocateButton";
 
 export default async function Home() {
   let areas = [] as Awaited<ReturnType<typeof getNeighbourhoods>>;
@@ -50,7 +49,7 @@ export default async function Home() {
           <br />
           <em>before you go.</em>
         </h1>
-        <p>Resident or visitor. Pick a city, read the colour, open the area.</p>
+        <p>Pick a city. Read the map. Check the neighbourhood.</p>
 
         <form className="search-form home-search" action={`${basePath}/search`} method="get">
           <label className="sr-only" htmlFor="area-search">Search a neighbourhood</label>
@@ -58,14 +57,6 @@ export default async function Home() {
           <button type="submit">Search</button>
         </form>
 
-        <div className="home-actions">
-          <LocateButton />
-          <Link href="/compare">Compare areas →</Link>
-        </div>
-        <div className="home-mode-hint" aria-label="Available views">
-          <span><strong>Resident</strong> living here</span>
-          <span><strong>Visitor</strong> short stay</span>
-        </div>
       </section>
 
       <section className="home-cities" id="areas">
