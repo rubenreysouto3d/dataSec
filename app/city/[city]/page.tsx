@@ -5,7 +5,6 @@ import {
   type CitySlug,
   cityNames,
   getCityActivityContexts,
-  getCityAreaContexts,
   getCityBoundaries,
   getCityMapMetrics,
   getCitySafetySignals,
@@ -56,7 +55,6 @@ export default async function CityPage({ params }: Props) {
 
   let areas: Awaited<ReturnType<typeof getNeighbourhoods>> = [];
   let snapshot: Awaited<ReturnType<typeof getCitySnapshot>> = null;
-  let contexts: Awaited<ReturnType<typeof getCityAreaContexts>> = [];
   let boundaries: Awaited<ReturnType<typeof getCityBoundaries>> = [];
   let mapMetrics: Awaited<ReturnType<typeof getCityMapMetrics>> = [];
   let activityContexts: Awaited<ReturnType<typeof getCityActivityContexts>> = [];
@@ -66,9 +64,8 @@ export default async function CityPage({ params }: Props) {
   try {
     areas = await getNeighbourhoods(city);
     const areaIds = areas.map((area) => area.id);
-    [snapshot, contexts, boundaries, mapMetrics, activityContexts] = await Promise.all([
+    [snapshot, boundaries, mapMetrics, activityContexts] = await Promise.all([
       getCitySnapshot(city, areaIds),
-      getCityAreaContexts(city, areaIds),
       getCityBoundaries(areaIds),
       getCityMapMetrics(city, areaIds),
       city === "madrid" ? getCityActivityContexts(areaIds) : Promise.resolve([]),
@@ -144,7 +141,7 @@ export default async function CityPage({ params }: Props) {
             {error ? (
               <div className="notice">The stored dataset is temporarily unavailable.</div>
             ) : (
-              <CityAreaExplorer areas={areas} contexts={contexts} />
+              <CityAreaExplorer areas={areas} />
             )}
           </div>
         </details>
