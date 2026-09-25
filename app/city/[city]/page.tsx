@@ -145,6 +145,13 @@ export default async function CityPage({ params }: Props) {
             )}
           </div>
         </details>
+        {!error ? (
+          <Link className="city-trends-link" href={`/city/${city}/trends`}>
+            <span>Recent change</span>
+            <strong>Recorded harm trends →</strong>
+            <small>Compare the latest 3 months with the previous 3.</small>
+          </Link>
+        ) : null}
       </section>
     </main>
   );
