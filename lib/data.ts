@@ -172,10 +172,17 @@ export type CityMapMetric = {
   theftResidentPercentile: number | null;
 };
 
+export type MonthlySummaryCategory = {
+  category: string;
+  label: string;
+  count: number;
+  group: "safety" | "other";
+};
+
 export type MonthlySummary = {
   month: string;
   total: number;
-  categories: Array<{ category: string; label: string; count: number }>;
+  categories: MonthlySummaryCategory[];
 };
 
 export type CitySnapshot = {
@@ -835,6 +842,77 @@ function getMetrics() {
   return metricsPromise;
 }
 
+function normaliseCategoryText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function canonicalCategory(
+  metricSlug: string,
+  rawLabel: string,
+): { label: string; group: "safety" | "other" } {
+  const text = normaliseCategoryText(`${metricSlug} ${rawLabel}`);
+
+  // Non-crime responses stay visible, but never compete with the safety signal.
+  if (/samur|summa|ambulanc|asistencia sanitaria|auxilio sanitario|emergencia sanitaria/.test(text)) {
+    return { label: "Emergency assistance", group: "other" };
+  }
+  if (/trafico|traffic|seguridad vial|accidente.*veh|vehiculo.*averiado/.test(text)) {
+    return { label: "Traffic & road safety", group: "other" };
+  }
+  if (/conflicto.*privad|mediacion|resolucion.*conflict/.test(text)) {
+    return { label: "Private dispute mediation", group: "other" };
+  }
+  if (/administrativ|documentacion|identificacion|objetos perdidos|animal/.test(text)) {
+    return { label: "Other police activity", group: "other" };
+  }
+
+  // Canonical safety vocabulary shared across source languages.
+  if (/hurto|theft|shoplift|pickpocket/.test(text)) {
+    return { label: "Theft", group: "safety" };
+  }
+  if (/robbery|robo.*violencia|robo.*intimidacion/.test(text)) {
+    return { label: "Robbery", group: "safety" };
+  }
+  if (/burglary|robo.*fuerza|robo.*domicilio|robo.*establecimiento/.test(text)) {
+    return { label: "Burglary", group: "safety" };
+  }
+  if (/vehicle crime|sustraccion.*veh|robo.*veh|theft.*vehicle/.test(text)) {
+    return { label: "Vehicle crime", group: "safety" };
+  }
+  if (/violence|agresion|assault|reyerta|amenaza|violencia.*genero|violencia.*familiar/.test(text)) {
+    return { label: "Violence & assault", group: "safety" };
+  }
+  if (/sexual|violacion|abuso sexual/.test(text)) {
+    return { label: "Sexual offences", group: "safety" };
+  }
+  if (/drug|droga|estupefaciente/.test(text)) {
+    return { label: "Drugs", group: "safety" };
+  }
+  if (/weapon|arma/.test(text)) {
+    return { label: "Weapons", group: "safety" };
+  }
+  if (/criminal damage|damage|danos|vandal/.test(text)) {
+    return { label: "Criminal damage", group: "safety" };
+  }
+  if (/public order|orden publico|desorden|molestias|ruido/.test(text)) {
+    return { label: "Public disorder", group: "safety" };
+  }
+  if (/anti-social|antisocial/.test(text)) {
+    return { label: "Anti-social behaviour", group: "safety" };
+  }
+
+  // London source labels are already user-facing English. Unknown Madrid dispatch
+  // labels are kept out of the safety ranking until explicitly mapped.
+  if (!metricSlug.startsWith("madrid-dispatch-")) {
+    return { label: rawLabel || humanCategory(metricSlug), group: "safety" };
+  }
+
+  return { label: "Other police activity", group: "other" };
+}
+
 export async function getMonthlySummaries(areaId: string, maxMonths = 6): Promise<MonthlySummary[]> {
   const [observations, metrics] = await Promise.all([
     rest<ObservationRow[]>("observations", {
@@ -847,25 +925,35 @@ export async function getMonthlySummaries(areaId: string, maxMonths = 6): Promis
   ]);
 
   const labels = new Map(metrics.map((metric) => [metric.slug, metric.label]));
-  const grouped = new Map<string, Array<{ category: string; label: string; count: number }>>();
+  const grouped = new Map<string, Map<string, MonthlySummaryCategory>>();
 
   for (const row of observations) {
     const month = row.period_start.slice(0, 7);
     if (!grouped.has(month) && grouped.size >= maxMonths) continue;
-    const categories = grouped.get(month) ?? [];
-    categories.push({
-      category: row.metric_slug,
-      label: labels.get(row.metric_slug) ?? humanCategory(row.metric_slug),
-      count: Number(row.value),
+
+    const rawLabel = labels.get(row.metric_slug) ?? humanCategory(row.metric_slug);
+    const canonical = canonicalCategory(row.metric_slug, rawLabel);
+    const key = `${canonical.group}:${canonical.label}`;
+    const categories = grouped.get(month) ?? new Map<string, MonthlySummaryCategory>();
+    const existing = categories.get(key);
+
+    categories.set(key, {
+      category: key,
+      label: canonical.label,
+      group: canonical.group,
+      count: (existing?.count ?? 0) + Number(row.value),
     });
     grouped.set(month, categories);
   }
 
-  return [...grouped.entries()].map(([month, categories]) => ({
-    month,
-    total: categories.reduce((sum, item) => sum + item.count, 0),
-    categories: categories.sort((a, b) => b.count - a.count),
-  }));
+  return [...grouped.entries()].map(([month, categoryMap]) => {
+    const categories = [...categoryMap.values()].sort((a, b) => b.count - a.count);
+    return {
+      month,
+      total: categories.reduce((sum, item) => sum + item.count, 0),
+      categories,
+    };
+  });
 }
 
 export function humanCategory(category: string): string {
