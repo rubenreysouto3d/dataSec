@@ -557,7 +557,7 @@ export async function getCitySafetySignals(
       order: "period_start.asc,area_id.asc,metric_slug.asc",
       limit: String(pageSize),
       offset: String(offset),
-    }, { noStore: true });
+    });
     rows.push(...page);
     if (page.length < pageSize) break;
   }
