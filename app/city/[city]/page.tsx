@@ -19,20 +19,14 @@ import CityMap from "./CityMap";
 type Props = { params: Promise<{ city: string }> };
 
 const cityCopy: Record<CitySlug, {
-  eyebrow: string;
-  intro: string;
   source: string;
   caution: string;
 }> = {
   london: {
-    eyebrow: "UK Police open data",
-    intro: "Metropolitan Police neighbourhoods with stored monthly street-level crime snapshots.",
     source: "Police-recorded street-level crime published through data.police.uk, assigned to the official policing boundary for the same source month.",
     caution: "Published crime locations are anonymised and approximate. High incident density in central areas can reflect footfall, nightlife and transport activity.",
   },
   madrid: {
-    eyebrow: "Madrid Municipal Police",
-    intro: "Municipal neighbourhoods with incidents handled by Madrid Municipal Police central dispatch.",
     source: "Official municipal police dispatch incidents. This dataset is broader than crime and includes traffic, assistance, public-space and administrative responses.",
     caution: "Counts and density are not a personal-risk score. Central neighbourhoods can legitimately concentrate recorded incidents because of nightlife, tourism and footfall; resident-normalised rates can also overstate those same areas because visitors are not included in the resident denominator.",
   },
@@ -50,15 +44,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { city } = await params;
   if (!isCitySlug(city)) return { title: "City data" };
 
-  const cityName = cityNames[city];
-  const description =
-    city === "london"
-      ? "Explore Metropolitan Police neighbourhood incident data, local density context, source definitions and stored monthly history for London."
-      : "Explore Madrid Municipal Police dispatch incident data by municipal neighbourhood, with local density context, source definitions and stored monthly history.";
-
   return {
-    title: `${cityName} neighbourhood data`,
-    description,
+    title: `${cityNames[city]} safety map`,
+    description: `Explore neighbourhood-level official safety data for ${cityNames[city]} with consistent resident and visitor views.`,
   };
 }
 
@@ -74,6 +62,7 @@ export default async function CityPage({ params }: Props) {
   let activityContexts: Awaited<ReturnType<typeof getCityActivityContexts>> = [];
   let safetySignals: Awaited<ReturnType<typeof getCitySafetySignals>> = [];
   let error = false;
+
   try {
     areas = await getNeighbourhoods(city);
     const areaIds = areas.map((area) => area.id);
@@ -93,23 +82,24 @@ export default async function CityPage({ params }: Props) {
   const copy = cityCopy[city];
 
   return (
-    <main className="city-page">
-      <Link className="back" href="/">← Home</Link>
-
-      <section className="city-intro city-intro-clean">
-        <div>
-          <h1>{cityNames[city]}</h1>
+    <main className="city-page city-page-app">
+      <section className="city-app-bar" aria-label="City explorer">
+        <div className="city-switcher">
+          <span>City</span>
+          <Link href="/city/madrid" className={city === "madrid" ? "is-active" : ""}>Madrid</Link>
+          <Link href="/city/london" className={city === "london" ? "is-active" : ""}>London</Link>
         </div>
-        {snapshot ? (
-          <div className="city-quick-meta" aria-label="City data status">
-            <span><strong>{snapshot.areaCount.toLocaleString("en-GB")}</strong> areas</span>
-            <span><strong>{monthLabel(snapshot.month)}</strong> latest data</span>
-          </div>
-        ) : null}
+
+        <div className="city-app-status">
+          <strong>{cityNames[city]}</strong>
+          {snapshot ? (
+            <span>{snapshot.areaCount.toLocaleString("en-GB")} areas · {monthLabel(snapshot.month)}</span>
+          ) : null}
+        </div>
       </section>
 
       {!error ? (
-        <section className="city-map-section">
+        <section className="city-map-section city-map-section-app">
           <CityMap
             citySlug={city}
             areas={areas}
@@ -119,42 +109,46 @@ export default async function CityPage({ params }: Props) {
             safetySignals={safetySignals}
           />
         </section>
-      ) : null}
+      ) : (
+        <div className="notice city-app-error">The stored dataset is temporarily unavailable.</div>
+      )}
 
-      <details className="city-data-details">
-        <summary>
-          <span>About the data</span>
-          <small>Source & limits</small>
-        </summary>
-        <div>
-          <article>
-            <span>WHAT THE SOURCE MEASURES</span>
-            <p>{copy.source}</p>
-          </article>
-          <article>
-            <span>IMPORTANT LIMITATION</span>
-            <p>{copy.caution}</p>
-          </article>
-          <article>
-            <span>MAP COVERAGE</span>
-            <p>{boundaries.length} of {areas.length} stored areas have usable map geometry.</p>
-          </article>
-        </div>
-      </details>
+      <section className="city-secondary-tools">
+        <details className="city-data-details">
+          <summary>
+            <span>About this data</span>
+            <small>Source, limits and coverage</small>
+          </summary>
+          <div>
+            <article>
+              <span>SOURCE</span>
+              <p>{copy.source}</p>
+            </article>
+            <article>
+              <span>IMPORTANT LIMIT</span>
+              <p>{copy.caution}</p>
+            </article>
+            <article>
+              <span>MAP COVERAGE</span>
+              <p>{boundaries.length} of {areas.length} stored areas have usable map geometry.</p>
+            </article>
+          </div>
+        </details>
 
-      <details className="city-area-browser">
-        <summary>
-          <span>Browse neighbourhoods</span>
-          <small>{areas.length.toLocaleString("en-GB")} areas</small>
-        </summary>
-        <div className="city-area-browser-body">
-          {error ? (
-            <div className="notice">The stored dataset is temporarily unavailable.</div>
-          ) : (
-            <CityAreaExplorer areas={areas} contexts={contexts} />
-          )}
-        </div>
-      </details>
+        <details className="city-area-browser">
+          <summary>
+            <span>All neighbourhoods</span>
+            <small>{areas.length.toLocaleString("en-GB")} areas</small>
+          </summary>
+          <div className="city-area-browser-body">
+            {error ? (
+              <div className="notice">The stored dataset is temporarily unavailable.</div>
+            ) : (
+              <CityAreaExplorer areas={areas} contexts={contexts} />
+            )}
+          </div>
+        </details>
+      </section>
     </main>
   );
 }
