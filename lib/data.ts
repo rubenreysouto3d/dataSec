@@ -12,6 +12,8 @@ export type Neighbourhood = {
   citySlug: CitySlug;
   cityName: string;
   areaType: string;
+  parentAreaId: string | null;
+  parentName: string | null;
 };
 
 export type Point = { latitude: string; longitude: string };
@@ -23,6 +25,8 @@ export type AreaProfile = {
   citySlug: CitySlug;
   cityName: string;
   areaType: string;
+  parentAreaId: string | null;
+  parentName: string | null;
   sourceSlug: string;
   sourceAuthority: string;
   sourceUrl: string;
@@ -37,6 +41,7 @@ type AreaRow = {
   city_slug: CitySlug;
   area_type: string;
   source_slug: string;
+  parent_area_id: string | null;
 };
 
 type CityRow = { slug: CitySlug; name: string };
@@ -282,7 +287,7 @@ function getCityMap() {
 
 export async function getNeighbourhoods(citySlug?: CitySlug): Promise<Neighbourhood[]> {
   const params: Record<string, string> = {
-    select: "id,source_area_id,name,city_slug,area_type,source_slug",
+    select: "id,source_area_id,name,city_slug,area_type,source_slug,parent_area_id",
     active: "eq.true",
     order: "city_slug.asc,name.asc",
     limit: "2000",
@@ -290,22 +295,29 @@ export async function getNeighbourhoods(citySlug?: CitySlug): Promise<Neighbourh
   if (citySlug) params.city_slug = `eq.${citySlug}`;
 
   const [rows, cities] = await Promise.all([rest<AreaRow[]>("areas", params), getCityMap()]);
+  const areaNames = new Map(rows.map((row) => [row.id, row.name]));
   return rows
-    .filter((row) => row.city_slug !== "madrid" || row.area_type === "municipal_neighbourhood")
+    .filter((row) =>
+      row.city_slug === "madrid"
+        ? row.area_type === "municipal_neighbourhood"
+        : row.area_type === "police_neighbourhood",
+    )
     .map((row) => ({
-    id: row.id,
-    sourceAreaId: row.source_area_id,
-    stableId: row.id,
-    name: row.name,
-    citySlug: row.city_slug,
-    cityName: cities.get(row.city_slug) ?? cityNames[row.city_slug],
-    areaType: row.area_type,
-  }));
+      id: row.id,
+      sourceAreaId: row.source_area_id,
+      stableId: row.id,
+      name: row.name,
+      citySlug: row.city_slug,
+      cityName: cities.get(row.city_slug) ?? cityNames[row.city_slug],
+      areaType: row.area_type,
+      parentAreaId: row.parent_area_id,
+      parentName: row.parent_area_id ? areaNames.get(row.parent_area_id) ?? null : null,
+    }));
 }
 
 export async function getAreaProfile(areaId: string): Promise<AreaProfile | null> {
   const rows = await rest<AreaRow[]>("areas", {
-    select: "id,source_area_id,name,city_slug,area_type,source_slug",
+    select: "id,source_area_id,name,city_slug,area_type,source_slug,parent_area_id",
     id: `eq.${areaId}`,
     active: "eq.true",
     limit: "1",
@@ -313,13 +325,20 @@ export async function getAreaProfile(areaId: string): Promise<AreaProfile | null
   const row = rows[0];
   if (!row) return null;
 
-  const [cities, sources] = await Promise.all([
+  const [cities, sources, parents] = await Promise.all([
     rest<CityRow[]>("cities", { select: "slug,name", slug: `eq.${row.city_slug}`, limit: "1" }),
     rest<SourceRow[]>("sources", {
       select: "slug,authority,source_url,source_type,granularity",
       slug: `eq.${row.source_slug}`,
       limit: "1",
     }),
+    row.parent_area_id
+      ? rest<AreaRow[]>("areas", {
+          select: "id,source_area_id,name,city_slug,area_type,source_slug,parent_area_id",
+          id: `eq.${row.parent_area_id}`,
+          limit: "1",
+        })
+      : Promise.resolve([]),
   ]);
   const source = sources[0];
   if (!source) throw new Error(`Missing source metadata for ${row.source_slug}`);
@@ -331,6 +350,8 @@ export async function getAreaProfile(areaId: string): Promise<AreaProfile | null
     citySlug: row.city_slug,
     cityName: cities[0]?.name ?? cityNames[row.city_slug],
     areaType: row.area_type,
+    parentAreaId: row.parent_area_id,
+    parentName: parents[0]?.name ?? null,
     sourceSlug: row.source_slug,
     sourceAuthority: source.authority,
     sourceUrl: source.source_url,
