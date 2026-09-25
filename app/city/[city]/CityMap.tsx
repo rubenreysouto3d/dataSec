@@ -20,7 +20,7 @@ type Props = {
   safetySignals: CitySafetySignal[];
 };
 
-type AudienceKey = "resident" | "visitor";
+type AudienceKey = "resident" | "visitor" | "advanced";
 type MetricKey = "contextual-overview" | "visitor-context" | "residential-harm" | "violence-property" | "theft" | "crime-related" | "activity";
 type NormalizationKey = "density" | "resident";
 type LayerKey =
@@ -48,11 +48,18 @@ const MAPLIBRE_URL = "https://unpkg.com/maplibre-gl@6.11.1/dist/maplibre-gl.mjs"
 const MAPLIBRE_CSS = "https://unpkg.com/maplibre-gl@6.11.1/dist/maplibre-gl.css";
 const MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
 
+const COMMON_ADVANCED_FILTERS: ReadonlyArray<{ key: MetricKey; label: string }> = [
+  { key: "violence-property", label: "Violence + property" },
+  { key: "theft", label: "Theft + robbery" },
+  { key: "crime-related", label: "All crime-related" },
+  { key: "activity", label: "All source activity" },
+];
+
 const metricCopy: Record<MetricKey, { label: string; short: string; note: string }> = {
   "contextual-overview": {
     label: "Resident context",
     short: "Resident context",
-    note: "Longer-term residential context. Madrid combines six-month personal-harm position with residents’ night-safety perception; other cities fall back to the best comparable recorded metric available.",
+    note: "Residential context using the best comparable official signals available in this city.",
   },
   "visitor-context": {
     label: "Visitor context",
@@ -352,6 +359,14 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
   const [areaSearch, setAreaSearch] = useState("");
 
   const cityName = citySlug === "madrid" ? "Madrid" : "London";
+  const residentMethod =
+    citySlug === "madrid" && hasContextualOverview
+      ? "6-month personal harm + 2025 resident night-safety perception"
+      : hasResidentLayer
+        ? "violence + property per 10,000 registered residents"
+        : "violence + property density (population denominator unavailable)";
+  const visitorMethod = "70% theft + robbery concentration · 30% violence + property concentration";
+
   const safetyWindowMonths = safetySignals.reduce((max, signal) => Math.max(max, signal.months), 0);
   const safetyWindowLabel = safetyWindowMonths
     ? `${safetyWindowMonths} month${safetyWindowMonths === 1 ? "" : "s"}`
@@ -489,6 +504,9 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
   }
 
   function chooseMetric(nextMetric: MetricKey) {
+    if (nextMetric !== "contextual-overview" && nextMetric !== "visitor-context") {
+      setAudience("advanced");
+    }
     if (nextMetric === "contextual-overview") {
       setAudience("resident");
       setLayer("contextual-overview");
@@ -738,12 +756,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
     );
   }, [mapReady, selectedAreaId]);
 
-  const metricOptions: Array<{ key: MetricKey; label: string }> = [
-    { key: "violence-property", label: "Violence + property" },
-    { key: "theft", label: "Theft + robbery" },
-    { key: "crime-related", label: "All crime-related" },
-    { key: "activity", label: "All source activity" },
-  ];
+  const metricOptions = COMMON_ADVANCED_FILTERS;
 
   return (
     <section className="city-map-panel interactive-map-panel">
@@ -785,7 +798,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
           <strong>How to read this map</strong>
           <p>
             {metricKey === "contextual-overview"
-              ? "Green means lower relative residential concern; red means higher. Madrid combines six-month personal harm with resident perception."
+              ? `Green means lower relative residential concern; red means higher. In ${cityName}, this uses ${residentMethod}.`
               : metricKey === "visitor-context"
                 ? "Green means lower relative visitor exposure; red means higher. This view prioritises theft and robbery hotspots, then violence/property concentration."
                 : `Green means a lower relative recorded level and red a higher one for this metric across ${cityName}. Colours are comparative, not guarantees of safety.`}
@@ -795,7 +808,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
 
       <div className="map-controls-grid">
         <div className="map-control-group">
-          <span className="map-control-kicker">Explore a specific metric · optional</span>
+          <span className="map-control-kicker">Explore a specific metric · same filters in every city</span>
           <div className="map-choice-row" role="group" aria-label="Incident type">
             {metricOptions.map((item) => (
               <button
@@ -818,26 +831,18 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
               <div className="map-signal-definition map-overview-definition">
                 <strong>Resident context</strong>
                 <small>
-                  {citySlug === "madrid" && hasContextualOverview
-                    ? "50% neighbourhood harm position · 50% district night-safety perception"
-                    : hasResidentLayer
-                      ? "resident-normalised violence + property context"
-                      : "best available official violence + property context"}
+                  {residentMethod}
                 </small>
               </div>
               <p className="map-control-help">
-                {citySlug === "madrid" && hasContextualOverview
-                  ? "Madrid adds resident perception to six-month personal-harm data. Survey perception is district-level, not neighbourhood-level."
-                  : hasResidentLayer
-                    ? "Uses the same Resident filter as every city, normalised by registered residents where population coverage is sufficient."
-                    : "The Resident filter remains available, but this city currently lacks enough population coverage for a resident denominator."}
+                Same Resident filter in every city. The source implementation can differ when official datasets are not equivalent; the method used here is shown above.
               </p>
             </>
           ) : metricKey === "visitor-context" ? (
             <>
               <div className="map-signal-definition map-visitor-definition">
                 <strong>Street-exposure view</strong>
-                <small>70% theft + robbery concentration · 30% violence/property concentration</small>
+                <small>{visitorMethod}</small>
               </div>
               <p className="map-control-help">
                 Uses incidents per km² rather than registered population, because visitors are not represented in resident denominators.
@@ -906,9 +911,9 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
             : metricKey === "residential-harm"
               ? `Personal harm · ${safetyWindowLabel}`
               : metricCopy[metricKey].short} · {metricKey === "contextual-overview"
-            ? "harm + resident perception"
+            ? residentMethod
             : metricKey === "visitor-context"
-              ? "theft/robbery + violence concentration"
+              ? visitorMethod
             : metricKey === "residential-harm"
               ? "rolling resident rate"
             : normalization === "resident"
