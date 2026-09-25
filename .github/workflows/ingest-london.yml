@@ -1,11 +1,6 @@
 name: ingest-london
-# Retry: publish London borough hierarchy through transactional staging.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/ingest-london.yml"
   schedule:
     - cron: "17 5 5,20 * *"
   workflow_dispatch:
