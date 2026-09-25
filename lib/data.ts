@@ -419,7 +419,7 @@ export async function getCityMapMetrics(
   const numberOrNull = (value: number | string | null) =>
     value === null || value === undefined ? null : Number(value);
 
-  return rows
+  let result: CityMapMetric[] = rows
     .filter((row) => included.has(row.area_id))
     .map((row) => ({
       areaId: row.area_id,
@@ -446,6 +446,76 @@ export async function getCityMapMetrics(
       violencePropertyResidentPercentile: numberOrNull(row.violence_property_resident_percentile),
       theftResidentPercentile: numberOrNull(row.theft_resident_percentile),
     }));
+
+  // London's crime snapshots are current, while the best fully aligned official
+  // resident denominator currently available is the 2021 Census. Preserve the
+  // Census date in storage, then combine it here rather than pretending the
+  // population measurement belongs to the crime month.
+  if (citySlug === "london" && result.length) {
+    type PopulationRow = {
+      area_id: string;
+      source_slug: string;
+      period_start: string;
+      population: number | string;
+    };
+
+    const populationRows = await rest<PopulationRow[]>("latest_area_population", {
+      select: "area_id,source_slug,period_start,population",
+      area_id: "like.gb-london-metropolitan:*",
+      order: "area_id.asc",
+      limit: "1000",
+    });
+    const populationByArea = new Map(
+      populationRows
+        .filter((row) => included.has(row.area_id))
+        .map((row) => [row.area_id, Number(row.population)]),
+    );
+
+    result = result.map((metric) => {
+      const population = populationByArea.get(metric.areaId) ?? null;
+      const rate = (count: number) =>
+        population && population > 0 ? (count * 10000) / population : null;
+      return {
+        ...metric,
+        population,
+        crimeRelatedPer10k: rate(metric.crimeRelatedCount),
+        violencePropertyPer10k: rate(metric.violencePropertyCount),
+        theftPer10k: rate(metric.theftCount),
+      };
+    });
+
+    const percentileMap = (
+      getter: (metric: CityMapMetric) => number | null,
+    ) => {
+      const ranked = result
+        .map((metric) => ({ areaId: metric.areaId, value: getter(metric) }))
+        .filter((item): item is { areaId: string; value: number } =>
+          item.value !== null && Number.isFinite(item.value),
+        )
+        .sort((a, b) => a.value - b.value);
+      const denominator = Math.max(ranked.length - 1, 1);
+      const firstRank = new Map<number, number>();
+      ranked.forEach((item, index) => {
+        if (!firstRank.has(item.value)) firstRank.set(item.value, index / denominator);
+      });
+      return new Map(
+        ranked.map((item) => [item.areaId, firstRank.get(item.value) ?? 0]),
+      );
+    };
+
+    const crimeRanks = percentileMap((metric) => metric.crimeRelatedPer10k);
+    const violenceRanks = percentileMap((metric) => metric.violencePropertyPer10k);
+    const theftRanks = percentileMap((metric) => metric.theftPer10k);
+
+    result = result.map((metric) => ({
+      ...metric,
+      crimeRelatedResidentPercentile: crimeRanks.get(metric.areaId) ?? null,
+      violencePropertyResidentPercentile: violenceRanks.get(metric.areaId) ?? null,
+      theftResidentPercentile: theftRanks.get(metric.areaId) ?? null,
+    }));
+  }
+
+  return result;
 }
 
 const MADRID_DISTRICT_NIGHT_SAFETY_2025: Record<string, { name: string; score: number }> = {

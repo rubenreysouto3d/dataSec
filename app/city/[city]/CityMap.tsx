@@ -417,7 +417,9 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
     citySlug === "madrid" && hasContextualOverview
       ? "6-month personal harm + 2025 resident night-safety perception"
       : hasResidentLayer
-        ? "violence + property per 10,000 registered residents"
+        ? citySlug === "london"
+          ? "violence + property per 10,000 residents · 2021 Census denominator"
+          : "violence + property per 10,000 registered residents"
         : "violence + property density (population denominator unavailable)";
   const visitorMethod = "70% theft + robbery concentration · 30% violence + property concentration";
 
@@ -975,14 +977,20 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
                   onClick={() => chooseNormalization("resident")}
                 >
                   <strong>By residents</strong>
-                  <small>per 10,000 registered residents</small>
+                  <small>
+                    {citySlug === "london"
+                      ? "per 10,000 residents · 2021 Census"
+                      : "per 10,000 registered residents"}
+                  </small>
                 </button>
               </div>
               {metricKey === "activity" ? (
                 <p className="map-control-help">All source activity is only available by area density.</p>
               ) : normalization === "resident" ? (
                 <p className="map-control-help">
-                  Useful for residential context, but visitor-heavy centres can look artificially high.
+                  {citySlug === "london"
+                    ? "Uses the 2021 Census resident denominator. Useful for residential context, but visitor-heavy centres can still look artificially high."
+                    : "Useful for residential context, but visitor-heavy centres can look artificially high."}
                 </p>
               ) : (
                 <p className="map-control-help">
@@ -1182,7 +1190,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
                 ) : null}
                 {selectedBaseMetric?.population ? (
                   <div>
-                    <dt>Registered residents</dt>
+                    <dt>{citySlug === "london" ? "2021 Census residents" : "Registered residents"}</dt>
                     <dd>{selectedBaseMetric.population.toLocaleString("en-GB")}</dd>
                   </div>
                 ) : null}

@@ -1,10 +1,6 @@
 name: ingest-madrid-population
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/ingest-madrid-population.yml"
   schedule:
     - cron: "17 6 5,20 * *"
   workflow_dispatch:
@@ -19,26 +15,7 @@ permissions:
   id-token: write
 
 jobs:
-  london-population-on-push:
-    if: ${{ github.event_name == 'push' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      SUPABASE_URL: https://pjyaevghxbimhknvmbxb.supabase.co
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-      - name: Install workbook parser
-        run: python -m pip install --disable-pip-version-check openpyxl==3.1.5
-      - name: Validate London Census population
-        run: python scripts/ingest_london_population.py --dry-run
-      - name: Persist London Census population
-        run: python scripts/ingest_london_population.py
-
   validate-and-persist:
-    if: ${{ github.event_name != 'push' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
