@@ -379,3 +379,57 @@
 @media(max-width:800px){
   .map-method-inline{display:block;margin:5px 0 0;max-width:none;text-align:left}
 }
+
+
+/* Shared Resident / Visitor views on area profiles */
+.area-perspectives{
+  display:grid;
+  grid-template-columns:.9fr 1fr 1fr;
+  border:1px solid var(--line);
+  border-top:0;
+  background:var(--paper);
+}
+.area-perspectives>div,.area-perspectives>article{padding:22px 24px;min-width:0}
+.area-perspectives>article{border-left:1px solid var(--line)}
+.area-perspectives-title>span,.area-perspectives article>span{
+  display:block;
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.11em;
+  color:var(--muted);
+}
+.area-perspectives-title h2{
+  margin:7px 0 7px;
+  font-family:Georgia,serif;
+  font-size:27px;
+  font-weight:400;
+  line-height:1.05;
+}
+.area-perspectives-title p,.area-perspectives article p{
+  margin:0;
+  color:var(--muted);
+  font-size:10px;
+  line-height:1.45;
+}
+.area-perspectives article strong{
+  display:block;
+  margin:8px 0 6px;
+  font-family:Georgia,serif;
+  font-size:21px;
+  font-weight:400;
+  line-height:1.1;
+}
+.area-perspectives article small{
+  display:block;
+  margin-top:9px;
+  padding-top:8px;
+  border-top:1px solid var(--line);
+  color:var(--muted);
+  font-size:9px;
+  line-height:1.4;
+}
+@media(max-width:800px){
+  .area-perspectives{grid-template-columns:1fr}
+  .area-perspectives>div,.area-perspectives>article{padding:18px}
+  .area-perspectives>article{border-left:0;border-top:1px solid var(--line)}
+}
