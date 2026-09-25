@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { areaHref } from "@/lib/area-route";
+import { locateAreaByCoordinates, resolvePlaceToArea } from "@/lib/public-data-client";
 import { cityNames } from "@/lib/data";
 import {
   buildVisitorPercentileMap,
@@ -414,6 +415,8 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
   const [layer, setLayer] = useState<LayerKey>("contextual-overview");
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
   const [areaSearch, setAreaSearch] = useState("");
+  const [finderStatus, setFinderStatus] = useState<"idle" | "searching" | "locating" | "error">("idle");
+  const [finderMessage, setFinderMessage] = useState("");
 
   const cityName = cityNames[citySlug];
   const cityMethods = CITY_FILTER_METHODS[citySlug];
@@ -628,13 +631,86 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
     });
   }
 
-  function findArea() {
-    const needle = areaSearch.trim().toLocaleLowerCase();
-    if (!needle) return;
+  async function findArea() {
+    const text = areaSearch.trim();
+    const needle = text.toLocaleLowerCase();
+    if (!needle || finderStatus === "searching" || finderStatus === "locating") return;
+
+    setFinderMessage("");
     const exact = areas.find((area) => area.name.toLocaleLowerCase() === needle);
     const partial = areas.find((area) => area.name.toLocaleLowerCase().includes(needle));
     const match = exact ?? partial;
-    if (match) focusArea(match.id);
+    if (match) {
+      setFinderStatus("idle");
+      focusArea(match.id);
+      return;
+    }
+
+    setFinderStatus("searching");
+    try {
+      const place = await resolvePlaceToArea(text);
+      if (!place) {
+        setFinderStatus("error");
+        setFinderMessage("No covered neighbourhood matched that place or address.");
+        return;
+      }
+
+      if (place.citySlug === citySlug && areaById.has(place.id)) {
+        focusArea(place.id);
+        setFinderStatus("idle");
+        setFinderMessage(`Matched ${place.matchedPlace}`);
+        return;
+      }
+
+      window.location.href = areaHref(place.id);
+    } catch {
+      setFinderStatus("error");
+      setFinderMessage("Place lookup is temporarily unavailable.");
+    }
+  }
+
+  function locateMe() {
+    if (!navigator.geolocation) {
+      setFinderStatus("error");
+      setFinderMessage("Location is not available in this browser.");
+      return;
+    }
+
+    setFinderStatus("locating");
+    setFinderMessage("");
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        try {
+          const place = await locateAreaByCoordinates(coords.latitude, coords.longitude);
+          if (!place) {
+            setFinderStatus("error");
+            setFinderMessage("Your location is outside current dataSec coverage.");
+            return;
+          }
+
+          if (place.citySlug === citySlug && areaById.has(place.id)) {
+            focusArea(place.id);
+            setFinderStatus("idle");
+            setFinderMessage(`You are in ${place.name}.`);
+            return;
+          }
+
+          window.location.href = areaHref(place.id);
+        } catch {
+          setFinderStatus("error");
+          setFinderMessage("We could not match your location to an official boundary.");
+        }
+      },
+      () => {
+        setFinderStatus("error");
+        setFinderMessage("Location permission was not available.");
+      },
+      {
+        enableHighAccuracy: false,
+        timeout: 10000,
+        maximumAge: 300000,
+      },
+    );
   }
 
   function fitToCity() {
@@ -957,10 +1033,28 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
                     findArea();
                   }
                 }}
-                placeholder="Find a neighbourhood…"
+                placeholder="Neighbourhood, address or hotel…"
               />
-              <button type="button" onClick={findArea} disabled={!bounds}>Find</button>
+              <button
+                type="button"
+                onClick={findArea}
+                disabled={!bounds || finderStatus === "searching" || finderStatus === "locating"}
+              >
+                {finderStatus === "searching" ? "Matching…" : "Find"}
+              </button>
+              <button
+                type="button"
+                onClick={locateMe}
+                disabled={finderStatus === "searching" || finderStatus === "locating"}
+              >
+                {finderStatus === "locating" ? "Locating…" : "Use my location"}
+              </button>
             </div>
+            {finderMessage ? (
+              <small className={finderStatus === "error" ? "map-finder-error" : "map-finder-note"}>
+                {finderMessage}
+              </small>
+            ) : null}
             <datalist id="area-map-options">
               {areas.map((area) => <option value={area.name} key={area.id} />)}
             </datalist>
