@@ -93,6 +93,29 @@ const metricCopy: Record<MetricKey, { label: string; short: string; note: string
   },
 };
 
+function methodForMetric(metricKey: MetricKey, citySlug: CitySlug, residentMethod: string, visitorMethod: string) {
+  if (metricKey === "contextual-overview") return residentMethod;
+  if (metricKey === "visitor-context") return visitorMethod;
+  if (metricKey === "violence-property") {
+    return citySlug === "madrid"
+      ? "Madrid dispatch categories mapped to violence + property"
+      : "Met Police recorded-crime categories mapped to violence + property";
+  }
+  if (metricKey === "theft") {
+    return citySlug === "madrid"
+      ? "Madrid theft, robbery and vehicle/property-theft dispatch categories"
+      : "Met Police theft, robbery and vehicle-crime categories";
+  }
+  if (metricKey === "crime-related") {
+    return citySlug === "madrid"
+      ? "Madrid crime-related dispatch categories; non-crime responses excluded"
+      : "Met Police crime-related categories; anti-social behaviour excluded";
+  }
+  return citySlug === "madrid"
+    ? "All Madrid Municipal Police dispatch activity in the source"
+    : "All Metropolitan Police source activity in the stored snapshot";
+}
+
 function metricKeyForLayer(layer: LayerKey): MetricKey {
   return layer.replace("-resident", "") as MetricKey;
 }
@@ -373,6 +396,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
     : "recent history";
   const metricKey = metricKeyForLayer(layer);
   const normalization = normalizationForLayer(layer);
+  const currentMethod = methodForMetric(metricKey, citySlug, residentMethod, visitorMethod);
   const latestMonth = metrics.reduce(
     (latest, metric) => (!latest || metric.month > latest ? metric.month : latest),
     "",
@@ -920,6 +944,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
               ? "per 10,000 residents"
               : "per km²"} · relative to other {cityName} areas
         </span>
+        <small className="map-method-inline">Method in {cityName}: {currentMethod}</small>
       </div>
 
       <div className="map-stage">
