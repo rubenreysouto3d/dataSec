@@ -55,7 +55,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     if (!area) return { title: "Area not found" };
 
     return {
-      title: `${area.name}, ${area.cityName}`,
+      title: `${area.name}${area.parentName ? `, ${area.parentName}` : ""}, ${area.cityName}`,
       description:
         area.citySlug === "london"
           ? `Official Metropolitan Police neighbourhood incident data, category mix, local density context and stored history for ${area.name}, London.`
@@ -150,7 +150,9 @@ export default async function AreaPage({ params }: Props) {
       <Link className="back" href={`/city/${area.citySlug}`}>← {area.cityName}</Link>
       <section className="area-intro area-intro-minimal">
         <div>
-          <div className="eyebrow">{area.cityName} · {areaTypeLabel(area)}</div>
+          <div className="eyebrow">
+            {area.cityName}{area.parentName ? ` · ${area.parentName}` : ""} · {areaTypeLabel(area)}
+          </div>
           <h1>{area.name}</h1>
         </div>
         <div className="area-intro-actions">
