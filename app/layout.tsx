@@ -31,7 +31,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         {children}
         <footer className="site-footer">
           <p><strong>dataSec</strong> · Official local safety context.</p>
-          <p>London · Madrid</p>
+          <p className="site-footer-links">
+            <Link href="/status">Status</Link>
+            <Link href="/methodology">Methodology</Link>
+            <Link href="/disclaimer">Limitations</Link>
+          </p>
         </footer>
       </body>
     </html>
