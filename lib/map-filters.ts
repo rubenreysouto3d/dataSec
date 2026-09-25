@@ -1,4 +1,4 @@
-import type { CitySlug } from "@/lib/data";
+import type { CityMapMetric, CitySlug } from "@/lib/data";
 
 export const MAP_AUDIENCES = [
   {
@@ -72,3 +72,35 @@ export const CITY_FILTER_METHODS: Record<CitySlug, {
     activityMethod: "All Madrid Municipal Police dispatch activity in the source",
   },
 };
+
+
+export function visitorExposureScore(metric: CityMapMetric | undefined) {
+  if (!metric) return null;
+  const theft = metric.theftDensityPercentile;
+  const violence = metric.violencePropertyDensityPercentile;
+  if (theft === null && violence === null) return null;
+  if (theft === null) return violence;
+  if (violence === null) return theft;
+  return theft * 0.7 + violence * 0.3;
+}
+
+export function buildVisitorPercentileMap(metrics: CityMapMetric[]) {
+  const scored = metrics
+    .map((metric) => ({ areaId: metric.areaId, score: visitorExposureScore(metric) }))
+    .filter((item): item is { areaId: string; score: number } =>
+      item.score !== null && Number.isFinite(item.score),
+    )
+    .sort((a, b) => a.score - b.score);
+
+  const denominator = Math.max(scored.length - 1, 1);
+  const firstRankByScore = new Map<number, number>();
+  scored.forEach((item, index) => {
+    if (!firstRankByScore.has(item.score)) {
+      firstRankByScore.set(item.score, index / denominator);
+    }
+  });
+
+  return new Map(
+    scored.map((item) => [item.areaId, firstRankByScore.get(item.score) ?? 0]),
+  );
+}
