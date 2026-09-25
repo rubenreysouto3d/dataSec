@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { Neighbourhood } from "@/lib/data";
+import { areaDisplayName, type Neighbourhood } from "@/lib/data";
 import { getCompareProfile, type CompareProfile } from "@/lib/public-data-client";
 import { areaHref } from "@/lib/area-route";
 
@@ -88,7 +88,7 @@ export default function CompareClient({ areas, sourceError }: Props) {
         return (
           <optgroup label={city} key={city}>
             {filteredAreas.map((area) => (
-              <option value={area.id} key={area.stableId}>{area.name}</option>
+              <option value={area.id} key={area.stableId}>{areaDisplayName(area)}</option>
             ))}
           </optgroup>
         );
@@ -153,7 +153,12 @@ export default function CompareClient({ areas, sourceError }: Props) {
       {failed ? <div className="notice">The comparison data could not be loaded.</div> : null}
 
       {!loading && profiles[0] && profiles[1] ? (
-        <Comparison left={profiles[0]} right={profiles[1]} />
+        <Comparison
+          left={profiles[0]}
+          right={profiles[1]}
+          leftLabel={leftArea ? areaDisplayName(leftArea) : profiles[0].name}
+          rightLabel={rightArea ? areaDisplayName(rightArea) : profiles[1].name}
+        />
       ) : null}
     </>
   );
@@ -178,7 +183,17 @@ function differenceCopy(leftValue: number, rightValue: number, unit: string) {
   return `${pct}% higher on this measure`;
 }
 
-function Comparison({ left, right }: { left: CompareProfile; right: CompareProfile }) {
+function Comparison({
+  left,
+  right,
+  leftLabel,
+  rightLabel,
+}: {
+  left: CompareProfile;
+  right: CompareProfile;
+  leftLabel: string;
+  rightLabel: string;
+}) {
   const categories = Array.from(new Set([
     ...left.categories.slice(0, 7).map((item) => item.slug),
     ...right.categories.slice(0, 7).map((item) => item.slug),
@@ -201,19 +216,19 @@ function Comparison({ left, right }: { left: CompareProfile; right: CompareProfi
   const rightDensityPct = Math.round(right.densityPercentile * 100);
   const densityHigher = left.incidentsPerKm2 === right.incidentsPerKm2
     ? null
-    : left.incidentsPerKm2 > right.incidentsPerKm2 ? left.name : right.name;
+    : left.incidentsPerKm2 > right.incidentsPerKm2 ? leftLabel : rightLabel;
 
   return (
     <section className="compare-results">
       <div className="compare-head">
         <div>
           <span>AREA A · {left.cityName}</span>
-          <h2>{left.name}</h2>
+          <h2>{leftLabel}</h2>
           <Link href={areaHref(left.id)}>Open full profile →</Link>
         </div>
         <div>
           <span>AREA B · {right.cityName}</span>
-          <h2>{right.name}</h2>
+          <h2>{rightLabel}</h2>
           <Link href={areaHref(right.id)}>Open full profile →</Link>
         </div>
       </div>
@@ -238,12 +253,12 @@ function Comparison({ left, right }: { left: CompareProfile; right: CompareProfi
 
       <div className="compare-position">
         <article>
-          <span>{left.name}</span>
+          <span>{leftLabel}</span>
           <strong>{densityBand(left.densityPercentile)}</strong>
           <div className="compare-position-track"><i style={{ width: `${leftDensityPct}%` }} /></div>
         </article>
         <article>
-          <span>{right.name}</span>
+          <span>{rightLabel}</span>
           <strong>{densityBand(right.densityPercentile)}</strong>
           <div className="compare-position-track"><i style={{ width: `${rightDensityPct}%` }} /></div>
         </article>
@@ -256,7 +271,7 @@ function Comparison({ left, right }: { left: CompareProfile; right: CompareProfi
         </summary>
         <div className="compare-category-table">
           <div className="compare-row compare-row-head">
-            <span>{left.name}</span><strong>Incident mix · {left.month}</strong><span>{right.name}</span>
+            <span>{leftLabel}</span><strong>Incident mix · {left.month}</strong><span>{rightLabel}</span>
           </div>
           {categories.map((slug) => (
             <div className="compare-row" key={slug}>

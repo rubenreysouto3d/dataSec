@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { areaHref } from "@/lib/area-route";
 import { locateAreaByCoordinates, resolvePlaceToArea } from "@/lib/public-data-client";
-import { cityNames } from "@/lib/data";
+import { areaDisplayName, cityNames } from "@/lib/data";
 import {
   buildVisitorPercentileMap,
   CITY_FILTER_METHODS,
@@ -512,7 +512,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
         type: "Feature",
         properties: {
           id: area.id,
-          name: area.name,
+          name: areaDisplayName(area),
           href: areaHref(area.id),
           percentile: selected.percentile,
           value: selected.value,
@@ -545,7 +545,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
       );
       return [{
         id: area.id,
-        name: area.name,
+        name: areaDisplayName(area),
         path: fallbackPath(boundary, bounds),
         fill: colorForPercentile(selected.percentile),
         bandNumber: bandNumber(selected.percentile),
@@ -626,7 +626,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
     const area = areaById.get(areaId);
     if (!boundary || !area) return;
     setSelectedAreaId(areaId);
-    setAreaSearch(area.name);
+    setAreaSearch(areaDisplayName(area));
 
     if (!mapRef.current) return;
     const itemBounds = boundaryBounds(boundary);
@@ -644,12 +644,38 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
     if (!needle || finderStatus === "searching" || finderStatus === "locating") return;
 
     setFinderMessage("");
-    const exact = areas.find((area) => area.name.toLocaleLowerCase() === needle);
-    const partial = areas.find((area) => area.name.toLocaleLowerCase().includes(needle));
-    const match = exact ?? partial;
-    if (match) {
+
+    const displayExact = areas.find(
+      (area) => areaDisplayName(area).toLocaleLowerCase() === needle,
+    );
+    if (displayExact) {
       setFinderStatus("idle");
-      focusArea(match.id);
+      focusArea(displayExact.id);
+      return;
+    }
+
+    const rawExact = areas.filter(
+      (area) => area.name.toLocaleLowerCase() === needle,
+    );
+    if (rawExact.length === 1) {
+      setFinderStatus("idle");
+      focusArea(rawExact[0].id);
+      return;
+    }
+    if (rawExact.length > 1) {
+      setFinderStatus("error");
+      setFinderMessage(
+        `More than one “${text}” exists in ${cityName}. Choose the borough from the suggestions.`,
+      );
+      return;
+    }
+
+    const partialMatches = areas.filter((area) =>
+      `${area.name} ${area.parentName ?? ""}`.toLocaleLowerCase().includes(needle),
+    );
+    if (partialMatches.length === 1) {
+      setFinderStatus("idle");
+      focusArea(partialMatches[0].id);
       return;
     }
 
@@ -890,7 +916,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
             if (!areaId) return;
             setSelectedAreaId(String(areaId));
             const area = areaById.get(String(areaId));
-            if (area) setAreaSearch(area.name);
+            if (area) setAreaSearch(areaDisplayName(area));
           });
 
           map.fitBounds(bounds, {
@@ -1093,7 +1119,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
               </small>
             ) : null}
             <datalist id="area-map-options">
-              {areas.map((area) => <option value={area.name} key={area.id} />)}
+              {areas.map((area) => <option value={areaDisplayName(area)} key={area.id} />)}
             </datalist>
           </div>
 
@@ -1119,7 +1145,9 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
                 ×
               </button>
 
-              <span className="map-selection-kicker">{cityName} · {formatMonth(latestMonth)}</span>
+              <span className="map-selection-kicker">
+                {cityName}{selectedArea.parentName ? ` · ${selectedArea.parentName}` : ""} · {formatMonth(latestMonth)}
+              </span>
               <h3>{selectedArea.name}</h3>
 
               <div className="map-selection-verdict">

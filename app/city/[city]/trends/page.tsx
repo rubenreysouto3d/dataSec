@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { areaHref } from "@/lib/area-route";
 import {
   type CitySlug,
+  areaDisplayName,
   cityNames,
   getCityHarmTrends,
   getCityMapMetrics,
@@ -86,7 +87,7 @@ export default async function CityTrendsPage({ params }: Props) {
   const trends = await getCityHarmTrends(city, areaIds, metrics);
   if (!trends) notFound();
 
-  const areaName = new Map(areas.map((area) => [area.id, area.name]));
+  const areaName = new Map(areas.map((area) => [area.id, areaDisplayName(area)]));
   const usable = trends.areas.filter(
     (row) => row.deltaRatePer10k !== null && Number.isFinite(row.deltaRatePer10k),
   );

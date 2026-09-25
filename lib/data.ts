@@ -223,6 +223,12 @@ export const cityNames: Record<CitySlug, string> = {
   madrid: "Madrid",
 };
 
+export function areaDisplayName(
+  area: Pick<Neighbourhood, "name" | "parentName">,
+): string {
+  return area.parentName ? `${area.name} · ${area.parentName}` : area.name;
+}
+
 export function areaTypeLabel(area: Pick<AreaProfile, "citySlug" | "areaType">): string {
   if (area.citySlug === "london") return "Metropolitan Police neighbourhood";
   if (area.areaType === "municipal_district") return "municipal district";
