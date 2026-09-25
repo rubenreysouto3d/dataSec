@@ -96,36 +96,22 @@ export default async function CityPage({ params }: Props) {
     <main className="city-page">
       <Link className="back" href="/">← Home</Link>
 
-      <section className="city-intro">
-        <div className="eyebrow">{copy.eyebrow}</div>
-        <h1>{cityNames[city]}</h1>
-        <p>{copy.intro}</p>
+      <section className="city-intro city-intro-clean">
+        <div>
+          <div className="eyebrow">{copy.eyebrow}</div>
+          <h1>{cityNames[city]}</h1>
+          <p>{copy.intro}</p>
+        </div>
+        {snapshot ? (
+          <div className="city-quick-meta" aria-label="City data status">
+            <span><strong>{snapshot.areaCount.toLocaleString("en-GB")}</strong> areas</span>
+            <span><strong>{monthLabel(snapshot.month)}</strong> latest data</span>
+            <span>
+              <strong>{Math.round((snapshot.coveredAreaCount / snapshot.areaCount) * 100)}%</strong> coverage
+            </span>
+          </div>
+        ) : null}
       </section>
-
-      {snapshot ? (
-        <section className="stat-strip">
-          <article>
-            <span>Areas in scope</span>
-            <strong>{snapshot.areaCount.toLocaleString("en-GB")}</strong>
-            <small>Stored official neighbourhoods</small>
-          </article>
-          <article>
-            <span>Latest stored snapshot</span>
-            <strong>{monthLabel(snapshot.month)}</strong>
-            <small>Newest month available across this city</small>
-          </article>
-          <article>
-            <span>Snapshot coverage</span>
-            <strong>{Math.round((snapshot.coveredAreaCount / snapshot.areaCount) * 100)}%</strong>
-            <small>{snapshot.coveredAreaCount} of {snapshot.areaCount} areas on the latest month</small>
-          </article>
-          <article>
-            <span>Map coverage</span>
-            <strong>{areas.length ? Math.round((boundaries.length / areas.length) * 100) : 0}%</strong>
-            <small>{boundaries.length} of {areas.length} stored areas have map geometry</small>
-          </article>
-        </section>
-      ) : null}
 
       {!error ? (
         <section className="city-map-section">
@@ -140,28 +126,34 @@ export default async function CityPage({ params }: Props) {
         </section>
       ) : null}
 
-      <section className="city-source-note city-source-note-after-map">
-        <div className="city-source-note-title">
-          <span>SOURCE & LIMITS</span>
-          <strong>What these colours can — and cannot — tell you</strong>
+      <details className="city-data-details">
+        <summary>
+          <span>About this city&apos;s data</span>
+          <small>Source, coverage and limitations</small>
+        </summary>
+        <div>
+          <article>
+            <span>WHAT THE SOURCE MEASURES</span>
+            <p>{copy.source}</p>
+          </article>
+          <article>
+            <span>IMPORTANT LIMITATION</span>
+            <p>{copy.caution}</p>
+          </article>
+          <article>
+            <span>MAP COVERAGE</span>
+            <p>{boundaries.length} of {areas.length} stored areas have usable map geometry.</p>
+          </article>
         </div>
-        <article>
-          <span>WHAT THE SOURCE MEASURES</span>
-          <p>{copy.source}</p>
-        </article>
-        <article>
-          <span>IMPORTANT LIMITATION</span>
-          <p>{copy.caution}</p>
-        </article>
-      </section>
+      </details>
 
       <section className="areas-section city-area-list">
-        <div className="section-heading">
+        <div className="section-heading city-area-heading">
           <div>
-            <div className="eyebrow">Stored official areas</div>
-            <h2>{areas.length.toLocaleString("en-GB")}</h2>
+            <div className="eyebrow">Neighbourhoods</div>
+            <h2>Explore areas</h2>
           </div>
-          <p>Select an area to see its latest snapshot, source mix, density context and stored history.</p>
+          <p>{areas.length.toLocaleString("en-GB")} official areas · search, sort or open a full profile.</p>
         </div>
 
         {error ? (
