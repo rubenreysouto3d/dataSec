@@ -1363,3 +1363,78 @@
   .interactive-city-map{min-height:500px}
   .map-detail-panel .map-selection-card,.map-empty-detail{min-height:0}
 }
+
+
+/* Compact area profile */
+.area-intro-minimal{
+  align-items:end;
+  padding-bottom:18px;
+}
+.area-intro-actions{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding-bottom:6px;
+}
+.area-intro-actions>span{
+  padding:7px 9px;
+  border:1px solid var(--line);
+  color:var(--muted);
+  font-size:9px;
+  font-weight:800;
+}
+.area-intro-actions .area-compare-link{
+  margin:0;
+  padding:7px 10px;
+  border:1px solid var(--ink);
+  text-decoration:none;
+}
+.area-perspectives-compact{
+  grid-template-columns:.7fr 1fr 1fr;
+}
+.area-perspectives-compact>div,
+.area-perspectives-compact>article{
+  padding:16px 18px;
+}
+.area-perspectives-compact .area-perspectives-title h2{
+  margin-bottom:0;
+  font-size:22px;
+}
+.area-perspectives-compact article strong{
+  margin:6px 0 3px;
+  font-size:20px;
+}
+.area-perspectives-compact article small{
+  margin:0;
+  padding:0;
+  border:0;
+}
+.area-key-facts-three{
+  grid-template-columns:repeat(3,1fr);
+}
+.area-key-facts-three article:nth-child(3){
+  border-left:1px solid var(--line);
+  border-top:0;
+}
+.area-page .content-grid{
+  grid-template-columns:1fr;
+  gap:12px;
+}
+.area-page .content-grid .panel,
+.area-page .content-grid .panel.wide{
+  grid-column:auto;
+}
+.area-page .panel-head h2{font-size:22px}
+.area-page .category-list{max-width:900px}
+.area-page .trend-chart{max-width:900px}
+
+@media(max-width:800px){
+  .area-intro-minimal{display:block}
+  .area-intro-actions{margin-top:12px}
+  .area-perspectives-compact{grid-template-columns:1fr}
+  .area-key-facts-three{grid-template-columns:1fr}
+  .area-key-facts-three article:nth-child(3){
+    border-left:0;
+    border-top:1px solid var(--line);
+  }
+}
