@@ -1,0 +1,47 @@
+name: backfill-madrid
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/backfill-madrid.yml"
+  workflow_dispatch:
+    inputs:
+      count:
+        description: "Number of months ending at the latest published source month"
+        required: true
+        default: "6"
+        type: string
+      dry_run:
+        description: "Process all months without writing to Supabase"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      SUPABASE_URL: https://pjyaevghxbimhknvmbxb.supabase.co
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Backfill Madrid history
+        shell: bash
+        run: |
+          count="${{ github.event_name == 'workflow_dispatch' && inputs.count || '6' }}"
+          args=(--count "$count")
+          if [ "${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}" = "true" ]; then
+            args+=(--dry-run)
+          fi
+          python scripts/backfill_madrid.py "${args[@]}"
