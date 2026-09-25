@@ -833,9 +833,8 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
   return (
     <section className="city-map-panel interactive-map-panel" style={MAP_COLOR_STYLE}>
       <div className="map-audience-switch">
-        <div>
-          <span>WHO IS THIS FOR?</span>
-          <strong>Choose how you will use the area</strong>
+        <div className="map-audience-label">
+          <span>VIEW AS</span>
         </div>
         <div className="map-audience-buttons" role="group" aria-label="Map audience">
           {MAP_AUDIENCES.map((item) => (
@@ -853,29 +852,18 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
         </div>
       </div>
 
-      <div className="map-understand-head">
-        <div className="map-title-block">
-          <span>INTERACTIVE MAP · {formatMonth(latestMonth)}</span>
+      <div className="map-mode-bar">
+        <div>
+          <span>{formatMonth(latestMonth)}</span>
           <h2>{metricCopy[metricKey].label}</h2>
-          <p>{metricCopy[metricKey].note}</p>
         </div>
-
-        <div className="map-reading-card">
-          <strong>How to read this map</strong>
-          <p>
-            {metricKey === "contextual-overview"
-              ? `Green means lower relative residential concern; red means higher. In ${cityName}, this uses ${residentMethod}.`
-              : metricKey === "visitor-context"
-                ? "Green means lower relative visitor exposure; red means higher. This view prioritises theft and robbery hotspots, then violence/property concentration."
-                : `Green means a lower relative recorded level and red a higher one for this metric across ${cityName}. Colours are comparative, not guarantees of safety.`}
-          </p>
-        </div>
+        <strong>Green = lower · Red = higher</strong>
       </div>
 
       <details className="map-advanced-controls">
         <summary>
-          <span>Advanced filters</span>
-          <small>Violence, theft, all crime-related and source activity</small>
+          <span>More filters</span>
+          <small>Violence · theft · all incidents</small>
         </summary>
         <div className="map-controls-grid">
         <div className="map-control-group">
@@ -977,26 +965,15 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
 
       </details>
 
-      <div className="map-current-view">
-        <strong>Currently showing</strong>
-        <span>
+      <div className="map-current-view map-current-view-compact">
+        <strong>
           {metricKey === "contextual-overview"
-            ? "Resident context"
+            ? "Resident"
             : metricKey === "visitor-context"
-              ? "Visitor context"
-            : metricKey === "residential-harm"
-              ? `Personal harm · ${safetyWindowLabel}`
-              : metricCopy[metricKey].short} · {metricKey === "contextual-overview"
-            ? residentMethod
-            : metricKey === "visitor-context"
-              ? visitorMethod
-            : metricKey === "residential-harm"
-              ? "rolling resident rate"
-            : normalization === "resident"
-              ? "per 10,000 residents"
-              : "per km²"} · relative to other {cityName} areas
-        </span>
-        <small className="map-method-inline">Method in {cityName}: {currentMethod}</small>
+              ? "Visitor"
+              : metricCopy[metricKey].short}
+        </strong>
+        <span>Relative to other {cityName} areas</span>
       </div>
 
       <div className="map-stage">
@@ -1216,66 +1193,24 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
         </aside>
       </div>
 
-      <div className="map-legend-block" aria-label="Map legend">
-        <div className="map-legend-title">
-          <strong>
-            {metricKey === "contextual-overview"
-              ? "Resident context"
-              : metricKey === "visitor-context"
-                ? "Visitor context"
-                : `Relative recorded level in ${cityName}`}
-          </strong>
-          <span>
-            {metricKey === "contextual-overview"
-              ? "Lower concern → higher concern"
-              : metricKey === "visitor-context"
-                ? "Lower visitor exposure → higher visitor exposure"
-                : "Lower recorded level → higher recorded level"}
-          </span>
-        </div>
+      <div className="map-legend-block map-legend-compact" aria-label="Map legend">
         <div className="map-legend-bands">
-          <div>
-            <i className="legend-q1" />
-            <span>{metricKey === "contextual-overview" ? "Lowest concern" : metricKey === "visitor-context" ? "Lowest exposure" : "Lowest 20%"}</span>
-          </div>
-          <div><i className="legend-q2" /><span>Lower</span></div>
+          <div><i className="legend-q1" /><span>Lower</span></div>
+          <div><i className="legend-q2" /></div>
           <div><i className="legend-q3" /><span>Middle</span></div>
-          <div><i className="legend-q4" /><span>Higher</span></div>
-          <div>
-            <i className="legend-q5" />
-            <span>{metricKey === "contextual-overview" ? "Highest concern" : metricKey === "visitor-context" ? "Highest exposure" : "Highest 20%"}</span>
-          </div>
+          <div><i className="legend-q4" /></div>
+          <div><i className="legend-q5" /><span>Higher</span></div>
         </div>
       </div>
 
-      <div className="map-meaning-strip">
-        <div>
-          <strong>Green ≠ guaranteed safe · red ≠ automatically dangerous</strong>
-          <span>
-            {metricKey === "contextual-overview"
-              ? "Colour summarises relative residential concern from the available official signals."
-              : metricKey === "visitor-context"
-                ? "Colour summarises relative visitor exposure to the selected incident mix."
-                : "Colour only shows a lower or higher recorded level for the selected metric."}
-          </span>
-        </div>
-        <div>
-          <strong>Compare within the city</strong>
-          <span>Colours are recalculated against other {cityName} areas, not against another city.</span>
-        </div>
-        <div>
-          <strong>Use the profile for context</strong>
-          <span>Open an area to see category mix, trend, source and limitations.</span>
-        </div>
-      </div>
-
-      <p className="density-caution map-method-note">
-        The map uses official source data and a neutral five-band relative scale. It is descriptive, not a personal-risk prediction.
-        {metricKey === "contextual-overview"
-          ? " The overview gives equal weight to neighbourhood personal-harm position and the 2025 district-level resident night-safety survey."
-          : ""}
-        The basemap is © OpenStreetMap contributors, rendered via OpenFreeMap.
-      </p>
+      <details className="map-explain">
+        <summary>How to read this map</summary>
+        <p>
+          Colours compare areas only within {cityName}. Green means a lower relative signal and red a higher one.
+          They do not guarantee that an area is safe or dangerous.
+        </p>
+        <small>{currentMethod}</small>
+      </details>
     </section>
   );
 }
