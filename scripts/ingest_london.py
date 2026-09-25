@@ -709,7 +709,8 @@ def persist(
             }
             for lad_code, lad_name in sorted(boroughs.items())
         ]
-        db.upsert("areas", borough_rows, "id", batch=100)
+        if borough_rows:
+            db.upsert("areas", borough_rows, "id", batch=100)
 
         unmatched_ratio = unmatched / max(len(rows), 1)
         if unmatched:
