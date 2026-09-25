@@ -234,24 +234,32 @@ const madridHarmSlugs = [
   "madrid-dispatch-violencia-de-genero-y-familiar",
 ];
 const madridHistoryStart = shiftMonth(madrid.latestMonth, -5);
-const madridHarmParams = new URLSearchParams({
-  select: "area_id,metric_slug,period_start,value",
-  source_slug: "eq.madrid-police-dispatch-incidents",
-  metric_slug: `in.(${madridHarmSlugs.join(",")})`,
-  period_start: `gte.${madridHistoryStart}-01`,
-  order: "period_start.asc,area_id.asc",
-  limit: "10000",
-});
-const madridHarmRows = await request(`observations?${madridHarmParams.toString()}`);
+const madridHarmRows = [];
+const madridHarmPageSize = 1000;
+for (let offset = 0; ; offset += madridHarmPageSize) {
+  const madridHarmParams = new URLSearchParams({
+    select: "area_id,metric_slug,period_start,value",
+    source_slug: "eq.madrid-police-dispatch-incidents",
+    metric_slug: `in.(${madridHarmSlugs.join(",")})`,
+    period_start: `gte.${madridHistoryStart}-01`,
+    order: "period_start.asc,area_id.asc,metric_slug.asc",
+    limit: String(madridHarmPageSize),
+    offset: String(offset),
+  });
+  const page = await request(`observations?${madridHarmParams.toString()}`);
+  if (!Array.isArray(page)) throw new Error("Madrid rolling-harm history response is not an array");
+  madridHarmRows.push(...page);
+  if (page.length < madridHarmPageSize) break;
+}
 const madridHarmMonths = [...new Set(
-  (Array.isArray(madridHarmRows) ? madridHarmRows : [])
+  madridHarmRows
     .map((row) => String(row.period_start ?? "").slice(0, 7))
     .filter(Boolean),
 )].sort();
 
 if (madridHarmMonths.length < 3) {
-  console.warn(
-    `Madrid rolling-harm history currently has only ${madridHarmMonths.length} stored months: ${madridHarmMonths.join(", ")}`,
+  throw new Error(
+    `Madrid rolling-harm history has only ${madridHarmMonths.length} stored months: ${madridHarmMonths.join(", ")}`,
   );
 }
 
@@ -324,7 +332,7 @@ console.log(
       cities: [london, madrid],
       madridContext: {
         harmHistoryMonths: madridHarmMonths,
-        harmHistoryRows: Array.isArray(madridHarmRows) ? madridHarmRows.length : 0,
+        harmHistoryRows: madridHarmRows.length,
         populationMonth: madridPopulationMonth,
         populationCoverage: madridPopulation.length,
         commercialMonth: madridActivityMonth,
