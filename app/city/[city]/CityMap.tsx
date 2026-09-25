@@ -872,7 +872,12 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
         </div>
       </div>
 
-      <div className="map-controls-grid">
+      <details className="map-advanced-controls">
+        <summary>
+          <span>Advanced filters</span>
+          <small>Violence, theft, all crime-related and source activity</small>
+        </summary>
+        <div className="map-controls-grid">
         <div className="map-control-group">
           <span className="map-control-kicker">Explore a specific metric · same filters in every city</span>
           <div className="map-choice-row" role="group" aria-label="Incident type">
@@ -968,6 +973,9 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
           Show whole {cityName}
         </button>
       </div>
+
+
+      </details>
 
       <div className="map-current-view">
         <strong>Currently showing</strong>
