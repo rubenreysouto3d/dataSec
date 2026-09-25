@@ -1,0 +1,25 @@
+name: one-time-london-hierarchy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/run-london-hierarchy-once.yml"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      SUPABASE_URL: https://pjyaevghxbimhknvmbxb.supabase.co
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Run current London ingestion with borough enrichment
+        run: python scripts/ingest_london.py
