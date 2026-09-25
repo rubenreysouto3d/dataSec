@@ -100,15 +100,25 @@ export default async function AreaPage({ params }: Props) {
   if (!area || monthly.length === 0) notFound();
 
   const latest = monthly[0];
-  const top = latest.categories.slice(0, 6);
+  const latestSafety = latest.categories.filter((item) => item.group === "safety");
+  const latestOther = latest.categories.filter((item) => item.group === "other");
+  const safetyTotal = latestSafety.reduce((sum, item) => sum + item.count, 0);
+  const otherTotal = latestOther.reduce((sum, item) => sum + item.count, 0);
+  const top = latestSafety.slice(0, 6);
+  const otherTop = latestOther.slice(0, 5);
   const totals = monthly
-    .map((item) => ({ month: item.month, total: item.total }))
+    .map((item) => ({
+      month: item.month,
+      total: item.categories
+        .filter((category) => category.group === "safety")
+        .reduce((sum, category) => sum + category.count, 0),
+    }))
     .reverse();
   const first = totals[0]?.total ?? 0;
   const last = totals.at(-1)?.total ?? 0;
   const trend = totals.length < 2 || first === 0 ? null : Math.round(((last - first) / first) * 100);
   const max = Math.max(...totals.map((item) => item.total), 1);
-  const topShare = top[0] && latest.total > 0 ? Math.round((top[0].count / latest.total) * 100) : null;
+  const topShare = top[0] && safetyTotal > 0 ? Math.round((top[0].count / safetyTotal) * 100) : null;
   const cityMetric = cityMapMetrics.find((item) => item.areaId === area.id);
   const safetySignal = safetySignals.find((item) => item.areaId === area.id);
   const visitorPercentile = buildVisitorPercentileMap(cityMapMetrics).get(area.id) ?? null;
@@ -152,20 +162,20 @@ export default async function AreaPage({ params }: Props) {
         <article>
           <span>RESIDENT</span>
           <strong>{signalBand(residentPercentile)}</strong>
-          <small>Living here</small>
+          <small>Living here · compared only within {area.cityName}</small>
         </article>
         <article>
           <span>VISITOR</span>
           <strong>{signalBand(visitorPercentile)}</strong>
-          <small>Short stay</small>
+          <small>Short stay · compared only within {area.cityName}</small>
         </article>
       </section>
 
       <section className="area-key-facts area-key-facts-three">
         <article>
-          <span>RECORDED</span>
-          <strong>{latest.total.toLocaleString("en-GB")}</strong>
-          <small>{monthLabel(latest.month)}</small>
+          <span>SAFETY-RELATED</span>
+          <strong>{safetyTotal.toLocaleString("en-GB")}</strong>
+          <small>{monthLabel(latest.month)} · mapped categories</small>
         </article>
         <article>
           <span>TREND</span>
@@ -182,25 +192,29 @@ export default async function AreaPage({ params }: Props) {
       <div className="content-grid">
         <section className="panel">
           <div className="panel-head"><div><span>NOW</span><h2>What stands out</h2></div></div>
-          <div className="category-list">
-            {top.map((item) => (
-              <div className="category-row" key={item.category}>
-                <div>
-                  <strong>{item.label}</strong>
-                  <small>
-                    {item.count.toLocaleString("en-GB")}
-                    {latest.total > 0 ? ` · ${Math.round((item.count / latest.total) * 100)}%` : ""}
-                  </small>
+          {top.length ? (
+            <div className="category-list">
+              {top.map((item) => (
+                <div className="category-row" key={item.category}>
+                  <div>
+                    <strong>{item.label}</strong>
+                    <small>
+                      {item.count.toLocaleString("en-GB")}
+                      {safetyTotal > 0 ? ` · ${Math.round((item.count / safetyTotal) * 100)}%` : ""}
+                    </small>
+                  </div>
+                  <div className="bar"><i style={{ width: `${Math.max(4, (item.count / (top[0]?.count || 1)) * 100)}%` }} /></div>
                 </div>
-                <div className="bar"><i style={{ width: `${Math.max(4, (item.count / (top[0]?.count || 1)) * 100)}%` }} /></div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="notice">No mapped safety category is available for this snapshot.</div>
+          )}
         </section>
 
         <section className="panel wide">
           <div className="panel-head">
-            <div><span>TREND</span><h2>Recent months</h2></div>
+            <div><span>TREND</span><h2>Recent safety-related months</h2></div>
           </div>
           <div className="trend-chart">
             {totals.map((item) => (
@@ -213,6 +227,32 @@ export default async function AreaPage({ params }: Props) {
           </div>
         </section>
       </div>
+
+      {otherTop.length ? (
+        <section className="panel wide">
+          <div className="panel-head">
+            <div>
+              <span>CONTEXT</span>
+              <h2>Other recorded activity</h2>
+            </div>
+          </div>
+          <p className="density-caution">
+            These records are kept separate from the safety categories above. They can include emergency assistance, traffic, mediation and other non-crime police responses.
+          </p>
+          <div className="category-list">
+            {otherTop.map((item) => (
+              <div className="category-row" key={item.category}>
+                <div>
+                  <strong>{item.label}</strong>
+                  <small>{item.count.toLocaleString("en-GB")}</small>
+                </div>
+                <div className="bar"><i style={{ width: `${Math.max(4, (item.count / (otherTop[0]?.count || 1)) * 100)}%` }} /></div>
+              </div>
+            ))}
+          </div>
+          <small>{otherTotal.toLocaleString("en-GB")} non-safety source records in the latest snapshot.</small>
+        </section>
+      ) : null}
 
       <details className="area-data-details">
         <summary>
@@ -239,8 +279,9 @@ export default async function AreaPage({ params }: Props) {
               </p>
             </>
           )}
-          <p><strong>Resident:</strong> {residentMethod}.</p>
-          <p><strong>Visitor:</strong> {visitorMethod}.</p>
+          <p><strong>Resident:</strong> {residentMethod}. The percentile compares this area only with other areas in {area.cityName}.</p>
+          <p><strong>Visitor:</strong> {visitorMethod}. The percentile compares this area only with other areas in {area.cityName}.</p>
+          <p><strong>Cross-city comparison:</strong> Resident and Visitor percentiles are local context indicators, not a common score for comparing Madrid with London.</p>
           <a href={area.sourceUrl} target="_blank" rel="noreferrer">Open the official source ↗</a>
         </div>
       </details>
