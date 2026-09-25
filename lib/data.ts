@@ -870,23 +870,27 @@ function canonicalCategory(
   }
 
   // Canonical safety vocabulary shared across source languages.
-  if (/hurto|theft|shoplift|pickpocket/.test(text)) {
-    return { label: "Theft", group: "safety" };
-  }
-  if (/robbery|robo.*violencia|robo.*intimidacion/.test(text)) {
-    return { label: "Robbery", group: "safety" };
+  // Match specific combined/source concepts before generic theft or violence terms.
+  if (/vehicle crime|sustraccion.*veh|robo.*veh|theft.*vehicle/.test(text)) {
+    return { label: "Vehicle crime", group: "safety" };
   }
   if (/burglary|robo.*fuerza|robo.*domicilio|robo.*establecimiento/.test(text)) {
     return { label: "Burglary", group: "safety" };
   }
-  if (/vehicle crime|sustraccion.*veh|robo.*veh|theft.*vehicle/.test(text)) {
-    return { label: "Vehicle crime", group: "safety" };
+  if (/robbery|robo.*violencia|robo.*intimidacion/.test(text)) {
+    return { label: "Robbery", group: "safety" };
+  }
+  if (/(violence.*sexual|sexual.*violence)/.test(text)) {
+    return { label: "Violence & sexual offences", group: "safety" };
+  }
+  if (/sexual|violacion|abuso sexual/.test(text)) {
+    return { label: "Sexual offences", group: "safety" };
   }
   if (/violence|agresion|assault|reyerta|amenaza|violencia.*genero|violencia.*familiar/.test(text)) {
     return { label: "Violence & assault", group: "safety" };
   }
-  if (/sexual|violacion|abuso sexual/.test(text)) {
-    return { label: "Sexual offences", group: "safety" };
+  if (/hurto|theft|shoplift|pickpocket/.test(text)) {
+    return { label: "Theft", group: "safety" };
   }
   if (/drug|droga|estupefaciente/.test(text)) {
     return { label: "Drugs", group: "safety" };
