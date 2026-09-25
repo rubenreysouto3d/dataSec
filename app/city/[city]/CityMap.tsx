@@ -638,9 +638,9 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
   }
 
   function fitToCity() {
-    if (!mapRef.current || !bounds) return;
     setSelectedAreaId(null);
     setAreaSearch("");
+    if (!mapRef.current || !bounds) return;
     mapRef.current.fitBounds(bounds, {
       padding: 42,
       duration: 450,
@@ -831,134 +831,88 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
   const metricOptions = MAP_ADVANCED_FILTERS;
 
   return (
-    <section className="city-map-panel interactive-map-panel" style={MAP_COLOR_STYLE}>
-      <div className="map-audience-switch map-audience-switch-simple">
-        <div className="map-audience-buttons" role="group" aria-label="Map audience">
-          {MAP_AUDIENCES.map((item) => (
-            <button
-              type="button"
-              key={item.key}
-              className={audience === item.key ? "is-active" : ""}
-              aria-pressed={audience === item.key}
-              onClick={() => chooseAudience(item.key)}
-            >
-              <strong>{item.label}</strong>
-              <small>{item.detail}</small>
-            </button>
-          ))}
-        </div>
-        <div className="map-color-key" aria-label="Colour meaning">
-          <i />
-          <span>Lower</span>
-          <b>→</b>
-          <span>Higher</span>
-        </div>
-      </div>
-
-      <details className="map-advanced-controls">
-        <summary>
-          <span>More filters</span>
-          <small>Violence · theft · all incidents</small>
-        </summary>
-        <div className="map-controls-grid">
-        <div className="map-control-group">
-          <span className="map-control-kicker">Explore a specific metric · same filters in every city</span>
-          <div className="map-choice-row" role="group" aria-label="Incident type">
-            {metricOptions.map((item) => (
+    <section className="city-map-panel interactive-map-panel explorer-map" style={MAP_COLOR_STYLE}>
+      <div className="explorer-toolbar">
+        <div className="explorer-mode">
+          <span className="explorer-toolbar-label">View for</span>
+          <div className="map-audience-buttons map-audience-buttons-compact" role="group" aria-label="Map audience">
+            {MAP_AUDIENCES.map((item) => (
               <button
                 type="button"
                 key={item.key}
-                className={metricKey === item.key ? "is-active" : ""}
-                aria-pressed={metricKey === item.key}
-                onClick={() => chooseMetric(item.key)}
+                className={audience === item.key ? "is-active" : ""}
+                aria-pressed={audience === item.key}
+                onClick={() => chooseAudience(item.key)}
               >
-                {item.label}
+                <strong>{item.label}</strong>
+                <small>{item.detail}</small>
               </button>
             ))}
           </div>
         </div>
 
-        <div className="map-control-group">
-          <span className="map-control-kicker">2 · How should areas be compared?</span>
-          {metricKey === "contextual-overview" ? (
-            <>
-              <div className="map-signal-definition map-overview-definition">
-                <strong>Resident context</strong>
-                <small>
-                  {residentMethod}
-                </small>
+        <details className="explorer-filter-menu">
+          <summary>
+            <span>Filter</span>
+            <strong>{metricCopy[metricKey].short}</strong>
+          </summary>
+          <div className="explorer-filter-body">
+            <div className="explorer-filter-section">
+              <span>Metric · same choices in every city</span>
+              <div className="map-choice-row" role="group" aria-label="Incident type">
+                {metricOptions.map((item) => (
+                  <button
+                    type="button"
+                    key={item.key}
+                    className={metricKey === item.key ? "is-active" : ""}
+                    aria-pressed={metricKey === item.key}
+                    onClick={() => chooseMetric(item.key)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
               </div>
-              <p className="map-control-help">
-                Same Resident filter in every city. The source implementation can differ when official datasets are not equivalent; the method used here is shown above.
-              </p>
-            </>
-          ) : metricKey === "visitor-context" ? (
-            <>
-              <div className="map-signal-definition map-visitor-definition">
-                <strong>Street-exposure view</strong>
-                <small>{visitorMethod}</small>
+            </div>
+
+            {metricKey !== "contextual-overview" &&
+            metricKey !== "visitor-context" &&
+            metricKey !== "residential-harm" ? (
+              <div className="explorer-filter-section">
+                <span>Compare areas by</span>
+                <div className="map-choice-row map-normalization-row" role="group" aria-label="Comparison basis">
+                  <button
+                    type="button"
+                    className={normalization === "density" ? "is-active" : ""}
+                    aria-pressed={normalization === "density"}
+                    onClick={() => chooseNormalization("density")}
+                  >
+                    <strong>Area</strong>
+                    <small>per km²</small>
+                  </button>
+                  <button
+                    type="button"
+                    className={normalization === "resident" ? "is-active" : ""}
+                    aria-pressed={normalization === "resident"}
+                    disabled={!hasResidentLayer || metricKey === "activity"}
+                    onClick={() => chooseNormalization("resident")}
+                  >
+                    <strong>Residents</strong>
+                    <small>per 10,000</small>
+                  </button>
+                </div>
               </div>
-              <p className="map-control-help">
-                Uses incidents per km² rather than registered population, because visitors are not represented in resident denominators.
-              </p>
-            </>
-          ) : metricKey === "residential-harm" ? (
-            <>
-              <div className="map-signal-definition">
-                <strong>Rolling resident rate</strong>
-                <small>{safetyWindowLabel} · average monthly records per 10,000 registered residents</small>
-              </div>
-              <p className="map-control-help">
-                Uses up to six available months to reduce one-month noise. Theft without violence, traffic and administrative activity are excluded.
-              </p>
-            </>
-          ) : (
-            <>
-              <div className="map-choice-row map-normalization-row" role="group" aria-label="Comparison basis">
-                <button
-                  type="button"
-                  className={normalization === "density" ? "is-active" : ""}
-                  aria-pressed={normalization === "density"}
-                  onClick={() => chooseNormalization("density")}
-                >
-                  <strong>By area</strong>
-                  <small>incidents per km²</small>
-                </button>
-                <button
-                  type="button"
-                  className={normalization === "resident" ? "is-active" : ""}
-                  aria-pressed={normalization === "resident"}
-                  disabled={!hasResidentLayer || metricKey === "activity"}
-                  onClick={() => chooseNormalization("resident")}
-                >
-                  <strong>By residents</strong>
-                  <small>
-                    {cityMethods.residentUnitLabel}
-                  </small>
-                </button>
-              </div>
-              {metricKey === "activity" ? (
-                <p className="map-control-help">All source activity is only available by area density.</p>
-              ) : normalization === "resident" ? (
-                <p className="map-control-help">
-                  Uses the city&apos;s documented resident denominator. Useful for residential context, but visitor-heavy centres can still look artificially high.
-                </p>
-              ) : (
-                <p className="map-control-help">
-                  Shows how concentrated recorded incidents are geographically, regardless of population.
-                </p>
-              )}
-            </>
-          )}
+            ) : null}
+
+            <small className="explorer-filter-method">{currentMethod}</small>
+          </div>
+        </details>
+
+        <div className="map-color-key explorer-color-key" aria-label="Colour scale">
+          <span>Lower</span>
+          <i />
+          <span>Higher</span>
         </div>
-
-        <button className="map-reset-button" type="button" onClick={fitToCity} disabled={!mapReady}>
-          Show whole {cityName}
-        </button>
       </div>
-
-
-      </details>
 
       <div className={`map-stage ${selectedArea ? "has-selection" : ""}`}>
         <div className="interactive-map-wrap">
@@ -986,33 +940,38 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
               </g>
             </svg>
           ) : null}
+
           <div ref={containerRef} className={`interactive-city-map ${mapReady ? "is-ready" : ""}`} />
 
-        <div className="map-area-finder map-area-finder-simple">
-          <label className="sr-only" htmlFor="area-map-search">Find a neighbourhood</label>
-          <div>
-            <input
-              id="area-map-search"
-              list="area-map-options"
-              value={areaSearch}
-              onChange={(event) => setAreaSearch(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  findArea();
-                }
-              }}
-              placeholder="Find a neighbourhood…"
-            />
-            <button type="button" onClick={findArea} disabled={!mapReady}>Find</button>
+          <div className="map-area-finder map-area-finder-simple">
+            <label className="sr-only" htmlFor="area-map-search">Find a neighbourhood</label>
+            <div>
+              <input
+                id="area-map-search"
+                list="area-map-options"
+                value={areaSearch}
+                onChange={(event) => setAreaSearch(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    findArea();
+                  }
+                }}
+                placeholder="Find a neighbourhood…"
+              />
+              <button type="button" onClick={findArea} disabled={!bounds}>Find</button>
+            </div>
+            <datalist id="area-map-options">
+              {areas.map((area) => <option value={area.name} key={area.id} />)}
+            </datalist>
           </div>
-          <datalist id="area-map-options">
-            {areas.map((area) => <option value={area.name} key={area.id} />)}
-          </datalist>
-        </div>
+
+          <button className="map-city-reset" type="button" onClick={fitToCity}>
+            Whole city
+          </button>
 
           {!mapReady && !mapError ? (
-            <div className="map-fallback-status">Loading interactive basemap…</div>
+            <div className="map-fallback-status">Loading interactive map…</div>
           ) : null}
           {mapError ? <div className="map-fallback-status map-error">{mapError}</div> : null}
         </div>
@@ -1028,13 +987,24 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
               >
                 ×
               </button>
+
+              <span className="map-selection-kicker">{cityName} · {formatMonth(latestMonth)}</span>
               <h3>{selectedArea.name}</h3>
 
-                <div className="map-selection-summary map-selection-summary-clean">
-                <strong>{relativeBand(selectedMetric.percentile, bandMode(metricKey))}</strong>
+              <div className="map-selection-verdict">
+                <i style={{ background: colorForPercentile(selectedMetric.percentile) }} />
+                <div>
+                  <strong>{relativeBand(selectedMetric.percentile, bandMode(metricKey))}</strong>
+                  <small>
+                    {selectedPercentile !== null
+                      ? `Relative position: ${selectedPercentile}th percentile in ${cityName}`
+                      : "No city comparison available"}
+                  </small>
+                </div>
               </div>
 
-              {metricKey === "contextual-overview" && selectedSafetySignal?.contextualConcernPercentile !== null &&
+              {metricKey === "contextual-overview" &&
+              selectedSafetySignal?.contextualConcernPercentile !== null &&
               selectedSafetySignal?.contextualConcernPercentile !== undefined ? (
                 <div className="map-overview-components">
                   <div>
@@ -1059,12 +1029,12 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
                   <div>
                     <span>Theft + robbery</span>
                     <strong>{relativeBand(selectedBaseMetric.theftDensityPercentile)}</strong>
-                    <small>{formatMetric(selectedBaseMetric.theftPerKm2, "/km²")} · latest snapshot</small>
+                    <small>{formatMetric(selectedBaseMetric.theftPerKm2, "/km²")}</small>
                   </div>
                   <div>
                     <span>Violence + property</span>
                     <strong>{relativeBand(selectedBaseMetric.violencePropertyDensityPercentile)}</strong>
-                    <small>{formatMetric(selectedBaseMetric.violencePropertyPerKm2, "/km²")} · latest snapshot</small>
+                    <small>{formatMetric(selectedBaseMetric.violencePropertyPerKm2, "/km²")}</small>
                   </div>
                 </div>
               ) : (
@@ -1091,7 +1061,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
 
               <div className="map-selection-actions">
                 <a className="map-selection-link" href={areaHref(selectedArea.id)}>
-                  View details →
+                  Details
                 </a>
                 <a className="map-selection-compare" href={`/compare?a=${encodeURIComponent(selectedArea.id)}`}>
                   Compare
@@ -1102,9 +1072,12 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
         ) : null}
       </div>
 
-      <details className="map-explain map-explain-compact">
-        <summary>How is this calculated?</summary>
-        <p>{currentMethod}</p>
+      <details className="map-explain map-explain-compact explorer-explain">
+        <summary>How to read this map</summary>
+        <p>
+          Colours compare neighbourhoods inside {cityName}: green is lower relative to the city and red is higher.
+          {" "}{currentMethod}
+        </p>
       </details>
     </section>
   );
