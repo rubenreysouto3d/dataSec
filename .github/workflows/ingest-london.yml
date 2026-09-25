@@ -1,4 +1,5 @@
 name: ingest-london
+# Retry: publish London borough hierarchy through transactional staging.
 
 on:
   push:

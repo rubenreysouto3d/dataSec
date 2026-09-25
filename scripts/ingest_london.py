@@ -698,7 +698,7 @@ def persist(
             {
                 "id": f"gb-london-borough:{lad_code}",
                 "city_slug": CITY_SLUG,
-                "source_slug": ONS_WARD_LAD_SOURCE_SLUG,
+                "source_slug": SOURCE_SLUG,
                 "source_area_id": lad_code,
                 "parent_area_id": None,
                 "area_type": "london_borough",
@@ -709,9 +709,6 @@ def persist(
             }
             for lad_code, lad_name in sorted(boroughs.items())
         ]
-        if borough_rows:
-            db.upsert("areas", borough_rows, "id", batch=100)
-
         unmatched_ratio = unmatched / max(len(rows), 1)
         if unmatched:
             severity = "warning" if unmatched_ratio <= 0.05 else "error"
@@ -742,7 +739,9 @@ def persist(
         ]
         db.stage(run_id, "metric", metric_rows, lambda row: row["slug"])
 
-        area_rows: list[dict[str, object]] = []
+        # Parent boroughs and child wards are staged together so the publication
+        # RPC can insert parents first and then attach every ward atomically.
+        area_rows: list[dict[str, object]] = list(borough_rows)
         boundary_rows: list[dict[str, object]] = []
         for area in areas:
             source_id = str(area["source_area_id"])

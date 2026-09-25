@@ -274,17 +274,22 @@ class TransactionalPublicationTests(unittest.TestCase):
         self.assertCountEqual(staged_types, ["metric", "area", "boundary", "observation"])
 
         written_tables = [call.args[0] for call in client.upsert.call_args_list]
-        for table in ("metrics", "area_boundaries", "observations"):
+        for table in ("metrics", "areas", "area_boundaries", "observations"):
             self.assertNotIn(table, written_tables)
 
-        direct_area_calls = [
-            call for call in client.upsert.call_args_list
-            if call.args and call.args[0] == "areas"
-        ]
-        self.assertEqual(len(direct_area_calls), 1)
-        self.assertTrue(
-            all(row["area_type"] == "london_borough" for row in direct_area_calls[0].args[1])
+        area_stage_call = next(
+            call for call in client.stage.call_args_list
+            if call.args[1] == "area"
         )
+        staged_areas = area_stage_call.args[2]
+        self.assertEqual(len(staged_areas), 2)
+
+        borough = next(row for row in staged_areas if row["area_type"] == "london_borough")
+        ward = next(row for row in staged_areas if row["area_type"] == "police_neighbourhood")
+        self.assertEqual(borough["id"], "gb-london-borough:E09000001")
+        self.assertEqual(borough["source_slug"], "uk-police-open-data")
+        self.assertIsNone(borough["parent_area_id"])
+        self.assertEqual(ward["parent_area_id"], borough["id"])
 
         publish_calls = [
             call
