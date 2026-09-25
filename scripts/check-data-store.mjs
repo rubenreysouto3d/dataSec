@@ -33,20 +33,31 @@ const CITY_RULES = {
 };
 
 async function request(path, init = {}) {
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    ...init,
-    headers: {
-      apikey: SUPABASE_PUBLISHABLE_KEY,
-      ...(init.body ? { "Content-Type": "application/json" } : {}),
-      ...(init.headers ?? {}),
-    },
-  });
+  const retryable = new Set([429, 500, 502, 503, 504]);
 
-  const text = await response.text();
-  if (!response.ok) {
-    throw new Error(`Data API ${response.status} for ${path}: ${text.slice(0, 500)}`);
+  for (let attempt = 1; attempt <= 4; attempt += 1) {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+      ...init,
+      cache: "no-store",
+      headers: {
+        apikey: SUPABASE_PUBLISHABLE_KEY,
+        "X-dataSec-health-attempt": String(attempt),
+        ...(init.body ? { "Content-Type": "application/json" } : {}),
+        ...(init.headers ?? {}),
+      },
+    });
+
+    const text = await response.text();
+    if (response.ok) return text ? JSON.parse(text) : null;
+
+    if (!retryable.has(response.status) || attempt === 4) {
+      throw new Error(`Data API ${response.status} for ${path}: ${text.slice(0, 500)}`);
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
   }
-  return text ? JSON.parse(text) : null;
+
+  throw new Error(`Data API retries exhausted for ${path}`);
 }
 
 function monthAge(month) {
