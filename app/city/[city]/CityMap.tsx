@@ -274,6 +274,11 @@ function colorForPercentile(percentile: number | null) {
   return MAP_COLOR_BANDS.find((band) => percentile < band.max)?.color ?? MAP_COLOR_BANDS.at(-1)!.color;
 }
 
+function bandNumber(percentile: number | null) {
+  if (percentile === null || !Number.isFinite(percentile)) return null;
+  return Math.min(5, Math.max(1, Math.floor(percentile * 5) + 1));
+}
+
 const MAP_COLOR_STYLE = {
   "--map-q1": MAP_COLOR_BANDS[0].color,
   "--map-q2": MAP_COLOR_BANDS[1].color,
@@ -516,6 +521,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
           population: metricById.get(area.id)?.population ?? null,
           band: relativeBand(selected.percentile, bandMode(metricKey)),
           displayMode: bandMode(metricKey),
+          bandNumber: bandNumber(selected.percentile),
         },
         geometry: boundary.rings.length === 1
           ? { type: "Polygon", coordinates: [coordinates[0]] }
@@ -542,6 +548,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
         name: area.name,
         path: fallbackPath(boundary, bounds),
         fill: colorForPercentile(selected.percentile),
+        bandNumber: bandNumber(selected.percentile),
         selected: area.id === selectedAreaId,
       }];
     });
@@ -787,6 +794,25 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
           }, firstLabelLayer);
 
           map.addLayer({
+            id: "datasec-areas-band-label",
+            type: "symbol",
+            source: "datasec-areas",
+            minzoom: citySlug === "madrid" ? 10 : 10.5,
+            layout: {
+              "text-field": ["to-string", ["get", "bandNumber"]],
+              "text-size": 11,
+              "text-font": ["Noto Sans Regular"],
+              "text-allow-overlap": false,
+              "text-ignore-placement": false,
+            },
+            paint: {
+              "text-color": "#151513",
+              "text-halo-color": "rgba(255,255,255,.92)",
+              "text-halo-width": 1.5,
+            },
+          }, firstLabelLayer);
+
+          map.addLayer({
             id: "datasec-areas-line",
             type: "line",
             source: "datasec-areas",
@@ -983,10 +1009,10 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
           </div>
         </details>
 
-        <div className="map-color-key explorer-color-key" aria-label={`Relative colour scale within ${cityName}`}>
-          <span>Lower in {cityName}</span>
+        <div className="map-color-key explorer-color-key" aria-label={`Relative five-level scale within ${cityName}`}>
+          <span>1 · Lower in {cityName}</span>
           <i />
-          <span>Higher in {cityName}</span>
+          <span>5 · Higher in {cityName}</span>
         </div>
       </div>
 
@@ -1010,7 +1036,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
                     className={shape.selected ? "is-selected" : ""}
                     onClick={() => focusArea(shape.id)}
                   >
-                    <title>{shape.name}</title>
+                    <title>{shape.name}{shape.bandNumber ? ` · level ${shape.bandNumber}/5` : ""}</title>
                   </path>
                 ))}
               </g>
@@ -1091,7 +1117,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
                   <strong>{relativeBand(selectedMetric.percentile, bandMode(metricKey))}</strong>
                   <small>
                     {selectedPercentile !== null
-                      ? `Local position: ${selectedPercentile}th percentile among ${cityName} areas`
+                      ? `Level ${bandNumber(selectedMetric.percentile)}/5 · local position: ${selectedPercentile}th percentile among ${cityName} areas`
                       : "No city comparison available"}
                   </small>
                 </div>
@@ -1170,7 +1196,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
         <summary>How to read this map</summary>
         <p>
           Colours compare neighbourhoods only inside {cityName}: green is lower relative to this city and red is higher.
-          These percentiles are not comparable with another city. {" "}{currentMethod}
+          The same scale is also encoded as levels 1–5, so colour is not the only signal. These percentiles are not comparable with another city. {" "}{currentMethod}
         </p>
       </details>
     </section>
