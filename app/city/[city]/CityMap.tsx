@@ -347,7 +347,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
     [safetySignals],
   );
 
-  const bounds = useMemo(() => {
+  const bounds = useMemo<Bounds | null>(() => {
     let minLng = Number.POSITIVE_INFINITY;
     let minLat = Number.POSITIVE_INFINITY;
     let maxLng = Number.NEGATIVE_INFINITY;
