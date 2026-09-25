@@ -444,14 +444,24 @@ export async function getCityMapMetrics(
     }));
 }
 
-const MADRID_PERSONAL_HARM_METRICS = [
-  "madrid-dispatch-amenazas-y-atentados-terroristas",
-  "madrid-dispatch-atentado-agresion-a-empleado-publico",
-  "madrid-dispatch-fallecidos-por-delito-o-causa-desconocida",
-  "madrid-dispatch-reyertas-agresiones",
-  "madrid-dispatch-robos-con-violencia-intimidacion",
-  "madrid-dispatch-violencia-de-genero-y-familiar",
-] as const;
+function isMadridPersonalHarmMetric(metric: MetricRow) {
+  const text = `${metric.slug} ${metric.label}`
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  const violentRobbery =
+    /robo/.test(text) && /(violencia|intimidacion)/.test(text);
+  const familyOrGenderViolence =
+    /violencia/.test(text) && /(genero|familiar)/.test(text);
+
+  return (
+    /reyerta|agresion|amenaza|atentado/.test(text) ||
+    /fallecid/.test(text) ||
+    violentRobbery ||
+    familyOrGenderViolence
+  );
+}
 
 function monthOffset(month: string, delta: number) {
   const [year, monthNumber] = month.split("-").map(Number);
@@ -473,6 +483,14 @@ export async function getCitySafetySignals(
   if (!latestMonth) return [];
 
   const firstMonth = monthOffset(latestMonth, -5);
+  const metrics = await getMetrics();
+  const personalHarmSlugs = metrics
+    .filter((metric) => metric.slug.startsWith("madrid-dispatch-"))
+    .filter(isMadridPersonalHarmMetric)
+    .map((metric) => metric.slug);
+
+  if (!personalHarmSlugs.length) return [];
+
   const rows = await rest<Array<{
     area_id: string;
     metric_slug: string;
@@ -481,7 +499,7 @@ export async function getCitySafetySignals(
   }>>("observations", {
     select: "area_id,metric_slug,period_start,value",
     source_slug: "eq.madrid-police-dispatch-incidents",
-    metric_slug: `in.(${MADRID_PERSONAL_HARM_METRICS.join(",")})`,
+    metric_slug: `in.(${personalHarmSlugs.join(",")})`,
     period_start: `gte.${firstMonth}-01`,
     order: "period_start.asc,area_id.asc",
     limit: "10000",
