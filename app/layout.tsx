@@ -2,8 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
 
-const indexSite = process.env.NEXT_PUBLIC_INDEX_SITE === "true";
-
 export const metadata: Metadata = {
   title: {
     default: "dataSec — Urban safety, from official data",
@@ -11,10 +9,6 @@ export const metadata: Metadata = {
   },
   description:
     "Explore neighbourhood-level urban safety data from official public sources, with transparent methodology and source quality.",
-  robots: {
-    index: indexSite,
-    follow: indexSite,
-  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
