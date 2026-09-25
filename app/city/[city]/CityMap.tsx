@@ -208,6 +208,49 @@ function boundaryBounds(boundary: CityBoundary): Bounds | null {
   return Number.isFinite(minLng) ? [[minLng, minLat], [maxLng, maxLat]] : null;
 }
 
+function colorForPercentile(percentile: number | null) {
+  if (percentile === null || !Number.isFinite(percentile)) return "#c8c6bf";
+  if (percentile < 0.2) return "#eaf2f7";
+  if (percentile < 0.4) return "#cbddea";
+  if (percentile < 0.6) return "#9abdd3";
+  if (percentile < 0.8) return "#5d91b4";
+  return "#225f86";
+}
+
+function fallbackPath(boundary: CityBoundary, bounds: Bounds) {
+  const width = 1000;
+  const height = 700;
+  const padding = 24;
+  const [[minLng, minLat], [maxLng, maxLat]] = bounds;
+  const midLat = (minLat + maxLat) / 2;
+  const lonFactor = Math.max(0.1, Math.cos((midLat * Math.PI) / 180));
+  const geoWidth = Math.max((maxLng - minLng) * lonFactor, 0.000001);
+  const geoHeight = Math.max(maxLat - minLat, 0.000001);
+  const scale = Math.min(
+    (width - padding * 2) / geoWidth,
+    (height - padding * 2) / geoHeight,
+  );
+  const centerLng = (minLng + maxLng) / 2;
+  const centerLat = (minLat + maxLat) / 2;
+
+  const project = (longitude: number, latitude: number) => {
+    const x = width / 2 + (longitude - centerLng) * lonFactor * scale;
+    const y = height / 2 - (latitude - centerLat) * scale;
+    return [x, y] as const;
+  };
+
+  return boundary.rings
+    .map((ring) =>
+      ring
+        .map((point, index) => {
+          const [x, y] = project(Number(point.longitude), Number(point.latitude));
+          return `${index === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`;
+        })
+        .join(" ") + " Z",
+    )
+    .join(" ");
+}
+
 function formatMetric(value: number | null, unit: string) {
   if (value === null || !Number.isFinite(value)) return "No value";
   return value.toLocaleString("en-GB", { maximumFractionDigits: 1 }) + unit;
@@ -362,6 +405,26 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
     return { type: "FeatureCollection", features };
   }, [areaById, boundaries, layer, metricById, safetySignalById]);
 
+  const fallbackShapes = useMemo(() => {
+    if (!bounds) return [];
+    return boundaries.flatMap((boundary) => {
+      const area = areaById.get(boundary.areaId);
+      if (!area) return [];
+      const selected = metricForLayer(
+        metricById.get(boundary.areaId),
+        layer,
+        safetySignalById.get(boundary.areaId),
+      );
+      return [{
+        id: area.id,
+        name: area.name,
+        path: fallbackPath(boundary, bounds),
+        fill: colorForPercentile(selected.percentile),
+        selected: area.id === selectedAreaId,
+      }];
+    });
+  }, [areaById, boundaries, bounds, layer, metricById, safetySignalById, selectedAreaId]);
+
   const cityMedian = useMemo(() => {
     const values = metrics
       .map((metric) => metricForLayer(metric, layer, safetySignalById.get(metric.areaId)).value)
@@ -404,11 +467,13 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
   function focusArea(areaId: string) {
     const boundary = boundaryById.get(areaId);
     const area = areaById.get(areaId);
-    if (!boundary || !area || !mapRef.current) return;
-    const itemBounds = boundaryBounds(boundary);
-    if (!itemBounds) return;
+    if (!boundary || !area) return;
     setSelectedAreaId(areaId);
     setAreaSearch(area.name);
+
+    if (!mapRef.current) return;
+    const itemBounds = boundaryBounds(boundary);
+    if (!itemBounds) return;
     mapRef.current.fitBounds(itemBounds, {
       padding: 90,
       duration: 500,
@@ -444,7 +509,12 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
       if (!containerRef.current || !bounds) return;
       try {
         ensureMapLibreCss();
-        const maplibre = await loadMapLibre();
+        const maplibre = await Promise.race([
+          loadMapLibre(),
+          new Promise<never>((_, reject) =>
+            window.setTimeout(() => reject(new Error("MapLibre load timeout")), 8000),
+          ),
+        ]);
         if (cancelled || !containerRef.current) return;
 
         map = new maplibre.Map({
@@ -456,6 +526,11 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
           cooperativeGestures: false,
         });
         mapRef.current = map;
+        const mapLoadTimeout = window.setTimeout(() => {
+          if (!cancelled && !map.loaded()) {
+            setMapError("Interactive basemap unavailable — showing the data map instead.");
+          }
+        }, 10000);
 
         map.addControl(new maplibre.NavigationControl({ visualizePitch: false }), "top-right");
         map.addControl(new maplibre.ScaleControl({ maxWidth: 120, unit: "metric" }), "bottom-left");
@@ -467,6 +542,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
         });
 
         map.on("load", () => {
+          window.clearTimeout(mapLoadTimeout);
           if (cancelled) return;
           map.addSource("datasec-areas", {
             type: "geojson",
@@ -744,7 +820,31 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
 
       <div className="map-stage">
         <div className="interactive-map-wrap">
-          <div ref={containerRef} className="interactive-city-map" />
+          {!mapReady && bounds ? (
+            <svg
+              className="datasec-fallback-map"
+              viewBox="0 0 1000 700"
+              role="img"
+              aria-label={`${cityName} neighbourhood data map`}
+              preserveAspectRatio="xMidYMid meet"
+            >
+              <rect width="1000" height="700" className="datasec-fallback-bg" />
+              <g>
+                {fallbackShapes.map((shape) => (
+                  <path
+                    key={shape.id}
+                    d={shape.path}
+                    fill={shape.fill}
+                    className={shape.selected ? "is-selected" : ""}
+                    onClick={() => focusArea(shape.id)}
+                  >
+                    <title>{shape.name}</title>
+                  </path>
+                ))}
+              </g>
+            </svg>
+          ) : null}
+          <div ref={containerRef} className={`interactive-city-map ${mapReady ? "is-ready" : ""}`} />
 
         <div className="map-area-finder">
           <label htmlFor="area-map-search">Find a neighbourhood</label>
@@ -771,8 +871,10 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
 
         <div className="map-tap-hint">Tap or click an area for details</div>
 
-          {!mapReady && !mapError ? <div className="map-loading">Loading map…</div> : null}
-          {mapError ? <div className="map-loading map-error">{mapError}</div> : null}
+          {!mapReady && !mapError ? (
+            <div className="map-fallback-status">Loading interactive basemap…</div>
+          ) : null}
+          {mapError ? <div className="map-fallback-status map-error">{mapError}</div> : null}
         </div>
 
         <aside className="map-detail-panel" aria-live="polite">
