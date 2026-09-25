@@ -2244,3 +2244,10 @@
 }
 
 .area-quick-disclaimer{margin:9px 0 0!important;padding:0 2px;max-width:980px!important}
+
+.site-footer-links{display:flex;align-items:center;gap:16px}
+.site-footer-links a{color:var(--muted);text-decoration:none}
+.site-footer-links a:hover{color:var(--ink)}
+@media(max-width:800px){
+  .site-footer-links{margin-top:10px;flex-wrap:wrap}
+}
