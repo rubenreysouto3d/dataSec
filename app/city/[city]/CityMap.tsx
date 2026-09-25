@@ -6,6 +6,7 @@ import type {
   CityActivityContext,
   CityBoundary,
   CityMapMetric,
+  CitySafetySignal,
   CitySlug,
   Neighbourhood,
 } from "@/lib/data";
@@ -16,11 +17,13 @@ type Props = {
   boundaries: CityBoundary[];
   metrics: CityMapMetric[];
   activityContexts: CityActivityContext[];
+  safetySignals: CitySafetySignal[];
 };
 
-type MetricKey = "violence-property" | "theft" | "crime-related" | "activity";
+type MetricKey = "residential-harm" | "violence-property" | "theft" | "crime-related" | "activity";
 type NormalizationKey = "density" | "resident";
 type LayerKey =
+  | "residential-harm"
   | "violence-property"
   | "theft"
   | "crime-related"
@@ -43,6 +46,11 @@ const MAPLIBRE_CSS = "https://unpkg.com/maplibre-gl@6.11.1/dist/maplibre-gl.css"
 const MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
 
 const metricCopy: Record<MetricKey, { label: string; short: string; note: string }> = {
+  "residential-harm": {
+    label: "Personal harm · 6 months",
+    short: "Personal harm · 6 months",
+    note: "Rolling Madrid signal using violence, aggression, violent robbery, family/gender violence and closely related dispatch categories, normalised by registered residents.",
+  },
   "violence-property": {
     label: "Violence & property",
     short: "Violence + property",
@@ -74,13 +82,26 @@ function normalizationForLayer(layer: LayerKey): NormalizationKey {
 }
 
 function layerFor(metric: MetricKey, normalization: NormalizationKey): LayerKey {
+  if (metric === "residential-harm") return "residential-harm";
   if (normalization === "resident" && metric !== "activity") {
     return `${metric}-resident` as LayerKey;
   }
   return metric;
 }
 
-function metricForLayer(metric: CityMapMetric | undefined, layer: LayerKey) {
+function metricForLayer(
+  metric: CityMapMetric | undefined,
+  layer: LayerKey,
+  safetySignal?: CitySafetySignal,
+) {
+  if (layer === "residential-harm") {
+    return {
+      percentile: safetySignal?.residentPercentile ?? null,
+      value: safetySignal?.personalHarmPer10k ?? null,
+      count: safetySignal?.personalHarmCount ?? null,
+      unit: "/10k residents / month",
+    };
+  }
   if (!metric) return { percentile: null, value: null, count: null, unit: "" };
 
   switch (layer) {
@@ -214,7 +235,7 @@ function medianComparison(value: number | null, cityMedian: number | null) {
   return `${Math.round(Math.abs(delta))}% ${delta > 0 ? "above" : "below"} the city median`;
 }
 
-export default function CityMap({ citySlug, areas, boundaries, metrics, activityContexts }: Props) {
+export default function CityMap({ citySlug, areas, boundaries, metrics, activityContexts, safetySignals }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
   const popupRef = useRef<any>(null);
@@ -222,7 +243,9 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
   const [mapError, setMapError] = useState("");
   const residentCoverage = metrics.filter((metric) => metric.population !== null).length;
   const hasResidentLayer = residentCoverage >= Math.max(1, Math.floor(areas.length * 0.8));
-  const [layer, setLayer] = useState<LayerKey>("violence-property");
+  const [layer, setLayer] = useState<LayerKey>(() =>
+    citySlug === "madrid" && safetySignals.length ? "residential-harm" : "violence-property",
+  );
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
   const [areaSearch, setAreaSearch] = useState("");
 
@@ -249,6 +272,10 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
   const activityById = useMemo(
     () => new Map(activityContexts.map((context) => [context.areaId, context])),
     [activityContexts],
+  );
+  const safetySignalById = useMemo(
+    () => new Map(safetySignals.map((signal) => [signal.areaId, signal])),
+    [safetySignals],
   );
 
   const bounds = useMemo(() => {
@@ -279,7 +306,11 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
     const features = boundaries.flatMap((boundary) => {
       const area = areaById.get(boundary.areaId);
       if (!area || !boundary.rings.length) return [];
-      const selected = metricForLayer(metricById.get(boundary.areaId), layer);
+      const selected = metricForLayer(
+        metricById.get(boundary.areaId),
+        layer,
+        safetySignalById.get(boundary.areaId),
+      );
       const coordinates = boundary.rings.map((ring) =>
         ring.map((point) => [Number(point.longitude), Number(point.latitude)]),
       );
@@ -303,25 +334,30 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
     });
 
     return { type: "FeatureCollection", features };
-  }, [areaById, boundaries, layer, metricById]);
+  }, [areaById, boundaries, layer, metricById, safetySignalById]);
 
   const cityMedian = useMemo(() => {
     const values = metrics
-      .map((metric) => metricForLayer(metric, layer).value)
+      .map((metric) => metricForLayer(metric, layer, safetySignalById.get(metric.areaId)).value)
       .filter((value): value is number => value !== null && Number.isFinite(value));
     return median(values);
-  }, [layer, metrics]);
+  }, [layer, metrics, safetySignalById]);
 
   const selectedArea = selectedAreaId ? areaById.get(selectedAreaId) ?? null : null;
   const selectedBaseMetric = selectedAreaId ? metricById.get(selectedAreaId) : undefined;
   const selectedActivity = selectedAreaId ? activityById.get(selectedAreaId) : undefined;
-  const selectedMetric = metricForLayer(selectedBaseMetric, layer);
+  const selectedSafetySignal = selectedAreaId ? safetySignalById.get(selectedAreaId) : undefined;
+  const selectedMetric = metricForLayer(selectedBaseMetric, layer, selectedSafetySignal);
   const selectedPercentile =
     selectedMetric.percentile !== null && Number.isFinite(selectedMetric.percentile)
       ? Math.round(selectedMetric.percentile * 100)
       : null;
 
   function chooseMetric(nextMetric: MetricKey) {
+    if (nextMetric === "residential-harm") {
+      setLayer("residential-harm");
+      return;
+    }
     const nextNormalization =
       normalization === "resident" && nextMetric !== "activity" && hasResidentLayer
         ? "resident"
@@ -330,6 +366,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
   }
 
   function chooseNormalization(nextNormalization: NormalizationKey) {
+    if (metricKey === "residential-harm") return;
     if (nextNormalization === "resident" && (!hasResidentLayer || metricKey === "activity")) return;
     setLayer(layerFor(metricKey, nextNormalization));
   }
@@ -544,6 +581,9 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
   }, [mapReady, selectedAreaId]);
 
   const metricOptions: Array<{ key: MetricKey; label: string }> = [
+    ...(citySlug === "madrid" && safetySignals.length
+      ? [{ key: "residential-harm" as MetricKey, label: "Personal harm · 6 months" }]
+      : []),
     { key: "violence-property", label: "Violence + property" },
     { key: "theft", label: "Theft + robbery" },
     { key: "crime-related", label: "All crime-related" },
@@ -588,37 +628,51 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
 
         <div className="map-control-group">
           <span className="map-control-kicker">2 · How should areas be compared?</span>
-          <div className="map-choice-row map-normalization-row" role="group" aria-label="Comparison basis">
-            <button
-              type="button"
-              className={normalization === "density" ? "is-active" : ""}
-              aria-pressed={normalization === "density"}
-              onClick={() => chooseNormalization("density")}
-            >
-              <strong>By area</strong>
-              <small>incidents per km²</small>
-            </button>
-            <button
-              type="button"
-              className={normalization === "resident" ? "is-active" : ""}
-              aria-pressed={normalization === "resident"}
-              disabled={!hasResidentLayer || metricKey === "activity"}
-              onClick={() => chooseNormalization("resident")}
-            >
-              <strong>By residents</strong>
-              <small>per 10,000 registered residents</small>
-            </button>
-          </div>
-          {metricKey === "activity" ? (
-            <p className="map-control-help">All source activity is only available by area density.</p>
-          ) : normalization === "resident" ? (
-            <p className="map-control-help">
-              Useful for residential context, but visitor-heavy centres can look artificially high.
-            </p>
+          {metricKey === "residential-harm" ? (
+            <>
+              <div className="map-signal-definition">
+                <strong>Rolling resident rate</strong>
+                <small>average monthly records per 10,000 registered residents</small>
+              </div>
+              <p className="map-control-help">
+                Six-month smoothing reduces one-month noise. Theft without violence, traffic and administrative activity are excluded.
+              </p>
+            </>
           ) : (
-            <p className="map-control-help">
-              Shows how concentrated recorded incidents are geographically, regardless of population.
-            </p>
+            <>
+              <div className="map-choice-row map-normalization-row" role="group" aria-label="Comparison basis">
+                <button
+                  type="button"
+                  className={normalization === "density" ? "is-active" : ""}
+                  aria-pressed={normalization === "density"}
+                  onClick={() => chooseNormalization("density")}
+                >
+                  <strong>By area</strong>
+                  <small>incidents per km²</small>
+                </button>
+                <button
+                  type="button"
+                  className={normalization === "resident" ? "is-active" : ""}
+                  aria-pressed={normalization === "resident"}
+                  disabled={!hasResidentLayer || metricKey === "activity"}
+                  onClick={() => chooseNormalization("resident")}
+                >
+                  <strong>By residents</strong>
+                  <small>per 10,000 registered residents</small>
+                </button>
+              </div>
+              {metricKey === "activity" ? (
+                <p className="map-control-help">All source activity is only available by area density.</p>
+              ) : normalization === "resident" ? (
+                <p className="map-control-help">
+                  Useful for residential context, but visitor-heavy centres can look artificially high.
+                </p>
+              ) : (
+                <p className="map-control-help">
+                  Shows how concentrated recorded incidents are geographically, regardless of population.
+                </p>
+              )}
+            </>
           )}
         </div>
 
@@ -630,7 +684,11 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
       <div className="map-current-view">
         <strong>Currently showing</strong>
         <span>
-          {metricCopy[metricKey].short} · {normalization === "resident" ? "per 10,000 residents" : "per km²"} · relative to other {cityName} areas
+          {metricCopy[metricKey].short} · {metricKey === "residential-harm"
+            ? "rolling resident rate"
+            : normalization === "resident"
+              ? "per 10,000 residents"
+              : "per km²"} · relative to other {cityName} areas
         </span>
       </div>
 
@@ -715,7 +773,7 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
 
               <dl>
                 <div>
-                  <dt>Recorded incidents</dt>
+                  <dt>{metricKey === "residential-harm" ? "Records in rolling window" : "Recorded incidents"}</dt>
                   <dd>{selectedMetric.count?.toLocaleString("en-GB") ?? "—"}</dd>
                 </div>
                 {selectedBaseMetric?.population ? (
@@ -731,8 +789,12 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
                   </div>
                 ) : null}
                 <div>
-                  <dt>Snapshot</dt>
-                  <dd>{formatMonth(selectedBaseMetric?.month)}</dd>
+                  <dt>{metricKey === "residential-harm" ? "Window" : "Snapshot"}</dt>
+                  <dd>
+                    {metricKey === "residential-harm" && selectedSafetySignal
+                      ? `${formatMonth(selectedSafetySignal.monthStart)}–${formatMonth(selectedSafetySignal.monthEnd)}`
+                      : formatMonth(selectedBaseMetric?.month)}
+                  </dd>
                 </div>
               </dl>
 
