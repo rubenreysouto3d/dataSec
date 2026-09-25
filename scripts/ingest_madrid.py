@@ -201,6 +201,7 @@ def strip_article(value: str) -> str:
 
 def build_area_index(area_rows: list[dict[str, Any]]) -> tuple[dict[tuple[str, str], dict[str, Any]], dict[str, dict[str, Any]]]:
     aliases: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    global_aliases: dict[str, list[dict[str, Any]]] = {}
     by_code: dict[str, dict[str, Any]] = {}
 
     for row in area_rows:
@@ -221,12 +222,22 @@ def build_area_index(area_rows: list[dict[str, Any]]) -> tuple[dict[tuple[str, s
         for name in names:
             if name:
                 aliases.setdefault((district, name), []).append(row)
+                global_aliases.setdefault(name, []).append(row)
 
     unique: dict[tuple[str, str], dict[str, Any]] = {}
     for key, matches in aliases.items():
         codes = {str(row["COD_BAR"]).strip() for row in matches}
         if len(codes) == 1:
             unique[key] = matches[0]
+
+    # Older source files sometimes omit Distrito while retaining a valid Barrio.
+    # Only permit a city-wide fallback when that normalised name maps to exactly
+    # one official neighbourhood, so ambiguous names still fail closed.
+    for name, matches in global_aliases.items():
+        codes = {str(row["COD_BAR"]).strip() for row in matches}
+        if len(codes) == 1:
+            unique[("", name)] = matches[0]
+
     return unique, by_code
 
 
@@ -236,8 +247,13 @@ def match_incident_area(
 ) -> dict[str, Any] | None:
     district = normalize_name(row.get("Distrito"))
     neighbourhood = normalize_name(row.get("Barrio"))
-    for name in (neighbourhood, strip_article(neighbourhood)):
+    names = (neighbourhood, strip_article(neighbourhood))
+    for name in names:
         area = area_index.get((district, name))
+        if area is not None:
+            return area
+    for name in names:
+        area = area_index.get(("", name))
         if area is not None:
             return area
     return None
