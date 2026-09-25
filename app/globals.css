@@ -365,3 +365,17 @@
   .map-overview-components{grid-template-columns:1fr}
   .map-overview-components>div+div{border-left:0;border-top:1px solid var(--line)}
 }
+
+
+.map-current-view{flex-wrap:wrap}
+.map-method-inline{
+  margin-left:auto;
+  max-width:48%;
+  color:var(--muted);
+  font-size:8px;
+  line-height:1.35;
+  text-align:right;
+}
+@media(max-width:800px){
+  .map-method-inline{display:block;margin:5px 0 0;max-width:none;text-align:left}
+}
