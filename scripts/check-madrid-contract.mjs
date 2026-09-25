@@ -58,6 +58,44 @@ function parseMonth(resource) {
   return null;
 }
 
+function isPersonalHarmCategory(category) {
+  const text = String(category ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  const violentRobbery = /robo/.test(text) && /(violencia|intimidacion)/.test(text);
+  const familyOrGenderViolence =
+    /violencia/.test(text) && /(genero|familiar)/.test(text);
+  return (
+    /reyerta|agresion|amenaza|atentado/.test(text) ||
+    /fallecid/.test(text) ||
+    violentRobbery ||
+    familyOrGenderViolence
+  );
+}
+
+async function categoriesForResource(resource) {
+  const found = new Set();
+  const first = await action("datastore_search", {
+    resource_id: resource.id,
+    limit: "1",
+  });
+  const pageSize = 5_000;
+  for (let offset = 0; offset < first.total; offset += pageSize) {
+    const page = await action("datastore_search", {
+      resource_id: resource.id,
+      limit: String(pageSize),
+      offset: String(offset),
+      fields: "Descripcion tipo de apertura",
+    });
+    for (const row of page.records) {
+      const category = String(row["Descripcion tipo de apertura"] ?? "").trim();
+      if (category) found.add(category);
+    }
+  }
+  return [...found].sort((a, b) => a.localeCompare(b));
+}
+
 const pkg = await action("package_show", { id: DATASET });
 const monthly = pkg.resources
   .filter((resource) => String(resource.format ?? "").toUpperCase() === "CSV")
@@ -121,6 +159,29 @@ if (categories.length < 5) {
   throw new Error(`Implausibly low Madrid category count: ${categories.length}`);
 }
 
+const recentCategoryHistory = [];
+for (const resource of monthly.slice(0, 6).reverse()) {
+  const monthCategories =
+    resource.id === latest.id
+      ? categories.map((item) => item.category)
+      : await categoriesForResource(resource);
+  const personalHarmCategories = monthCategories.filter(isPersonalHarmCategory);
+  recentCategoryHistory.push({
+    month: resource.month,
+    categoryCount: monthCategories.length,
+    personalHarmCategories,
+  });
+}
+
+if (recentCategoryHistory.length < 3) {
+  throw new Error(`Madrid source exposes only ${recentCategoryHistory.length} recent monthly resources`);
+}
+for (const item of recentCategoryHistory) {
+  if (item.personalHarmCategories.length === 0) {
+    throw new Error(`No personal-harm categories recognised in Madrid source month ${item.month}`);
+  }
+}
+
 const boundaryUrl = new URL(
   "https://sigma.madrid.es/hosted/rest/services/CARTOGRAFIA/LIMITES_ADMINISTRATIVOS/MapServer/25/query"
 );
@@ -167,4 +228,5 @@ console.log(JSON.stringify({
   boundaryCount: boundaryGeojson.features.length,
   categoryCount: categories.length,
   categories,
+  recentCategoryHistory,
 }, null, 2));
