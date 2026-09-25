@@ -28,7 +28,11 @@ export default function SearchClient({ areas, error }: Props) {
     () =>
       query
         ? areas
-            .filter((area) => area.name.toLowerCase().includes(query))
+            .filter(
+              (area) =>
+                area.name.toLowerCase().includes(query) ||
+                area.parentName?.toLowerCase().includes(query),
+            )
             .sort((a, b) => {
               const aStarts = areaStarts(a.name, query);
               const bStarts = areaStarts(b.name, query);
@@ -109,7 +113,7 @@ export default function SearchClient({ areas, error }: Props) {
             <div className="search-results">
               {results.map((area) => (
                 <Link href={areaHref(area.id)} key={area.id}>
-                  <span>{area.cityName}</span>
+                  <span>{area.cityName}{area.parentName ? ` · ${area.parentName}` : ""}</span>
                   <strong>{area.name}</strong>
                   <i>Open profile →</i>
                 </Link>
