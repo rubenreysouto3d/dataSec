@@ -34,5 +34,5 @@ jobs:
       - name: Validate London ward population
         run: python scripts/ingest_london_population.py --dry-run
       - name: Persist validated London ward population
-        if: ${{ github.event_name == 'push' || inputs.persist }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.persist }}
         run: python scripts/ingest_london_population.py
