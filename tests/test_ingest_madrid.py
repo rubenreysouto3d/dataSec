@@ -35,6 +35,38 @@ class MadridSourceTests(unittest.TestCase):
         row = {"Distrito": "VILLAVERDE", "Barrio": "ANGELES"}
         self.assertEqual(match_incident_area(row, index)["COD_BAR"], "171")
 
+    def test_area_match_accepts_missing_district_when_name_is_unique(self):
+        areas = [{
+            "COD_BAR": "171",
+            "NOMDIS": "Villaverde",
+            "NOMBRE": "Los Ángeles",
+            "BARRIO_MAY": "LOS ANGELES",
+            "BARRIO_MT": "LOS ANGELES",
+        }]
+        index, _ = build_area_index(areas)
+        row = {"Distrito": "", "Barrio": "LOS ANGELES"}
+        self.assertEqual(match_incident_area(row, index)["COD_BAR"], "171")
+
+    def test_area_match_does_not_guess_ambiguous_citywide_name(self):
+        areas = [
+            {
+                "COD_BAR": "111",
+                "NOMDIS": "Distrito A",
+                "NOMBRE": "Centro",
+                "BARRIO_MAY": "CENTRO",
+                "BARRIO_MT": "CENTRO",
+            },
+            {
+                "COD_BAR": "211",
+                "NOMDIS": "Distrito B",
+                "NOMBRE": "Centro",
+                "BARRIO_MAY": "CENTRO",
+                "BARRIO_MT": "CENTRO",
+            },
+        ]
+        index, _ = build_area_index(areas)
+        self.assertIsNone(match_incident_area({"Distrito": "", "Barrio": "CENTRO"}, index))
+
     def test_metric_slugs_are_namespaced(self):
         self.assertEqual(
             metric_slug("RUIDOS MOLESTOS"),
