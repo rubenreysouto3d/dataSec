@@ -1,6 +1,10 @@
 name: ingest-london
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/ingest-london.yml"
   schedule:
     - cron: "17 5 5,20 * *"
   workflow_dispatch:
@@ -21,6 +25,7 @@ permissions:
 
 jobs:
   ingest:
+    if: github.event_name != 'push' || github.event.head_commit.message == 'ops: run London hierarchy with authorized workflow'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
