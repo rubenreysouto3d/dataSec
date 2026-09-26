@@ -9,6 +9,7 @@ import {
 } from "@/lib/data";
 import { buildVisitorPercentileMap } from "@/lib/map-filters";
 import { bandNumber, metricForLayer, relativeBand } from "@/lib/map-view";
+import { localeFromValue, tr } from "@/lib/i18n";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -45,11 +46,15 @@ export async function GET(request: Request, { params }: Props) {
   const areaId = areaIdFromPath(id);
   const url = new URL(request.url);
   const view = url.searchParams.get("view") === "visitor" ? "visitor" : "resident";
+  const locale = localeFromValue(url.searchParams.get("lang"));
 
   try {
     const area = await getAreaProfile(areaId);
     if (!area) {
-      return htmlResponse("<!doctype html><title>Area not found</title><p>Area not found.</p>", 404);
+      return htmlResponse(
+        `<!doctype html><title>${tr(locale, "Area not found", "Zona no encontrada")}</title><p>${tr(locale, "Area not found.", "Zona no encontrada.")}</p>`,
+        404,
+      );
     }
 
     const cityAreas = await getNeighbourhoods(area.citySlug);
@@ -69,7 +74,7 @@ export async function GET(request: Request, { params }: Props) {
     );
 
     const level = bandNumber(selected.percentile);
-    const band = relativeBand(selected.percentile, view);
+    const band = relativeBand(selected.percentile, view, locale);
     const percentile =
       selected.percentile === null || !Number.isFinite(selected.percentile)
         ? null
@@ -82,10 +87,13 @@ export async function GET(request: Request, { params }: Props) {
     const origin = url.origin;
     const fullUrl = `${origin}${areaHref(area.id)}`;
     const title = areaDisplayName(area);
-    const viewLabel = view === "visitor" ? "Visitor" : "Resident";
+    const viewLabel =
+      view === "visitor"
+        ? tr(locale, "Visitor", "Visitante")
+        : tr(locale, "Resident", "Residente");
 
     const body = `<!doctype html>
-<html lang="en">
+<html lang="${locale}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -115,22 +123,30 @@ a:hover{text-decoration:underline}
 <article class="card" aria-label="dataSec neighbourhood context widget">
   <div class="top">
     <div class="brand">data<i>Sec</i></div>
-    <div class="view">${viewLabel} · local context</div>
+    <div class="view">${viewLabel} · ${tr(locale, "local context", "contexto local")}</div>
   </div>
   <div class="place">
     <h1>${escapeHtml(title)}</h1>
-    <p>${escapeHtml(area.cityName)}${latestMonth ? ` · ${escapeHtml(monthLabel(latestMonth))}` : ""}</p>
+    <p>${escapeHtml(area.cityName)}${latestMonth ? ` · ${escapeHtml(monthLabel(latestMonth, locale))}` : ""}</p>
   </div>
   <div class="signal">
-    <div class="level">${level ?? "—"}<small>level / 5</small></div>
+    <div class="level">${level ?? "—"}<small>${tr(locale, "level", "nivel")} / 5</small></div>
     <div>
       <strong>${escapeHtml(band)}</strong>
-      <span>${percentile === null ? "Local percentile unavailable" : `${percentile}th percentile within ${escapeHtml(area.cityName)}`}</span>
+      <span>${percentile === null
+        ? tr(locale, "Local percentile unavailable", "Percentil local no disponible")
+        : locale === "es"
+          ? `percentil ${percentile} dentro de ${escapeHtml(area.cityName)}`
+          : `${percentile}th percentile within ${escapeHtml(area.cityName)}`}</span>
     </div>
   </div>
   <div class="foot">
-    <div class="note">Official-source context only. Not a prediction or guarantee of personal safety.</div>
-    <a href="${escapeHtml(fullUrl)}" target="_blank" rel="noopener noreferrer">Full context →</a>
+    <div class="note">${tr(
+      locale,
+      "Official-source context only. Not a prediction or guarantee of personal safety.",
+      "Solo contexto de fuentes oficiales. No es una predicción ni una garantía de seguridad personal.",
+    )}</div>
+    <a href="${escapeHtml(fullUrl)}" target="_blank" rel="noopener noreferrer">${tr(locale, "Full context →", "Contexto completo →")}</a>
   </div>
 </article>
 </body>
@@ -139,6 +155,9 @@ a:hover{text-decoration:underline}
     return htmlResponse(body);
   } catch (error) {
     console.error(error);
-    return htmlResponse("<!doctype html><title>Unavailable</title><p>Context temporarily unavailable.</p>", 503);
+    return htmlResponse(
+      `<!doctype html><title>${tr(locale, "Unavailable", "No disponible")}</title><p>${tr(locale, "Context temporarily unavailable.", "Contexto no disponible temporalmente.")}</p>`,
+      503,
+    );
   }
 }
