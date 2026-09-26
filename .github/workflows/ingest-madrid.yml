@@ -100,11 +100,11 @@ jobs:
             history_count="${{ inputs.history_count }}"
             month="${{ inputs.month }}"
           elif [ "${{ github.event_name }}" = "push" ]; then
-            if [ "${{ github.event.head_commit.message }}" != "ops: backfill 14 months Madrid v2" ]; then
+            if [ "${{ github.event.head_commit.message }}" != "ops: backfill 13 months Madrid" ]; then
               echo "Push is not the explicit Madrid history backfill; skipping persistence."
               exit 0
             fi
-            history_count="14"
+            history_count="13"
           fi
 
           if ! [[ "$history_count" =~ ^[0-9]+$ ]] || [ "$history_count" -lt 1 ] || [ "$history_count" -gt 24 ]; then
