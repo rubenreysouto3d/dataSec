@@ -27,4 +27,7 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npm run typecheck
+      - run: node --check extension/service-worker.js
+      - run: node --check extension/content.js
+      - run: node -e "JSON.parse(require('fs').readFileSync('extension/manifest.json','utf8'))"
       - run: npm run build
