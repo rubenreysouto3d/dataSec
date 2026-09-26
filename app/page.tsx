@@ -1,8 +1,15 @@
 import Link from "next/link";
 import { getCitySnapshot, getNeighbourhoods, monthLabel } from "@/lib/data";
 import { dataHealth } from "@/lib/generated-health";
+import { localeFromValue, localeHref, localeTag, tr } from "@/lib/i18n";
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ lang?: string }>;
+}) {
+  const query = await searchParams;
+  const locale = localeFromValue(query.lang);
   let areas = [] as Awaited<ReturnType<typeof getNeighbourhoods>>;
   let londonSnapshot: Awaited<ReturnType<typeof getCitySnapshot>> = null;
   let madridSnapshot: Awaited<ReturnType<typeof getCitySnapshot>> = null;
@@ -37,47 +44,73 @@ export default async function Home() {
   ] as const;
 
   const verificationLabel = dataHealth.checkedAt
-    ? new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" }).format(
+    ? new Intl.DateTimeFormat(localeTag(locale), { day: "numeric", month: "short", year: "numeric" }).format(
         new Date(dataHealth.checkedAt),
       )
-    : "pending";
+    : tr(locale, "pending", "pendiente");
 
   return (
     <main className="home-page home-page-v2">
       <section className="home-entry">
         <div className="home-entry-copy">
-          <div className="eyebrow">Urban safety explorer</div>
+          <div className="eyebrow">
+            {tr(locale, "Urban safety explorer", "Explorador de seguridad urbana")}
+          </div>
           <h1>
-            Pick a city.
+            {tr(locale, "Pick a city.", "Elige una ciudad.")}
             <br />
-            <em>Read the map.</em>
+            <em>{tr(locale, "Read the map.", "Lee el mapa.")}</em>
           </h1>
-          <p>Official local data with separate Resident and Visitor context, verified before publication.</p>
+          <p>
+            {tr(
+              locale,
+              "Official local data with separate Resident and Visitor context, verified before publication.",
+              "Datos locales oficiales con contexto separado para residentes y visitantes, verificados antes de publicarse.",
+            )}
+          </p>
         </div>
 
         {error ? (
-          <div className="notice">The validated data store is temporarily unavailable.</div>
+          <div className="notice">
+            {tr(
+              locale,
+              "The validated data store is temporarily unavailable.",
+              "El almacén de datos validados no está disponible temporalmente.",
+            )}
+          </div>
         ) : (
-          <div className="home-city-choice" aria-label="Choose a city">
+          <div
+            className="home-city-choice"
+            aria-label={tr(locale, "Choose a city", "Elige una ciudad")}
+          >
             {cityCards.map((city) => (
-              <Link className="home-city-choice-card" href={`/city/${city.slug}`} key={city.slug}>
+              <Link
+                className="home-city-choice-card"
+                href={localeHref(locale, `/city/${city.slug}`)}
+                key={city.slug}
+              >
                 <span className="home-city-choice-name">{city.name}</span>
                 <span className="home-city-choice-meta">
-                  <strong>{city.count.toLocaleString("en-GB")}</strong> areas
+                  <strong>{city.count.toLocaleString(localeTag(locale))}</strong>{" "}
+                  {tr(locale, "areas", "zonas")}
                   <i aria-hidden="true">·</i>
-                  <strong>{city.snapshot ? monthLabel(city.snapshot.month) : "—"}</strong>
+                  <strong>{city.snapshot ? monthLabel(city.snapshot.month, locale) : "—"}</strong>
                 </span>
-                <b>Open map →</b>
+                <b>{tr(locale, "Open map →", "Abrir mapa →")}</b>
               </Link>
             ))}
           </div>
         )}
 
         <div className="home-entry-note">
-          <span>Official public sources</span>
-          <span>Resident + visitor views</span>
-          <Link href="/status">Data verified {verificationLabel}</Link>
-          <Link href="/methodology">How the data works</Link>
+          <span>{tr(locale, "Official public sources", "Fuentes públicas oficiales")}</span>
+          <span>{tr(locale, "Resident + visitor views", "Vistas para residente + visitante")}</span>
+          <Link href={localeHref(locale, "/status")}>
+            {tr(locale, "Data verified", "Datos verificados")} {verificationLabel}
+          </Link>
+          <Link href={localeHref(locale, "/methodology")}>
+            {tr(locale, "How the data works", "Cómo funcionan los datos")}
+          </Link>
         </div>
       </section>
     </main>
