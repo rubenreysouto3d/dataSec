@@ -40,6 +40,7 @@ type Props = {
   metrics: CityMapMetric[];
   activityContexts: CityActivityContext[];
   safetySignals: CitySafetySignal[];
+  initialAudience?: MapAudienceKey;
 };
 
 type AudienceKey = MapAudienceKey | "advanced";
@@ -240,7 +241,15 @@ function medianComparison(value: number | null, cityMedian: number | null) {
   return `${Math.round(Math.abs(delta))}% ${delta > 0 ? "above" : "below"} the city median`;
 }
 
-export default function CityMap({ citySlug, areas, boundaries, metrics, activityContexts, safetySignals }: Props) {
+export default function CityMap({
+  citySlug,
+  areas,
+  boundaries,
+  metrics,
+  activityContexts,
+  safetySignals,
+  initialAudience = "resident",
+}: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
   const popupRef = useRef<any>(null);
@@ -252,8 +261,10 @@ export default function CityMap({ citySlug, areas, boundaries, metrics, activity
   const hasContextualOverview = safetySignals.some(
     (signal) => signal.months >= 3 && signal.contextualConcernPercentile !== null,
   );
-  const [audience, setAudience] = useState<AudienceKey>("resident");
-  const [layer, setLayer] = useState<LayerKey>("contextual-overview");
+  const [audience, setAudience] = useState<AudienceKey>(initialAudience);
+  const [layer, setLayer] = useState<LayerKey>(
+    initialAudience === "visitor" ? "visitor-context" : "contextual-overview",
+  );
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
   const [areaSearch, setAreaSearch] = useState("");
   const [finderStatus, setFinderStatus] = useState<"idle" | "searching" | "locating" | "error">("idle");
