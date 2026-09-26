@@ -49,6 +49,12 @@ The underlying dataSec data coverage remains London and Madrid.
 
 The overlay/widget uses Spanish when the page/browser language is Spanish; otherwise it uses English.
 
+## Privacy
+
+Public privacy policy:
+
+https://data-sec.vercel.app/privacy
+
 ## Privacy / network calls
 
 When a listing exposes a sufficiently precise address, the extension sends:
