@@ -25,6 +25,14 @@ import {
 } from "@/lib/map-view";
 import { getCompareProfile, type CompareProfile } from "@/lib/public-data-client";
 import { areaHref } from "@/lib/area-route";
+import {
+  localizeCanonicalCategory,
+  localeFromValue,
+  localeHref,
+  localeTag,
+  tr,
+  type Locale,
+} from "@/lib/i18n";
 
 type Props = {
   areas: Neighbourhood[];
@@ -45,22 +53,25 @@ const LAYER_OPTIONS: Array<{ value: MapLayerKey; label: string }> = [
   { value: "activity", label: "All source activity · per km²" },
 ];
 
-function compareHref(a: string, b: string, layer: MapLayerKey) {
+function compareHref(a: string, b: string, layer: MapLayerKey, locale: Locale) {
   const params = new URLSearchParams();
   if (a) params.set("a", a);
   if (b) params.set("b", b);
   params.set("layer", layer);
-  return `/compare?${params.toString()}`;
+  return localeHref(locale, `/compare?${params.toString()}`);
 }
 
-function percentileLabel(percentile: number | null) {
-  if (percentile === null || !Number.isFinite(percentile)) return "Unavailable";
-  return `${Math.round(percentile * 100)}th percentile`;
+function percentileLabel(percentile: number | null, locale: Locale) {
+  if (percentile === null || !Number.isFinite(percentile)) {
+    return tr(locale, "Unavailable", "No disponible");
+  }
+  const value = Math.round(percentile * 100);
+  return locale === "es" ? `percentil ${value}` : `${value}th percentile`;
 }
 
-function formatLayerValue(metric: MapLayerMetric) {
+function formatLayerValue(metric: MapLayerMetric, locale: Locale) {
   if (metric.value === null || !Number.isFinite(metric.value)) return "—";
-  return `${metric.value.toLocaleString("en-GB", { maximumFractionDigits: 1 })}${metric.unit}`;
+  return `${metric.value.toLocaleString(localeTag(locale), { maximumFractionDigits: 1 })}${metric.unit}`;
 }
 
 export default function CompareClient({
@@ -71,6 +82,7 @@ export default function CompareClient({
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const locale = localeFromValue(searchParams.get("lang"));
   const a = searchParams.get("a") ?? "";
   const b = searchParams.get("b") ?? "";
   const requestedLayer = searchParams.get("layer");
@@ -163,15 +175,23 @@ export default function CompareClient({
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!left || !right || left === right || !sameCity) return;
-    router.push(compareHref(left, right, layer));
+    router.push(compareHref(left, right, layer, locale));
   }
 
   function changeLayer(nextLayer: MapLayerKey) {
-    router.push(compareHref(left, right, nextLayer));
+    router.push(compareHref(left, right, nextLayer, locale));
   }
 
   if (sourceError) {
-    return <div className="notice">The stored area list could not be loaded.</div>;
+    return (
+      <div className="notice">
+        {tr(
+          locale,
+          "The stored area list could not be loaded.",
+          "No se pudo cargar la lista de zonas almacenada.",
+        )}
+      </div>
+    );
   }
 
   const options = (placeholder: string, citySlug?: string, excludedId?: string) => (
@@ -206,7 +226,7 @@ export default function CompareClient({
     setLeft(right);
     setRight(left);
     if (left && right) {
-      router.push(compareHref(right, left, layer));
+      router.push(compareHref(right, left, layer, locale));
     }
   }
 
@@ -214,26 +234,32 @@ export default function CompareClient({
     <>
       <div className="compare-view-control">
         <label>
-          <span>Compare using</span>
+          <span>{tr(locale, "Compare using", "Comparar usando")}</span>
           <select
             value={layer}
             onChange={(event) => changeLayer(event.target.value as MapLayerKey)}
           >
             {LAYER_OPTIONS.map((option) => (
-              <option value={option.value} key={option.value}>{option.label}</option>
+              <option value={option.value} key={option.value}>
+                {mapLayerLabel(option.value, locale)}
+              </option>
             ))}
           </select>
         </label>
         <small>
-          Uses the same city-local signal as the map. Changing this control never creates a cross-city score.
+          {tr(
+            locale,
+            "Uses the same city-local signal as the map. Changing this control never creates a cross-city score.",
+            "Usa la misma señal local de la ciudad que el mapa. Cambiar este control nunca crea una puntuación entre ciudades.",
+          )}
         </small>
       </div>
 
       <form className="compare-form" onSubmit={submit}>
         <label>
-          <span>Area A</span>
+          <span>{tr(locale, "Area A", "Zona A")}</span>
           <select value={left} onChange={(event) => changeLeft(event.target.value)}>
-            {options("Choose area…", undefined, right)}
+            {options(tr(locale, "Choose area…", "Elige una zona…"), undefined, right)}
           </select>
         </label>
         <button
@@ -241,28 +267,48 @@ export default function CompareClient({
           type="button"
           onClick={swapAreas}
           disabled={!left || !right}
-          aria-label="Swap compared areas"
-          title="Swap areas"
+          aria-label={tr(locale, "Swap compared areas", "Intercambiar zonas comparadas")}
+          title={tr(locale, "Swap areas", "Intercambiar zonas")}
         >
           ⇄
         </button>
         <label>
-          <span>Area B</span>
+          <span>{tr(locale, "Area B", "Zona B")}</span>
           <select value={right} onChange={(event) => setRight(event.target.value)}>
             {options(
-              leftArea ? `Choose another ${leftArea.cityName} area…` : "Choose area…",
+              leftArea
+                ? locale === "es"
+                  ? `Elige otra zona de ${leftArea.cityName}…`
+                  : `Choose another ${leftArea.cityName} area…`
+                : tr(locale, "Choose area…", "Elige una zona…"),
               leftArea?.citySlug,
               left,
             )}
           </select>
         </label>
-        <button type="submit" disabled={!left || !right || left === right || !sameCity}>Compare</button>
+        <button type="submit" disabled={!left || !right || left === right || !sameCity}>{tr(locale, "Compare", "Comparar")}</button>
       </form>
 
-      {left === right && left ? <div className="notice">Choose two different areas.</div> : null}
-      {!left ? <div className="compare-start-hint">Choose Area A first.</div> : null}
-      {loading ? <div className="notice">Loading official comparison…</div> : null}
-      {failed ? <div className="notice">The comparison data could not be loaded.</div> : null}
+      {left === right && left ? (
+        <div className="notice">
+          {tr(locale, "Choose two different areas.", "Elige dos zonas diferentes.")}
+        </div>
+      ) : null}
+      {!left ? (
+        <div className="compare-start-hint">
+          {tr(locale, "Choose Area A first.", "Elige primero la Zona A.")}
+        </div>
+      ) : null}
+      {loading ? (
+        <div className="notice">
+          {tr(locale, "Loading official comparison…", "Cargando comparación oficial…")}
+        </div>
+      ) : null}
+      {failed ? (
+        <div className="notice">
+          {tr(locale, "The comparison data could not be loaded.", "No se pudieron cargar los datos de comparación.")}
+        </div>
+      ) : null}
 
       {!loading &&
       profiles[0] &&
@@ -279,6 +325,7 @@ export default function CompareClient({
           leftLabel={areaDisplayName(leftArea)}
           rightLabel={areaDisplayName(rightArea)}
           layer={layer}
+          locale={locale}
         />
       ) : null}
     </>
@@ -293,6 +340,7 @@ function Comparison({
   leftLabel,
   rightLabel,
   layer,
+  locale,
 }: {
   left: CompareProfile;
   right: CompareProfile;
@@ -301,6 +349,7 @@ function Comparison({
   leftLabel: string;
   rightLabel: string;
   layer: MapLayerKey;
+  locale: Locale;
 }) {
   const categorySlugs = (group: "safety" | "other", limit: number) =>
     Array.from(new Set([
@@ -339,49 +388,65 @@ function Comparison({
     <section className="compare-results">
       <div className="compare-head">
         <div>
-          <span>AREA A · {left.cityName}</span>
+          <span>{tr(locale, "AREA A", "ZONA A")} · {left.cityName}</span>
           <h2>{leftLabel}</h2>
-          <Link href={areaHref(left.id)}>Open full profile →</Link>
+          <Link href={localeHref(locale, areaHref(left.id))}>
+            {tr(locale, "Open full profile →", "Abrir ficha completa →")}
+          </Link>
         </div>
         <div>
-          <span>AREA B · {right.cityName}</span>
+          <span>{tr(locale, "AREA B", "ZONA B")} · {right.cityName}</span>
           <h2>{rightLabel}</h2>
-          <Link href={areaHref(right.id)}>Open full profile →</Link>
+          <Link href={localeHref(locale, areaHref(right.id))}>
+            {tr(locale, "Open full profile →", "Abrir ficha completa →")}
+          </Link>
         </div>
       </div>
 
       <div className="compare-takeaway compare-takeaway-clean">
-        <span>{mapLayerLabel(layer).toUpperCase()}</span>
+        <span>{mapLayerLabel(layer, locale).toUpperCase()}</span>
         <div>
           <strong>
             {higherLabel
-              ? `${higherLabel} has the higher relative signal on this view`
+              ? locale === "es"
+                ? `${higherLabel} tiene la señal relativa más alta en esta vista`
+                : `${higherLabel} has the higher relative signal on this view`
               : sameRelativePosition
-                ? "Both areas are at almost the same relative position"
-                : "A relative comparison is unavailable for one of these areas"}
+                ? tr(
+                    locale,
+                    "Both areas are at almost the same relative position",
+                    "Ambas zonas están prácticamente en la misma posición relativa",
+                  )
+                : tr(
+                    locale,
+                    "A relative comparison is unavailable for one of these areas",
+                    "La comparación relativa no está disponible para una de estas zonas",
+                  )}
           </strong>
           <p>
-            This compares the same {mapLayerLabel(layer).toLowerCase()} signal used on the {left.cityName} map.
+            {locale === "es"
+              ? `Compara la misma señal «${mapLayerLabel(layer, locale).toLowerCase()}» que usa el mapa de ${left.cityName}.`
+              : `This compares the same ${mapLayerLabel(layer, locale).toLowerCase()} signal used on the ${left.cityName} map.`}
           </p>
         </div>
       </div>
 
       <div className="compare-metrics">
         <Metric
-          label="Local level"
-          left={bandNumber(leftPercentile) ? `Level ${bandNumber(leftPercentile)}/5` : "—"}
-          right={bandNumber(rightPercentile) ? `Level ${bandNumber(rightPercentile)}/5` : "—"}
+          label={tr(locale, "Local level", "Nivel local")}
+          left={bandNumber(leftPercentile) ? `${tr(locale, "Level", "Nivel")} ${bandNumber(leftPercentile)}/5` : "—"}
+          right={bandNumber(rightPercentile) ? `${tr(locale, "Level", "Nivel")} ${bandNumber(rightPercentile)}/5` : "—"}
         />
         <Metric
-          label="City position"
-          left={percentileLabel(leftPercentile)}
-          right={percentileLabel(rightPercentile)}
+          label={tr(locale, "City position", "Posición en la ciudad")}
+          left={percentileLabel(leftPercentile, locale)}
+          right={percentileLabel(rightPercentile, locale)}
         />
         {(leftSignal.value !== null || rightSignal.value !== null) ? (
           <Metric
-            label="Recorded value"
-            left={formatLayerValue(leftSignal)}
-            right={formatLayerValue(rightSignal)}
+            label={tr(locale, "Recorded value", "Valor registrado")}
+            left={formatLayerValue(leftSignal, locale)}
+            right={formatLayerValue(rightSignal, locale)}
           />
         ) : null}
       </div>
@@ -389,16 +454,24 @@ function Comparison({
       <div className="compare-position">
         <article>
           <span>{leftLabel}</span>
-          <strong>{relativeBand(leftPercentile, mode)}</strong>
-          <p>{leftPct === null ? "No local percentile" : `${leftPct}th percentile within ${left.cityName}`}</p>
+          <strong>{relativeBand(leftPercentile, mode, locale)}</strong>
+          <p>{leftPct === null
+            ? tr(locale, "No local percentile", "Sin percentil local")
+            : locale === "es"
+              ? `percentil ${leftPct} dentro de ${left.cityName}`
+              : `${leftPct}th percentile within ${left.cityName}`}</p>
           <div className="compare-position-track">
             <i style={{ width: `${leftPct ?? 0}%` }} />
           </div>
         </article>
         <article>
           <span>{rightLabel}</span>
-          <strong>{relativeBand(rightPercentile, mode)}</strong>
-          <p>{rightPct === null ? "No local percentile" : `${rightPct}th percentile within ${right.cityName}`}</p>
+          <strong>{relativeBand(rightPercentile, mode, locale)}</strong>
+          <p>{rightPct === null
+            ? tr(locale, "No local percentile", "Sin percentil local")
+            : locale === "es"
+              ? `percentil ${rightPct} dentro de ${right.cityName}`
+              : `${rightPct}th percentile within ${right.cityName}`}</p>
           <div className="compare-position-track">
             <i style={{ width: `${rightPct ?? 0}%` }} />
           </div>
@@ -407,35 +480,47 @@ function Comparison({
 
       <details className="compare-details">
         <summary>
-          <span>Detailed recorded mix</span>
-          <small>Canonical categories, separate from the selected comparison signal</small>
+          <span>{tr(locale, "Detailed recorded mix", "Detalle de actividad registrada")}</span>
+          <small>
+            {tr(
+              locale,
+              "Canonical categories, separate from the selected comparison signal",
+              "Categorías canónicas, separadas de la señal de comparación seleccionada",
+            )}
+          </small>
         </summary>
 
         <div className="compare-category-table">
           <div className="compare-row compare-row-head">
-            <span>{leftLabel}</span><strong>Safety-related · {left.month}</strong><span>{rightLabel}</span>
+            <span>{leftLabel}</span><strong>{tr(locale, "Safety-related", "Relacionado con seguridad")} · {left.month}</strong><span>{rightLabel}</span>
           </div>
           {safetyCategories.length ? safetyCategories.map((slug) => (
             <div className="compare-row" key={slug}>
-              <span>{valueFor(left, slug).toLocaleString("en-GB")}</span>
-              <strong>{labelFor(slug)}</strong>
-              <span>{valueFor(right, slug).toLocaleString("en-GB")}</span>
+              <span>{valueFor(left, slug).toLocaleString(localeTag(locale))}</span>
+              <strong>{localizeCanonicalCategory(locale, labelFor(slug))}</strong>
+              <span>{valueFor(right, slug).toLocaleString(localeTag(locale))}</span>
             </div>
           )) : (
-            <div className="notice">No mapped safety categories are available for this snapshot.</div>
+            <div className="notice">
+              {tr(
+                locale,
+                "No mapped safety categories are available for this snapshot.",
+                "No hay categorías de seguridad mapeadas disponibles para esta captura.",
+              )}
+            </div>
           )}
         </div>
 
         {otherCategories.length ? (
           <div className="compare-category-table compare-category-table-other">
             <div className="compare-row compare-row-head">
-              <span>{leftLabel}</span><strong>Other recorded activity</strong><span>{rightLabel}</span>
+              <span>{leftLabel}</span><strong>{tr(locale, "Other recorded activity", "Otra actividad registrada")}</strong><span>{rightLabel}</span>
             </div>
             {otherCategories.map((slug) => (
               <div className="compare-row" key={slug}>
-                <span>{valueFor(left, slug).toLocaleString("en-GB")}</span>
-                <strong>{labelFor(slug)}</strong>
-                <span>{valueFor(right, slug).toLocaleString("en-GB")}</span>
+                <span>{valueFor(left, slug).toLocaleString(localeTag(locale))}</span>
+                <strong>{localizeCanonicalCategory(locale, labelFor(slug))}</strong>
+                <span>{valueFor(right, slug).toLocaleString(localeTag(locale))}</span>
               </div>
             ))}
           </div>
@@ -443,10 +528,11 @@ function Comparison({
       </details>
 
       <details className="compare-note compare-note-details">
-        <summary>How to read this comparison</summary>
+        <summary>{tr(locale, "How to read this comparison", "Cómo leer esta comparación")}</summary>
         <p>
-          The primary comparison above uses the same {mapLayerLabel(layer).toLowerCase()} definition as the city map.
-          Percentiles and levels are local to {left.cityName}; they are not a Europe-wide safety score and do not predict personal risk.
+          {locale === "es"
+            ? `La comparación principal usa la misma definición «${mapLayerLabel(layer, locale).toLowerCase()}» que el mapa de la ciudad. Los percentiles y niveles son locales de ${left.cityName}; no son una puntuación europea de seguridad ni predicen el riesgo personal.`
+            : `The primary comparison above uses the same ${mapLayerLabel(layer, locale).toLowerCase()} definition as the city map. Percentiles and levels are local to ${left.cityName}; they are not a Europe-wide safety score and do not predict personal risk.`}
         </p>
       </details>
     </section>

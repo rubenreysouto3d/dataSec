@@ -6,6 +6,7 @@ import { locateAreaByCoordinates, resolvePlaceToArea } from "@/lib/public-data-c
 import { areaDisplayName, cityNames } from "@/lib/data";
 import {
   buildVisitorPercentileMap,
+  cityFilterMethods,
   CITY_FILTER_METHODS,
   MAP_ADVANCED_FILTERS,
   MAP_AUDIENCES,
@@ -24,6 +25,7 @@ import {
   type MapMetricKey as MetricKey,
   type MapNormalizationKey as NormalizationKey,
 } from "@/lib/map-view";
+import { localeHref, localeTag, tr, type Locale } from "@/lib/i18n";
 import type {
   CityActivityContext,
   CityBoundary,
@@ -41,6 +43,7 @@ type Props = {
   activityContexts: CityActivityContext[];
   safetySignals: CitySafetySignal[];
   initialAudience?: MapAudienceKey;
+  locale?: Locale;
 };
 
 type AudienceKey = MapAudienceKey | "advanced";
@@ -93,6 +96,44 @@ const metricCopy: Record<MetricKey, { label: string; short: string; note: string
     label: "All source activity",
     short: "All activity",
     note: "Everything in the city’s official source, including non-crime activity when that source contains it.",
+  },
+};
+
+const metricCopyEs: typeof metricCopy = {
+  "contextual-overview": {
+    label: "Contexto para residentes",
+    short: "Contexto residente",
+    note: "Contexto residencial con las mejores señales oficiales disponibles para esta ciudad. El percentil es local y no es una puntuación entre ciudades.",
+  },
+  "visitor-context": {
+    label: "Contexto para visitantes",
+    short: "Contexto visitante",
+    note: "Contexto de estancia corta ponderado hacia hurtos y robos, con un componente menor de violencia/propiedad. Usa concentración por zona en lugar de población empadronada.",
+  },
+  "residential-harm": {
+    label: "Daño personal · historial reciente",
+    short: "Daño personal · historial reciente",
+    note: "Señal de Madrid con los meses recientes disponibles de violencia, agresiones, robos violentos, violencia familiar/de género y categorías relacionadas, normalizada por residentes.",
+  },
+  "violence-property": {
+    label: "Violencia y propiedad",
+    short: "Violencia + propiedad",
+    note: "Categorías seleccionadas relacionadas con violencia y delitos contra la propiedad.",
+  },
+  theft: {
+    label: "Hurtos y robos",
+    short: "Hurtos + robos",
+    note: "Categorías de hurtos, robos y sustracciones de vehículos/propiedad.",
+  },
+  "crime-related": {
+    label: "Toda actividad delictiva",
+    short: "Toda actividad delictiva",
+    note: "Categorías delictivas mapeadas desde la fuente oficial; se excluye actividad no delictiva cuando la fuente la contiene.",
+  },
+  activity: {
+    label: "Toda actividad de la fuente",
+    short: "Toda la actividad",
+    note: "Todo lo incluido en la fuente oficial de la ciudad, incluida actividad no delictiva cuando exista.",
   },
 };
 
@@ -208,16 +249,16 @@ function fallbackPath(boundary: CityBoundary, bounds: Bounds) {
     .join(" ");
 }
 
-function formatMetric(value: number | null, unit: string) {
-  if (value === null || !Number.isFinite(value)) return "No value";
-  return value.toLocaleString("en-GB", { maximumFractionDigits: 1 }) + unit;
+function formatMetric(value: number | null, unit: string, locale: Locale) {
+  if (value === null || !Number.isFinite(value)) return tr(locale, "No value", "Sin valor");
+  return value.toLocaleString(localeTag(locale), { maximumFractionDigits: 1 }) + unit;
 }
 
-function formatMonth(month: string | undefined) {
-  if (!month) return "Latest snapshot";
+function formatMonth(month: string | undefined, locale: Locale) {
+  if (!month) return tr(locale, "Latest snapshot", "Última captura");
   const [year, value] = month.split("-").map(Number);
   if (!year || !value) return month;
-  return new Intl.DateTimeFormat("en-GB", { month: "short", year: "numeric" }).format(
+  return new Intl.DateTimeFormat(localeTag(locale), { month: "short", year: "numeric" }).format(
     new Date(Date.UTC(year, value - 1, 1)),
   );
 }
@@ -249,6 +290,7 @@ export default function CityMap({
   activityContexts,
   safetySignals,
   initialAudience = "resident",
+  locale = "en",
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
@@ -271,19 +313,34 @@ export default function CityMap({
   const [finderMessage, setFinderMessage] = useState("");
 
   const cityName = cityNames[citySlug];
-  const cityMethods = CITY_FILTER_METHODS[citySlug];
+  const cityMethods = cityFilterMethods(citySlug, locale);
+  const activeMetricCopy = locale === "es" ? metricCopyEs : metricCopy;
   const residentMethod =
     citySlug === "madrid" && hasContextualOverview
-      ? "50% recent personal-harm percentile + 50% 2025 district night-safety perception percentile"
+      ? tr(
+          locale,
+          "50% recent personal-harm percentile + 50% 2025 district night-safety perception percentile",
+          "50% percentil de daño personal reciente + 50% percentil de percepción de seguridad nocturna del distrito en 2025",
+        )
       : hasResidentLayer
         ? cityMethods.residentFallbackMethod
-        : "violence + property density (population denominator unavailable)";
-  const visitorMethod = "70% theft + robbery concentration + 30% violence + property concentration";
+        : tr(
+            locale,
+            "violence + property density (population denominator unavailable)",
+            "densidad de violencia + propiedad (denominador de población no disponible)",
+          );
+  const visitorMethod = tr(
+    locale,
+    "70% theft + robbery concentration + 30% violence + property concentration",
+    "70% concentración de hurtos + robos + 30% concentración de violencia + propiedad",
+  );
 
   const safetyWindowMonths = safetySignals.reduce((max, signal) => Math.max(max, signal.months), 0);
   const safetyWindowLabel = safetyWindowMonths
-    ? `${safetyWindowMonths} month${safetyWindowMonths === 1 ? "" : "s"}`
-    : "recent history";
+    ? locale === "es"
+      ? `${safetyWindowMonths} mes${safetyWindowMonths === 1 ? "" : "es"}`
+      : `${safetyWindowMonths} month${safetyWindowMonths === 1 ? "" : "s"}`
+    : tr(locale, "recent history", "historial reciente");
   const metricKey = metricKeyForLayer(layer);
   const normalization = normalizationForLayer(layer);
   const currentMethod = methodForMetric(metricKey, cityMethods, residentMethod, visitorMethod);
@@ -360,13 +417,13 @@ export default function CityMap({
         properties: {
           id: area.id,
           name: areaDisplayName(area),
-          href: areaHref(area.id),
+          href: localeHref(locale, areaHref(area.id)),
           percentile: selected.percentile,
           value: selected.value,
           count: selected.count,
           unit: selected.unit,
           population: metricById.get(area.id)?.population ?? null,
-          band: relativeBand(selected.percentile, bandMode(metricKey)),
+          band: relativeBand(selected.percentile, bandMode(metricKey), locale),
           displayMode: bandMode(metricKey),
           bandNumber: bandNumber(selected.percentile),
         },
@@ -377,7 +434,7 @@ export default function CityMap({
     });
 
     return { type: "FeatureCollection", features };
-  }, [areaById, boundaries, layer, metricById, safetySignalById, visitorPercentileById]);
+  }, [areaById, boundaries, layer, locale, metricById, safetySignalById, visitorPercentileById]);
 
   const fallbackShapes = useMemo(() => {
     if (!bounds) return [];
@@ -512,7 +569,7 @@ export default function CityMap({
     if (rawExact.length > 1) {
       setFinderStatus("error");
       setFinderMessage(
-        `More than one “${text}” exists in ${cityName}. Choose the borough from the suggestions.`,
+        `${tr(locale, "More than one", "Hay más de un")} “${text}” ${tr(locale, "in", "en")} ${cityName}. ${tr(locale, "Choose the borough from the suggestions.", "Elige el distrito/borough en las sugerencias.")}`,
       );
       return;
     }
@@ -531,28 +588,28 @@ export default function CityMap({
       const place = await resolvePlaceToArea(text);
       if (!place) {
         setFinderStatus("error");
-        setFinderMessage("No covered neighbourhood matched that place or address.");
+        setFinderMessage(tr(locale, "No covered neighbourhood matched that place or address.", "Ninguna zona cubierta coincide con ese lugar o dirección."));
         return;
       }
 
       if (place.citySlug === citySlug && areaById.has(place.id)) {
         focusArea(place.id);
         setFinderStatus("idle");
-        setFinderMessage(`Matched ${place.matchedPlace}`);
+        setFinderMessage(`${tr(locale, "Matched", "Coincidencia")}: ${place.matchedPlace}`);
         return;
       }
 
       window.location.href = areaHref(place.id);
     } catch {
       setFinderStatus("error");
-      setFinderMessage("Place lookup is temporarily unavailable.");
+      setFinderMessage(tr(locale, "Place lookup is temporarily unavailable.", "La búsqueda de lugares no está disponible temporalmente."));
     }
   }
 
   function locateMe() {
     if (!navigator.geolocation) {
       setFinderStatus("error");
-      setFinderMessage("Location is not available in this browser.");
+      setFinderMessage(tr(locale, "Location is not available in this browser.", "La ubicación no está disponible en este navegador."));
       return;
     }
 
@@ -564,26 +621,26 @@ export default function CityMap({
           const place = await locateAreaByCoordinates(coords.latitude, coords.longitude);
           if (!place) {
             setFinderStatus("error");
-            setFinderMessage("Your location is outside current dataSec coverage.");
+            setFinderMessage(tr(locale, "Your location is outside current dataSec coverage.", "Tu ubicación está fuera de la cobertura actual de dataSec."));
             return;
           }
 
           if (place.citySlug === citySlug && areaById.has(place.id)) {
             focusArea(place.id);
             setFinderStatus("idle");
-            setFinderMessage(`You are in ${place.name}.`);
+            setFinderMessage(`${tr(locale, "You are in", "Estás en")} ${place.name}.`);
             return;
           }
 
           window.location.href = areaHref(place.id);
         } catch {
           setFinderStatus("error");
-          setFinderMessage("We could not match your location to an official boundary.");
+          setFinderMessage(tr(locale, "We could not match your location to an official boundary.", "No pudimos asociar tu ubicación a un límite oficial."));
         }
       },
       () => {
         setFinderStatus("error");
-        setFinderMessage("Location permission was not available.");
+        setFinderMessage(tr(locale, "Location permission was not available.", "No se pudo obtener permiso de ubicación."));
       },
       {
         enableHighAccuracy: false,
@@ -631,7 +688,7 @@ export default function CityMap({
         mapRef.current = map;
         const mapLoadTimeout = window.setTimeout(() => {
           if (!cancelled && !map.loaded()) {
-            setMapError("Interactive basemap unavailable — showing the data map instead.");
+            setMapError(tr(locale, "Interactive basemap unavailable — showing the data map instead.", "Mapa base interactivo no disponible; se muestra el mapa de datos."));
           }
         }, 10000);
 
@@ -731,20 +788,26 @@ export default function CityMap({
               displayMode === "resident" || displayMode === "visitor"
                 ? String(props.band ?? "No city comparison")
                 : Number.isFinite(value)
-                  ? `${value.toLocaleString("en-GB", { maximumFractionDigits: 1 })}${props.unit ?? ""}`
-                  : String(props.band ?? "No value");
+                  ? `${value.toLocaleString(localeTag(locale), { maximumFractionDigits: 1 })}${props.unit ?? ""}`
+                  : String(props.band ?? tr(locale, "No value", "Sin valor"));
 
             const context = document.createElement("small");
             context.textContent = Number.isFinite(percentile)
               ? displayMode === "resident"
-                ? `Residential concern is higher than about ${Math.round(percentile * 100)}% of ${cityName} areas`
+                ? locale === "es"
+                  ? `La preocupación residencial es mayor que en aproximadamente el ${Math.round(percentile * 100)}% de las zonas de ${cityName}`
+                  : `Residential concern is higher than about ${Math.round(percentile * 100)}% of ${cityName} areas`
                 : displayMode === "visitor"
-                  ? `Visitor exposure is higher than about ${Math.round(percentile * 100)}% of ${cityName} areas`
-                  : `Recorded level is higher than about ${Math.round(percentile * 100)}% of ${cityName} areas`
-              : "No city comparison available";
+                  ? locale === "es"
+                    ? `La exposición para visitantes es mayor que en aproximadamente el ${Math.round(percentile * 100)}% de las zonas de ${cityName}`
+                    : `Visitor exposure is higher than about ${Math.round(percentile * 100)}% of ${cityName} areas`
+                  : locale === "es"
+                    ? `El nivel registrado es mayor que en aproximadamente el ${Math.round(percentile * 100)}% de las zonas de ${cityName}`
+                    : `Recorded level is higher than about ${Math.round(percentile * 100)}% of ${cityName} areas`
+              : tr(locale, "No city comparison available", "Sin comparación con la ciudad");
 
             const hint = document.createElement("small");
-            hint.textContent = "Click for details";
+            hint.textContent = tr(locale, "Click for details", "Haz clic para ver detalles");
 
             card.append(title, detail, context, hint);
             popupRef.current
@@ -775,7 +838,7 @@ export default function CityMap({
         });
       } catch (error) {
         console.error(error);
-        if (!cancelled) setMapError("The interactive basemap could not be loaded.");
+        if (!cancelled) setMapError(tr(locale, "The interactive basemap could not be loaded.", "No se pudo cargar el mapa base interactivo."));
       }
     }
 
@@ -787,7 +850,7 @@ export default function CityMap({
       mapRef.current = null;
       setMapReady(false);
     };
-  }, [bounds, citySlug]);
+  }, [bounds, citySlug, locale]);
 
   useEffect(() => {
     const source = mapRef.current?.getSource?.("datasec-areas");
@@ -808,8 +871,8 @@ export default function CityMap({
     <section className="city-map-panel interactive-map-panel explorer-map" style={MAP_COLOR_STYLE}>
       <div className="explorer-toolbar">
         <div className="explorer-mode">
-          <span className="explorer-toolbar-label">View for</span>
-          <div className="map-audience-buttons map-audience-buttons-compact" role="group" aria-label="Map audience">
+          <span className="explorer-toolbar-label">{tr(locale, "View for", "Vista para")}</span>
+          <div className="map-audience-buttons map-audience-buttons-compact" role="group" aria-label={tr(locale, "Map audience", "Tipo de usuario del mapa")}>
             {MAP_AUDIENCES.map((item) => (
               <button
                 type="button"
@@ -818,8 +881,16 @@ export default function CityMap({
                 aria-pressed={audience === item.key}
                 onClick={() => chooseAudience(item.key)}
               >
-                <strong>{item.label}</strong>
-                <small>{item.detail}</small>
+                <strong>
+                  {item.key === "resident"
+                    ? tr(locale, "Resident", "Residente")
+                    : tr(locale, "Visitor", "Visitante")}
+                </strong>
+                <small>
+                  {item.key === "resident"
+                    ? tr(locale, "Living here", "Vivir aquí")
+                    : tr(locale, "Short stay", "Estancia corta")}
+                </small>
               </button>
             ))}
           </div>
@@ -827,13 +898,13 @@ export default function CityMap({
 
         <details className="explorer-filter-menu">
           <summary>
-            <span>Filter</span>
-            <strong>{metricCopy[metricKey].short}</strong>
+            <span>{tr(locale, "Filter", "Filtro")}</span>
+            <strong>{activeMetricCopy[metricKey].short}</strong>
           </summary>
           <div className="explorer-filter-body">
             <div className="explorer-filter-section">
-              <span>Metric · same choices in every city</span>
-              <div className="map-choice-row" role="group" aria-label="Incident type">
+              <span>{tr(locale, "Metric · same choices in every city", "Métrica · mismas opciones en cada ciudad")}</span>
+              <div className="map-choice-row" role="group" aria-label={tr(locale, "Incident type", "Tipo de incidencia")}>
                 {metricOptions.map((item) => (
                   <button
                     type="button"
@@ -842,7 +913,13 @@ export default function CityMap({
                     aria-pressed={metricKey === item.key}
                     onClick={() => chooseMetric(item.key)}
                   >
-                    {item.label}
+                    {item.key === "violence-property"
+                      ? tr(locale, "Violence + property", "Violencia + propiedad")
+                      : item.key === "theft"
+                        ? tr(locale, "Theft + robbery", "Hurtos + robos")
+                        : item.key === "crime-related"
+                          ? tr(locale, "All crime-related", "Toda actividad delictiva")
+                          : tr(locale, "All source activity", "Toda actividad de la fuente")}
                   </button>
                 ))}
               </div>
@@ -852,15 +929,15 @@ export default function CityMap({
             metricKey !== "visitor-context" &&
             metricKey !== "residential-harm" ? (
               <div className="explorer-filter-section">
-                <span>Compare areas by</span>
-                <div className="map-choice-row map-normalization-row" role="group" aria-label="Comparison basis">
+                <span>{tr(locale, "Compare areas by", "Comparar zonas por")}</span>
+                <div className="map-choice-row map-normalization-row" role="group" aria-label={tr(locale, "Comparison basis", "Base de comparación")}>
                   <button
                     type="button"
                     className={normalization === "density" ? "is-active" : ""}
                     aria-pressed={normalization === "density"}
                     onClick={() => chooseNormalization("density")}
                   >
-                    <strong>Area</strong>
+                    <strong>{tr(locale, "Area", "Superficie")}</strong>
                     <small>per km²</small>
                   </button>
                   <button
@@ -870,34 +947,42 @@ export default function CityMap({
                     disabled={!hasResidentLayer || metricKey === "activity"}
                     onClick={() => chooseNormalization("resident")}
                   >
-                    <strong>Residents</strong>
-                    <small>per 10,000</small>
+                    <strong>{tr(locale, "Residents", "Residentes")}</strong>
+                    <small>{tr(locale, "per 10,000", "por 10.000")}</small>
                   </button>
                 </div>
               </div>
             ) : null}
 
-            <small className="explorer-filter-method">Local to {cityName} · {currentMethod}</small>
+            <small className="explorer-filter-method">
+              {tr(locale, "Local to", "Local de")} {cityName} · {currentMethod}
+            </small>
           </div>
         </details>
 
-        <div className="map-color-key explorer-color-key" aria-label={`Relative five-level scale within ${cityName}`}>
-          <span>1 · Lower in {cityName}</span>
+        <div className="map-color-key explorer-color-key" aria-label={tr(locale, `Relative five-level scale within ${cityName}`, `Escala relativa de cinco niveles en ${cityName}`)}>
+          <span>1 · {tr(locale, "Lower in", "Más bajo en")} {cityName}</span>
           <i />
-          <span>5 · Higher in {cityName}</span>
+          <span>5 · {tr(locale, "Higher in", "Más alto en")} {cityName}</span>
         </div>
       </div>
 
       <div className="explorer-active-definition">
         <strong>
           {audience === "resident"
-            ? `${cityName} Resident`
+            ? `${cityName} ${tr(locale, "Resident", "Residente")}`
             : audience === "visitor"
-              ? `${cityName} Visitor`
-              : `${cityName} filter`}
+              ? `${cityName} ${tr(locale, "Visitor", "Visitante")}`
+              : `${cityName} ${tr(locale, "filter", "filtro")}`}
         </strong>
         <span>{currentMethod}</span>
-        <small>Local comparison only · not comparable as one score across cities</small>
+        <small>
+          {tr(
+            locale,
+            "Local comparison only · not comparable as one score across cities",
+            "Comparación solo local · no es una puntuación comparable entre ciudades",
+          )}
+        </small>
       </div>
 
       <div className={`map-stage ${selectedArea ? "has-selection" : ""}`}>
@@ -907,7 +992,7 @@ export default function CityMap({
               className="datasec-fallback-map"
               viewBox="0 0 1000 700"
               role="img"
-              aria-label={`${cityName} neighbourhood data map`}
+              aria-label={tr(locale, `${cityName} neighbourhood data map`, `Mapa de datos por zonas de ${cityName}`)}
               preserveAspectRatio="xMidYMid meet"
             >
               <rect width="1000" height="700" className="datasec-fallback-bg" />
@@ -920,7 +1005,7 @@ export default function CityMap({
                     className={shape.selected ? "is-selected" : ""}
                     onClick={() => focusArea(shape.id)}
                   >
-                    <title>{shape.name}{shape.bandNumber ? ` · level ${shape.bandNumber}/5` : ""}</title>
+                    <title>{shape.name}{shape.bandNumber ? ` · ${tr(locale, "level", "nivel")} ${shape.bandNumber}/5` : ""}</title>
                   </path>
                 ))}
               </g>
@@ -930,7 +1015,9 @@ export default function CityMap({
           <div ref={containerRef} className={`interactive-city-map ${mapReady ? "is-ready" : ""}`} />
 
           <div className="map-area-finder map-area-finder-simple">
-            <label className="sr-only" htmlFor="area-map-search">Find a neighbourhood</label>
+            <label className="sr-only" htmlFor="area-map-search">
+              {tr(locale, "Find a neighbourhood", "Buscar una zona")}
+            </label>
             <div>
               <input
                 id="area-map-search"
@@ -943,21 +1030,25 @@ export default function CityMap({
                     findArea();
                   }
                 }}
-                placeholder="Neighbourhood, address or hotel…"
+                placeholder={tr(locale, "Neighbourhood, address or hotel…", "Barrio, dirección u hotel…")}
               />
               <button
                 type="button"
                 onClick={findArea}
                 disabled={!bounds || finderStatus === "searching" || finderStatus === "locating"}
               >
-                {finderStatus === "searching" ? "Matching…" : "Find"}
+                {finderStatus === "searching"
+                  ? tr(locale, "Matching…", "Buscando…")
+                  : tr(locale, "Find", "Buscar")}
               </button>
               <button
                 type="button"
                 onClick={locateMe}
                 disabled={finderStatus === "searching" || finderStatus === "locating"}
               >
-                {finderStatus === "locating" ? "Locating…" : "Use my location"}
+                {finderStatus === "locating"
+                  ? tr(locale, "Locating…", "Localizando…")
+                  : tr(locale, "Use my location", "Usar mi ubicación")}
               </button>
             </div>
             {finderMessage ? (
@@ -971,11 +1062,13 @@ export default function CityMap({
           </div>
 
           <button className="map-city-reset" type="button" onClick={fitToCity}>
-            Whole city
+            {tr(locale, "Whole city", "Toda la ciudad")}
           </button>
 
           {!mapReady && !mapError ? (
-            <div className="map-fallback-status">Loading interactive map…</div>
+            <div className="map-fallback-status">
+              {tr(locale, "Loading interactive map…", "Cargando mapa interactivo…")}
+            </div>
           ) : null}
           {mapError ? <div className="map-fallback-status map-error">{mapError}</div> : null}
         </div>
@@ -987,13 +1080,13 @@ export default function CityMap({
                 type="button"
                 className="map-selection-close"
                 onClick={() => setSelectedAreaId(null)}
-                aria-label="Close selected area"
+                aria-label={tr(locale, "Close selected area", "Cerrar zona seleccionada")}
               >
                 ×
               </button>
 
               <span className="map-selection-kicker">
-                {cityName}{selectedArea.parentName ? ` · ${selectedArea.parentName}` : ""} · {formatMonth(latestMonth)}
+                {cityName}{selectedArea.parentName ? ` · ${selectedArea.parentName}` : ""} · {formatMonth(latestMonth, locale)}
               </span>
               <h3>{selectedArea.name}</h3>
 
@@ -1003,8 +1096,10 @@ export default function CityMap({
                   <strong>{relativeBand(selectedMetric.percentile, bandMode(metricKey))}</strong>
                   <small>
                     {selectedPercentile !== null
-                      ? `Level ${bandNumber(selectedMetric.percentile)}/5 · local position: ${selectedPercentile}th percentile among ${cityName} areas`
-                      : "No city comparison available"}
+                      ? locale === "es"
+                        ? `Nivel ${bandNumber(selectedMetric.percentile)}/5 · posición local: percentil ${selectedPercentile} entre las zonas de ${cityName}`
+                        : `Level ${bandNumber(selectedMetric.percentile)}/5 · local position: ${selectedPercentile}th percentile among ${cityName} areas`
+                      : tr(locale, "No city comparison available", "Sin comparación con la ciudad")}
                   </small>
                 </div>
               </div>
@@ -1014,66 +1109,76 @@ export default function CityMap({
               selectedSafetySignal?.contextualConcernPercentile !== undefined ? (
                 <div className="map-overview-components">
                   <div>
-                    <span>Recorded personal harm</span>
-                    <strong>{relativeBand(selectedSafetySignal.residentPercentile)}</strong>
+                    <span>{tr(locale, "Recorded personal harm", "Daño personal registrado")}</span>
+                    <strong>{relativeBand(selectedSafetySignal.residentPercentile, "resident", locale)}</strong>
                     <small>
-                      {formatMetric(selectedSafetySignal.personalHarmPer10k, "/10k residents / month")} · {selectedSafetySignal.months} months
+                      {formatMetric(
+                        selectedSafetySignal.personalHarmPer10k,
+                        tr(locale, "/10k residents / month", "/10.000 residentes / mes"),
+                        locale,
+                      )} · {selectedSafetySignal.months} {tr(locale, "months", "meses")}
                     </small>
                   </div>
                   <div>
-                    <span>Resident perception at night</span>
+                    <span>{tr(locale, "Resident perception at night", "Percepción residente por la noche")}</span>
                     <strong>
                       {selectedSafetySignal.districtNightSafety !== null
                         ? `${selectedSafetySignal.districtNightSafety.toFixed(1)}/10`
-                        : "Unavailable"}
+                        : tr(locale, "Unavailable", "No disponible")}
                     </strong>
-                    <small>{selectedSafetySignal.districtName ?? "District unavailable"} · 2025 survey</small>
+                    <small>{selectedSafetySignal.districtName ?? tr(locale, "District unavailable", "Distrito no disponible")} · {tr(locale, "2025 survey", "encuesta 2025")}</small>
                   </div>
                 </div>
               ) : metricKey === "visitor-context" && selectedBaseMetric ? (
                 <div className="map-overview-components">
                   <div>
-                    <span>Theft + robbery</span>
-                    <strong>{relativeBand(selectedBaseMetric.theftDensityPercentile)}</strong>
-                    <small>{formatMetric(selectedBaseMetric.theftPerKm2, "/km²")}</small>
+                    <span>{tr(locale, "Theft + robbery", "Hurtos + robos")}</span>
+                    <strong>{relativeBand(selectedBaseMetric.theftDensityPercentile, "recorded", locale)}</strong>
+                    <small>{formatMetric(selectedBaseMetric.theftPerKm2, "/km²", locale)}</small>
                   </div>
                   <div>
-                    <span>Violence + property</span>
-                    <strong>{relativeBand(selectedBaseMetric.violencePropertyDensityPercentile)}</strong>
-                    <small>{formatMetric(selectedBaseMetric.violencePropertyPerKm2, "/km²")}</small>
+                    <span>{tr(locale, "Violence + property", "Violencia + propiedad")}</span>
+                    <strong>{relativeBand(selectedBaseMetric.violencePropertyDensityPercentile, "recorded", locale)}</strong>
+                    <small>{formatMetric(selectedBaseMetric.violencePropertyPerKm2, "/km²", locale)}</small>
                   </div>
                 </div>
               ) : (
                 <div className="map-value-compare">
                   <div>
-                    <span>This area</span>
-                    <strong>{formatMetric(selectedMetric.value, selectedMetric.unit)}</strong>
+                    <span>{tr(locale, "This area", "Esta zona")}</span>
+                    <strong>{formatMetric(selectedMetric.value, selectedMetric.unit, locale)}</strong>
                   </div>
                   <div>
-                    <span>City median</span>
-                    <strong>{formatMetric(cityMedian, selectedMetric.unit)}</strong>
+                    <span>{tr(locale, "City median", "Mediana de la ciudad")}</span>
+                    <strong>{formatMetric(cityMedian, selectedMetric.unit, locale)}</strong>
                   </div>
                 </div>
               )}
 
               {selectedPercentile !== null ? (
-                <div className="map-relative-scale" aria-label={`Relative position: ${selectedPercentile}%`}>
+                <div className="map-relative-scale" aria-label={tr(locale, `Relative position: ${selectedPercentile}%`, `Posición relativa: ${selectedPercentile}%`)}>
                   <div className="map-relative-track">
                     <i style={{ left: `${Math.min(100, Math.max(0, selectedPercentile))}%` }} />
                   </div>
-                  <div><span>Lower</span><span>Higher</span></div>
+                  <div>
+                    <span>{tr(locale, "Lower", "Más bajo")}</span>
+                    <span>{tr(locale, "Higher", "Más alto")}</span>
+                  </div>
                 </div>
               ) : null}
 
               <div className="map-selection-actions">
-                <a className="map-selection-link" href={areaHref(selectedArea.id)}>
-                  Details
+                <a className="map-selection-link" href={localeHref(locale, areaHref(selectedArea.id))}>
+                  {tr(locale, "Details", "Detalles")}
                 </a>
                 <a
                   className="map-selection-compare"
-                  href={`/compare?a=${encodeURIComponent(selectedArea.id)}&layer=${encodeURIComponent(layer)}`}
+                  href={localeHref(
+                    locale,
+                    `/compare?a=${encodeURIComponent(selectedArea.id)}&layer=${encodeURIComponent(layer)}`,
+                  )}
                 >
-                  Compare
+                  {tr(locale, "Compare", "Comparar")}
                 </a>
               </div>
             </div>
@@ -1082,14 +1187,21 @@ export default function CityMap({
       </div>
 
       <details className="map-explain map-explain-compact explorer-explain">
-        <summary>How to read this map</summary>
+        <summary>{tr(locale, "How to read this map", "Cómo leer este mapa")}</summary>
         <p>
-          Colours compare neighbourhoods only inside {cityName}: green is lower relative to this city and red is higher.
-          The same scale is also encoded as levels 1–5, so colour is not the only signal. These percentiles are not comparable with another city. {" "}{currentMethod}
+          {tr(
+            locale,
+            `Colours compare neighbourhoods only inside ${cityName}: green is lower relative to this city and red is higher. The same scale is also encoded as levels 1–5, so colour is not the only signal. These percentiles are not comparable with another city.`,
+            `Los colores comparan zonas solo dentro de ${cityName}: el verde indica una señal relativa menor y el rojo una mayor. La misma escala también se codifica como niveles 1–5, por lo que el color no es la única señal. Estos percentiles no son comparables con otra ciudad.`,
+          )}{" "}{currentMethod}
         </p>
       </details>
       <p className="density-caution map-safety-disclaimer">
-        Context only — not a prediction or guarantee of personal safety. Recorded official-source data can be affected by reporting, footfall, nightlife and source methodology.
+        {tr(
+          locale,
+          "Context only — not a prediction or guarantee of personal safety. Recorded official-source data can be affected by reporting, footfall, nightlife and source methodology.",
+          "Solo contexto: no es una predicción ni una garantía de seguridad personal. Los datos oficiales registrados pueden verse afectados por la denuncia, la afluencia, la vida nocturna y la metodología de la fuente.",
+        )}
       </p>
     </section>
   );

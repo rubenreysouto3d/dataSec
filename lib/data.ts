@@ -1060,9 +1060,10 @@ export async function getMonthlySummaries(areaId: string, maxMonths = 6): Promis
 
 export { humanCategory };
 
-export function monthLabel(month: string): string {
+export function monthLabel(month: string, locale: "en" | "es" = "en"): string {
   const [year, value] = month.split("-").map(Number);
-  return new Intl.DateTimeFormat("en-GB", { month: "short", year: "numeric" }).format(
-    new Date(Date.UTC(year, value - 1, 1)),
-  );
+  return new Intl.DateTimeFormat(locale === "es" ? "es-ES" : "en-GB", {
+    month: "short",
+    year: "numeric",
+  }).format(new Date(Date.UTC(year, value - 1, 1)));
 }

@@ -8,14 +8,19 @@ import {
   type CitySafetySignal,
 } from "@/lib/data";
 import CompareClient from "./CompareClient";
+import { localeFromValue, localeHref, tr } from "@/lib/i18n";
 
 export const metadata = {
   title: "Compare areas",
 };
 
-export const dynamic = "force-static";
-
-export default async function ComparePage() {
+export default async function ComparePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ lang?: string }>;
+}) {
+  const query = await searchParams;
+  const locale = localeFromValue(query.lang);
   let areas = [] as Awaited<ReturnType<typeof getNeighbourhoods>>;
   let metrics: CityMapMetric[] = [];
   let safetySignals: CitySafetySignal[] = [];
@@ -38,10 +43,18 @@ export default async function ComparePage() {
 
   return (
     <main className="compare-page">
-      <Link className="back" href="/">← Home</Link>
-      <div className="eyebrow">Local comparison</div>
-      <h1>Compare two areas.</h1>
-      <Suspense fallback={<div className="notice">Loading comparison…</div>}>
+      <Link className="back" href={localeHref(locale, "/")}>
+        ← {tr(locale, "Home", "Inicio")}
+      </Link>
+      <div className="eyebrow">{tr(locale, "Local comparison", "Comparación local")}</div>
+      <h1>{tr(locale, "Compare two areas.", "Compara dos zonas.")}</h1>
+      <Suspense
+        fallback={
+          <div className="notice">
+            {tr(locale, "Loading comparison…", "Cargando comparación…")}
+          </div>
+        }
+      >
         <CompareClient
           areas={areas}
           metrics={metrics}

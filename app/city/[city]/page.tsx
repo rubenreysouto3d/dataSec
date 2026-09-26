@@ -14,10 +14,11 @@ import {
 } from "@/lib/data";
 import CityAreaExplorer from "./CityAreaExplorer";
 import CityMap from "./CityMap";
+import { localeFromValue, localeHref, tr } from "@/lib/i18n";
 
 type Props = {
   params: Promise<{ city: string }>;
-  searchParams: Promise<{ view?: string }>;
+  searchParams: Promise<{ view?: string; lang?: string }>;
 };
 
 const cityCopy: Record<CitySlug, {
@@ -80,21 +81,47 @@ export default async function CityPage({ params, searchParams }: Props) {
   }
 
   const copy = cityCopy[city];
+  const locale = localeFromValue(query.lang);
   const initialAudience = query.view === "visitor" ? "visitor" : "resident";
+  const sourceCopy =
+    locale === "es"
+      ? city === "london"
+        ? "Delitos registrados por la policía publicados a través de data.police.uk y asignados al límite policial oficial del mismo mes de la fuente."
+        : "Incidencias oficiales de la central de Policía Municipal. El conjunto es más amplio que la criminalidad e incluye tráfico, asistencia, espacio público y respuestas administrativas."
+      : copy.source;
+  const cautionCopy =
+    locale === "es"
+      ? city === "london"
+        ? "Las ubicaciones publicadas son anónimas y aproximadas. Una densidad alta en zonas centrales puede reflejar afluencia, vida nocturna y actividad de transporte."
+        : "Los recuentos y la densidad no son una puntuación de riesgo personal. Los barrios céntricos pueden concentrar incidencias por turismo, ocio y afluencia; las tasas por residente también pueden sobrerrepresentarlos porque los visitantes no están en el denominador."
+      : copy.caution;
 
   return (
     <main className="city-page city-page-app">
       <section className="city-app-bar" aria-label="City explorer">
         <div className="city-switcher">
-          <span>City</span>
-          <Link href="/city/madrid" className={city === "madrid" ? "is-active" : ""}>Madrid</Link>
-          <Link href="/city/london" className={city === "london" ? "is-active" : ""}>London</Link>
+          <span>{tr(locale, "City", "Ciudad")}</span>
+          <Link
+            href={localeHref(locale, "/city/madrid")}
+            className={city === "madrid" ? "is-active" : ""}
+          >
+            Madrid
+          </Link>
+          <Link
+            href={localeHref(locale, "/city/london")}
+            className={city === "london" ? "is-active" : ""}
+          >
+            London
+          </Link>
         </div>
 
         <div className="city-app-status">
           <strong>{cityNames[city]}</strong>
           {snapshot ? (
-            <span>{snapshot.areaCount.toLocaleString("en-GB")} areas · {monthLabel(snapshot.month)}</span>
+            <span>
+              {snapshot.areaCount.toLocaleString(locale === "es" ? "es-ES" : "en-GB")}{" "}
+              {tr(locale, "areas", "zonas")} · {monthLabel(snapshot.month, locale)}
+            </span>
           ) : null}
         </div>
       </section>
@@ -109,65 +136,110 @@ export default async function CityPage({ params, searchParams }: Props) {
             activityContexts={activityContexts}
             safetySignals={safetySignals}
             initialAudience={initialAudience}
+            locale={locale}
           />
         </section>
       ) : (
-        <div className="notice city-app-error">The stored dataset is temporarily unavailable.</div>
+        <div className="notice city-app-error">
+          {tr(
+            locale,
+            "The stored dataset is temporarily unavailable.",
+            "El conjunto de datos almacenado no está disponible temporalmente.",
+          )}
+        </div>
       )}
 
       <section className="city-secondary-tools">
         <details className="city-data-details">
           <summary>
-            <span>About this data</span>
-            <small>Source, limits and coverage</small>
+            <span>{tr(locale, "About this data", "Sobre estos datos")}</span>
+            <small>{tr(locale, "Source, limits and coverage", "Fuente, límites y cobertura")}</small>
           </summary>
           <div>
             <article>
-              <span>SOURCE</span>
-              <p>{copy.source}</p>
+              <span>{tr(locale, "SOURCE", "FUENTE")}</span>
+              <p>{sourceCopy}</p>
             </article>
             <article>
-              <span>IMPORTANT LIMIT</span>
-              <p>{copy.caution}</p>
+              <span>{tr(locale, "IMPORTANT LIMIT", "LÍMITE IMPORTANTE")}</span>
+              <p>{cautionCopy}</p>
             </article>
             <article>
-              <span>MAP COVERAGE</span>
-              <p>{boundaries.length} of {areas.length} stored areas have usable map geometry.</p>
+              <span>{tr(locale, "MAP COVERAGE", "COBERTURA DEL MAPA")}</span>
+              <p>
+                {locale === "es"
+                  ? `${boundaries.length} de ${areas.length} zonas almacenadas tienen geometría de mapa utilizable.`
+                  : `${boundaries.length} of ${areas.length} stored areas have usable map geometry.`}
+              </p>
             </article>
           </div>
         </details>
 
         <details className="city-area-browser">
           <summary>
-            <span>All neighbourhoods</span>
-            <small>{areas.length.toLocaleString("en-GB")} areas</small>
+            <span>{tr(locale, "All neighbourhoods", "Todos los barrios")}</span>
+            <small>
+              {areas.length.toLocaleString(locale === "es" ? "es-ES" : "en-GB")}{" "}
+              {tr(locale, "areas", "zonas")}
+            </small>
           </summary>
           <div className="city-area-browser-body">
             {error ? (
-              <div className="notice">The stored dataset is temporarily unavailable.</div>
+              <div className="notice">
+                {tr(
+                  locale,
+                  "The stored dataset is temporarily unavailable.",
+                  "El conjunto de datos almacenado no está disponible temporalmente.",
+                )}
+              </div>
             ) : (
-              <CityAreaExplorer areas={areas} />
+              <CityAreaExplorer areas={areas} locale={locale} />
             )}
           </div>
         </details>
         {!error ? (
           <>
             <div className="city-context-links">
-              <Link href={`/city/${city}/resident`}>
-                <span>Living here</span>
-                <strong>Resident neighbourhood context →</strong>
-                <small>Browse the same five-level Resident signal as the map.</small>
+              <Link href={localeHref(locale, `/city/${city}/resident`)}>
+                <span>{tr(locale, "Living here", "Vivir aquí")}</span>
+                <strong>
+                  {tr(locale, "Resident neighbourhood context →", "Contexto de barrios para residentes →")}
+                </strong>
+                <small>
+                  {tr(
+                    locale,
+                    "Browse the same five-level Resident signal as the map.",
+                    "Consulta la misma señal Resident de cinco niveles que usa el mapa.",
+                  )}
+                </small>
               </Link>
-              <Link href={`/city/${city}/visitor`}>
-                <span>Short stay</span>
-                <strong>Visitor neighbourhood context →</strong>
-                <small>Browse the same theft-weighted Visitor signal as the map.</small>
+              <Link href={localeHref(locale, `/city/${city}/visitor`)}>
+                <span>{tr(locale, "Short stay", "Estancia corta")}</span>
+                <strong>
+                  {tr(locale, "Visitor neighbourhood context →", "Contexto de barrios para visitantes →")}
+                </strong>
+                <small>
+                  {tr(
+                    locale,
+                    "Browse the same theft-weighted Visitor signal as the map.",
+                    "Consulta la misma señal Visitor ponderada hacia hurtos y robos que usa el mapa.",
+                  )}
+                </small>
               </Link>
             </div>
-            <Link className="city-trends-link" href={`/city/${city}/trends`}>
-              <span>Recent change</span>
-              <strong>Recorded harm trends →</strong>
-              <small>Compare the latest 3 months with the previous 3.</small>
+            <Link
+              className="city-trends-link"
+              href={localeHref(locale, `/city/${city}/trends`)}
+            >
+              <span>{tr(locale, "Recent change", "Cambio reciente")}</span>
+              <strong>{tr(locale, "Recorded harm trends →", "Tendencias de daño registrado →")}</strong>
+              <small>
+                {tr(
+                  locale,
+                  "Compare the latest 3 months with the previous 3.",
+                  "Compara los últimos 3 meses con los 3 anteriores.",
+                )}
+              </small>
             </Link>
           </>
         ) : null}
