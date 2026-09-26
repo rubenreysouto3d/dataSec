@@ -44,6 +44,11 @@ function signalLevel(percentile: number | null | undefined) {
   return Math.min(5, Math.max(1, Math.floor(percentile * 5) + 1));
 }
 
+function sameMonthPreviousYear(month: string) {
+  const [year, value] = month.split("-").map(Number);
+  return `${year - 1}-${String(value).padStart(2, "0")}`;
+}
+
 function movementCopy(trend: number | null, locale: Locale) {
   if (trend === null) {
     return tr(locale, "Not enough stored history yet", "Todavía no hay suficiente historial almacenado");
