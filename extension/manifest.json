@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "dataSec stay context (prototype)",
+  "version": "0.1.0",
+  "description": "Shows dataSec Visitor context beside supported accommodation listings when a precise listing address can be matched.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://nominatim.openstreetmap.org/*",
+    "https://pjyaevghxbimhknvmbxb.supabase.co/*",
+    "https://data-sec.vercel.app/*"
+  ],
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.booking.com/*",
+        "https://*.airbnb.com/*",
+        "https://*.airbnb.es/*",
+        "https://*.airbnb.co.uk/*",
+        "https://*.airbnb.fr/*",
+        "https://*.airbnb.de/*",
+        "https://*.airbnb.it/*",
+        "https://*.airbnb.pt/*",
+        "https://*.airbnb.nl/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "dataSec stay context"
+  }
+}
