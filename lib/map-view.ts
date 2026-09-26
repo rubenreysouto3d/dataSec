@@ -1,5 +1,6 @@
 import type { CityMapMetric, CitySafetySignal } from "@/lib/data";
 import type { MapAdvancedFilterKey } from "@/lib/map-filters";
+import { tr, type Locale } from "@/lib/i18n";
 
 export type MapMetricKey =
   | "contextual-overview"
@@ -185,30 +186,33 @@ export function bandNumber(percentile: number | null) {
 export function relativeBand(
   percentile: number | null,
   mode: "resident" | "visitor" | "recorded" = "recorded",
+  locale: Locale = "en",
 ) {
-  if (percentile === null || !Number.isFinite(percentile)) return "No city comparison";
+  if (percentile === null || !Number.isFinite(percentile)) {
+    return tr(locale, "No city comparison", "Sin comparación con la ciudad");
+  }
 
   if (mode === "resident") {
-    if (percentile < 0.2) return "Lowest residential concern";
-    if (percentile < 0.4) return "Lower residential concern";
-    if (percentile < 0.6) return "Around the city middle";
-    if (percentile < 0.8) return "Higher residential concern";
-    return "Highest residential concern";
+    if (percentile < 0.2) return tr(locale, "Lowest residential concern", "Menor preocupación residencial");
+    if (percentile < 0.4) return tr(locale, "Lower residential concern", "Preocupación residencial baja");
+    if (percentile < 0.6) return tr(locale, "Around the city middle", "En torno a la media de la ciudad");
+    if (percentile < 0.8) return tr(locale, "Higher residential concern", "Preocupación residencial alta");
+    return tr(locale, "Highest residential concern", "Mayor preocupación residencial");
   }
 
   if (mode === "visitor") {
-    if (percentile < 0.2) return "Lowest visitor exposure";
-    if (percentile < 0.4) return "Lower visitor exposure";
-    if (percentile < 0.6) return "Around the city middle";
-    if (percentile < 0.8) return "Higher visitor exposure";
-    return "Highest visitor exposure";
+    if (percentile < 0.2) return tr(locale, "Lowest visitor exposure", "Menor exposición para visitantes");
+    if (percentile < 0.4) return tr(locale, "Lower visitor exposure", "Exposición baja para visitantes");
+    if (percentile < 0.6) return tr(locale, "Around the city middle", "En torno a la media de la ciudad");
+    if (percentile < 0.8) return tr(locale, "Higher visitor exposure", "Exposición alta para visitantes");
+    return tr(locale, "Highest visitor exposure", "Mayor exposición para visitantes");
   }
 
-  if (percentile < 0.2) return "Lowest 20% of areas";
-  if (percentile < 0.4) return "Lower than most areas";
-  if (percentile < 0.6) return "Around the city middle";
-  if (percentile < 0.8) return "Higher than most areas";
-  return "Highest 20% of areas";
+  if (percentile < 0.2) return tr(locale, "Lowest 20% of areas", "20% de zonas con señal más baja");
+  if (percentile < 0.4) return tr(locale, "Lower than most areas", "Más baja que en la mayoría de zonas");
+  if (percentile < 0.6) return tr(locale, "Around the city middle", "En torno a la media de la ciudad");
+  if (percentile < 0.8) return tr(locale, "Higher than most areas", "Más alta que en la mayoría de zonas");
+  return tr(locale, "Highest 20% of areas", "20% de zonas con señal más alta");
 }
 
 export function bandMode(
@@ -219,27 +223,27 @@ export function bandMode(
   return "recorded";
 }
 
-export function mapLayerLabel(layer: MapLayerKey) {
+export function mapLayerLabel(layer: MapLayerKey, locale: Locale = "en") {
   switch (layer) {
     case "contextual-overview":
-      return "Resident context";
+      return tr(locale, "Resident context", "Contexto para residentes");
     case "visitor-context":
-      return "Visitor context";
+      return tr(locale, "Visitor context", "Contexto para visitantes");
     case "residential-harm":
-      return "Personal harm · recent history";
+      return tr(locale, "Personal harm · recent history", "Daño personal · historial reciente");
     case "violence-property-resident":
-      return "Violence + property · residents";
+      return tr(locale, "Violence + property · residents", "Violencia + propiedad · residentes");
     case "theft-resident":
-      return "Theft + robbery · residents";
+      return tr(locale, "Theft + robbery · residents", "Hurtos + robos · residentes");
     case "crime-related-resident":
-      return "All crime-related · residents";
+      return tr(locale, "All crime-related · residents", "Toda actividad delictiva · residentes");
     case "violence-property":
-      return "Violence + property · area";
+      return tr(locale, "Violence + property · area", "Violencia + propiedad · superficie");
     case "theft":
-      return "Theft + robbery · area";
+      return tr(locale, "Theft + robbery · area", "Hurtos + robos · superficie");
     case "crime-related":
-      return "All crime-related · area";
+      return tr(locale, "All crime-related · area", "Toda actividad delictiva · superficie");
     case "activity":
-      return "All source activity · area";
+      return tr(locale, "All source activity · area", "Toda actividad de la fuente · superficie");
   }
 }
