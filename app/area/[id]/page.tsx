@@ -152,6 +152,10 @@ export default async function AreaPage({ params }: Props) {
         ? methods.residentFallbackMethod
         : "violence + property density";
   const visitorMethod = "70% theft + robbery concentration + 30% violence + property concentration";
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://data-sec.vercel.app").replace(/\/$/, "");
+  const widgetPathId = encodeURIComponent(areaPathId(area.id));
+  const residentWidgetUrl = `${siteUrl}/widget/${widgetPathId}?view=resident`;
+  const visitorWidgetUrl = `${siteUrl}/widget/${widgetPathId}?view=visitor`;
 
   return (
     <main className="area-page">
@@ -279,6 +283,31 @@ export default async function AreaPage({ params }: Props) {
           <small>{otherTotal.toLocaleString("en-GB")} non-safety source records in the latest snapshot.</small>
         </section>
       ) : null}
+
+      <details className="area-data-details area-embed-details">
+        <summary>
+          <span>Embed this area</span>
+          <small>Prototype widget for property, travel or relocation pages</small>
+        </summary>
+        <div>
+          <p>
+            The widget reuses the same local Resident or Visitor signal shown on dataSec. It is not a separate score.
+          </p>
+          <div className="embed-code-block">
+            <strong>Resident</strong>
+            <code>{`<iframe src="${residentWidgetUrl}" width="360" height="210" loading="lazy"></iframe>`}</code>
+            <a href={residentWidgetUrl} target="_blank" rel="noreferrer">Preview resident widget ↗</a>
+          </div>
+          <div className="embed-code-block">
+            <strong>Visitor</strong>
+            <code>{`<iframe src="${visitorWidgetUrl}" width="360" height="210" loading="lazy"></iframe>`}</code>
+            <a href={visitorWidgetUrl} target="_blank" rel="noreferrer">Preview visitor widget ↗</a>
+          </div>
+          <small>
+            Prototype embed only. Commercial licensing and usage limits are not defined yet.
+          </small>
+        </div>
+      </details>
 
       <details className="area-data-details">
         <summary>
