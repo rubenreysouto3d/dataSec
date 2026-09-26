@@ -45,6 +45,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
             <Link href={localeHref(locale, "/status")}>{copy.status}</Link>
             <Link href={localeHref(locale, "/methodology")}>{copy.methodology}</Link>
             <Link href={localeHref(locale, "/disclaimer")}>{copy.limitations}</Link>
+            <Link href={localeHref(locale, "/privacy")}>{locale === "es" ? "Privacidad" : "Privacy"}</Link>
           </p>
         </footer>
       </body>
