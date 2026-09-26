@@ -2441,3 +2441,5 @@
 .embed-options{margin-top:18px}
 .embed-disclaimer{margin-top:22px!important}
 @media(max-width:800px){.embed-demo-grid{grid-template-columns:1fr}}
+
+.area-yoy-note{margin:14px 0 0!important;max-width:none!important}
