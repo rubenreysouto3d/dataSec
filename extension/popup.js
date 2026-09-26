@@ -10,6 +10,7 @@ const strings = {
     coverage: "Current coverage",
     coverageCopy: "London and Madrid · official-source neighbourhood context.",
     open: "Open dataSec →",
+    privacy: "Privacy →",
   },
   es: {
     intro: "Muestra contexto de Visitante en fichas compatibles de Booking y Airbnb cuando el alojamiento expone una dirección suficientemente precisa.",
@@ -18,6 +19,7 @@ const strings = {
     coverage: "Cobertura actual",
     coverageCopy: "Londres y Madrid · contexto por barrios con fuentes oficiales.",
     open: "Abrir dataSec →",
+    privacy: "Privacidad →",
   },
 };
 
@@ -33,6 +35,9 @@ async function init() {
   document.getElementById("open-site").textContent = copy.open;
   document.getElementById("open-site").href =
     lang === "es" ? "https://data-sec.vercel.app/es" : "https://data-sec.vercel.app";
+  document.getElementById("privacy-link").textContent = copy.privacy;
+  document.getElementById("privacy-link").href =
+    lang === "es" ? "https://data-sec.vercel.app/es/privacy" : "https://data-sec.vercel.app/privacy";
 
   const stored = await chrome.storage.local.get({ enabled: true });
   const input = document.getElementById("enabled");
