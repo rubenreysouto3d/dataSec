@@ -2429,3 +2429,15 @@
   .site-header-actions{gap:12px}
   .language-switcher{font-size:9px}
 }
+
+
+.embed-demo-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;margin:22px 0}
+.embed-demo-card,.embed-code-card{padding:0;overflow:hidden}
+.embed-demo-card .panel-head,.embed-code-card .panel-head{padding:22px 24px;border-bottom:1px solid var(--line)}
+.embed-demo-frame{display:block;width:100%;height:230px;border:0;background:transparent}
+.embed-demo-card>small{display:block;padding:12px 24px 20px;color:var(--muted);font-size:9px;line-height:1.5}
+.embed-code-card pre{margin:0;padding:24px;min-height:230px;overflow:auto;background:var(--dark);color:#fff;font-size:11px;line-height:1.6}
+.embed-code-card code,.embed-options code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.embed-options{margin-top:18px}
+.embed-disclaimer{margin-top:22px!important}
+@media(max-width:800px){.embed-demo-grid{grid-template-columns:1fr}}
