@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>dataSec stay context</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <div class="brand">data<span>Sec</span></div>
+    <h1>Stay context</h1>
+    <p id="intro">Shows Visitor context on supported Booking and Airbnb accommodation pages when the listing exposes a precise enough address.</p>
+
+    <label class="toggle">
+      <span>
+        <strong id="toggle-title">Extension enabled</strong>
+        <small id="toggle-copy">Show context on supported listings.</small>
+      </span>
+      <input id="enabled" type="checkbox">
+    </label>
+
+    <section>
+      <strong id="coverage-title">Current coverage</strong>
+      <p id="coverage-copy">London and Madrid · official-source neighbourhood context.</p>
+    </section>
+
+    <a id="open-site" href="https://data-sec.vercel.app" target="_blank" rel="noopener noreferrer">Open dataSec →</a>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,13 +1,12 @@
 {
   "manifest_version": 3,
-  "name": "dataSec stay context (prototype)",
-  "version": "0.1.0",
+  "name": "dataSec stay context",
+  "version": "0.2.0",
   "description": "Shows dataSec Visitor context beside supported accommodation listings when a precise listing address can be matched.",
   "permissions": ["storage"],
   "host_permissions": [
     "https://nominatim.openstreetmap.org/*",
-    "https://pjyaevghxbimhknvmbxb.supabase.co/*",
-    "https://data-sec.vercel.app/*"
+    "https://pjyaevghxbimhknvmbxb.supabase.co/*"
   ],
   "background": {
     "service_worker": "service-worker.js"
@@ -30,6 +29,7 @@
     }
   ],
   "action": {
-    "default_title": "dataSec stay context"
+    "default_title": "dataSec stay context",
+    "default_popup": "popup.html"
   }
 }

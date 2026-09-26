@@ -1,0 +1,12 @@
+:root{color-scheme:light;--bg:#f3f0e9;--panel:#faf8f2;--ink:#171714;--muted:#69675f;--line:#c9c5ba;--accent:#ff5a36}
+*{box-sizing:border-box}
+body{margin:0;width:330px;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif}
+main{padding:18px}
+.brand{font-weight:900;font-size:18px;letter-spacing:-.06em}.brand span{color:var(--accent)}
+h1{font-family:Georgia,serif;font-size:28px;font-weight:400;margin:12px 0 8px}
+p{font-size:11px;line-height:1.5;color:var(--muted);margin:0}
+.toggle{display:flex;justify-content:space-between;align-items:center;gap:18px;margin:18px 0;padding:14px;border:1px solid var(--line);background:var(--panel)}
+.toggle span{display:flex;flex-direction:column;gap:4px}.toggle strong,section>strong{font-size:11px}.toggle small{font-size:9px;color:var(--muted);line-height:1.4}
+.toggle input{width:20px;height:20px;accent-color:var(--accent)}
+section{padding:13px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}section p{margin-top:5px}
+a{display:inline-block;margin-top:16px;color:var(--ink);font-size:10px;font-weight:800;text-decoration:none}a:hover{text-decoration:underline}
