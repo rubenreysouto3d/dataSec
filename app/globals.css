@@ -2393,3 +2393,29 @@
   .city-context-links>a{grid-template-columns:1fr;gap:4px}
   .city-intent-bands{grid-template-columns:1fr}
 }
+
+.embed-code-block{
+  display:grid;
+  grid-template-columns:90px minmax(0,1fr) auto;
+  gap:12px;
+  align-items:start;
+  padding:12px 0;
+  border-top:1px solid var(--line);
+}
+.embed-code-block strong{font-size:10px;text-transform:uppercase;letter-spacing:.08em}
+.embed-code-block code{
+  display:block;
+  padding:10px;
+  border:1px solid var(--line);
+  background:var(--bg);
+  color:var(--ink);
+  font-size:10px;
+  line-height:1.45;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+.embed-code-block a{color:var(--ink);font-size:10px;font-weight:800;white-space:nowrap}
+@media(max-width:800px){
+  .embed-code-block{grid-template-columns:1fr}
+  .embed-code-block a{white-space:normal}
+}
