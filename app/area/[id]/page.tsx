@@ -51,15 +51,23 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const areaId = areaIdFromPath(id);
   try {
-    const area = await getAreaProfile(areaId);
+    const [area, monthly] = await Promise.all([
+      getAreaProfile(areaId),
+      getMonthlySummaries(areaId, 1),
+    ]);
     if (!area) return { title: "Area not found" };
 
+    const latest = monthly[0];
+    const mainSafetyCategory = latest?.categories.find((item) => item.group === "safety");
+    const place = `${area.name}${area.parentName ? `, ${area.parentName}` : ""}`;
+    const latestContext = latest
+      ? `Latest official snapshot: ${monthLabel(latest.month)}${mainSafetyCategory ? `; main mapped safety-related category: ${mainSafetyCategory.label}` : ""}.`
+      : "Official-source local context.";
+
     return {
-      title: `${area.name}${area.parentName ? `, ${area.parentName}` : ""}, ${area.cityName}`,
+      title: `${place}, ${area.cityName}`,
       description:
-        area.citySlug === "london"
-          ? `Official Metropolitan Police neighbourhood incident data, category mix, local density context and stored history for ${area.name}, London.`
-          : `Official Madrid Municipal Police dispatch incident data, category mix, local density context and stored history for ${area.name}, Madrid.`,
+        `${place}, ${area.cityName}: Resident and Visitor safety context from official public data. ${latestContext} Recent trend, source and methodology included.`,
     };
   } catch {
     return { title: "Area profile" };

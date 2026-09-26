@@ -1,3 +1,5 @@
+import { canonicalCategory, humanCategory, type CanonicalCategoryGroup } from "./category-taxonomy";
+
 const SUPABASE_URL = "https://pjyaevghxbimhknvmbxb.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_C5PkZoLjbXCuItBfzftrkw_KMLJB8E3";
 
@@ -29,7 +31,7 @@ export type CompareProfile = {
   areaKm2: number;
   incidentsPerKm2: number;
   densityPercentile: number;
-  categories: Array<{ slug: string; label: string; count: number }>;
+  categories: Array<{ slug: string; label: string; count: number; group: CanonicalCategoryGroup }>;
 };
 
 async function rest<T>(table: string, params: Record<string, string>): Promise<T> {
@@ -107,6 +109,24 @@ export async function getCompareProfile(areaId: string): Promise<CompareProfile 
   });
 
   const labels = new Map(metrics.map((metric) => [metric.slug, metric.label]));
+  const categoryMap = new Map<
+    string,
+    { slug: string; label: string; count: number; group: CanonicalCategoryGroup }
+  >();
+
+  for (const row of observations) {
+    const rawLabel = labels.get(row.metric_slug) ?? humanCategory(row.metric_slug);
+    const canonical = canonicalCategory(row.metric_slug, rawLabel);
+    const slug = `${canonical.group}:${canonical.label}`;
+    const existing = categoryMap.get(slug);
+    categoryMap.set(slug, {
+      slug,
+      label: canonical.label,
+      group: canonical.group,
+      count: (existing?.count ?? 0) + Number(row.value),
+    });
+  }
+
   return {
     id: area.id,
     sourceAreaId: area.source_area_id,
@@ -118,13 +138,7 @@ export async function getCompareProfile(areaId: string): Promise<CompareProfile 
     areaKm2: Number(context.area_km2),
     incidentsPerKm2: Number(context.incidents_per_km2),
     densityPercentile: Number(context.density_percentile),
-    categories: observations
-      .map((row) => ({
-        slug: row.metric_slug,
-        label: labels.get(row.metric_slug) ?? row.metric_slug,
-        count: Number(row.value),
-      }))
-      .sort((a, b) => b.count - a.count),
+    categories: [...categoryMap.values()].sort((a, b) => b.count - a.count),
   };
 }
 
