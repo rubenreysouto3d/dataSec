@@ -7,6 +7,7 @@ on:
     branches: [main]
     paths:
       - "scripts/ingest_madrid.py"
+      - "scripts/backfill_madrid.py"
       - "scripts/fetch-json-node.mjs"
       - "tests/test_ingest_madrid.py"
       - "data/sources/madrid.json"
@@ -14,8 +15,13 @@ on:
   workflow_dispatch:
     inputs:
       month:
-        description: "Month to ingest (YYYY-MM); blank uses latest"
+        description: "Optional latest/source month (YYYY-MM). Leave blank for latest."
         required: false
+        type: string
+      history_count:
+        description: "Months to process ending at the selected/latest month (1-24)"
+        required: true
+        default: "1"
         type: string
       persist:
         description: "Persist validated data to Supabase"
@@ -31,7 +37,7 @@ jobs:
   dry-run:
     if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.persist != true)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -43,16 +49,37 @@ jobs:
       - name: Validate Madrid ingestion end to end
         shell: bash
         run: |
-          args=(--dry-run)
-          if [ -n "${{ inputs.month }}" ]; then
-            args+=(--month "${{ inputs.month }}")
+          history_count="1"
+          month=""
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            history_count="${{ inputs.history_count }}"
+            month="${{ inputs.month }}"
           fi
-          python scripts/ingest_madrid.py "${args[@]}"
+
+          if ! [[ "$history_count" =~ ^[0-9]+$ ]] || [ "$history_count" -lt 1 ] || [ "$history_count" -gt 24 ]; then
+            echo "::error::history_count must be an integer between 1 and 24"
+            exit 1
+          fi
+
+          if [ "$history_count" -gt 1 ]; then
+            args=(--count "$history_count" --dry-run)
+            if [ -n "$month" ]; then
+              args+=(--latest "$month")
+            fi
+            python scripts/backfill_madrid.py "${args[@]}"
+          else
+            args=(--dry-run)
+            if [ -n "$month" ]; then
+              args+=(--month "$month")
+            fi
+            python scripts/ingest_madrid.py "${args[@]}"
+          fi
 
   persist:
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.persist == true)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 90
     env:
       SUPABASE_URL: https://pjyaevghxbimhknvmbxb.supabase.co
     steps:
@@ -66,8 +93,29 @@ jobs:
       - name: Persist Madrid ingestion
         shell: bash
         run: |
-          args=()
-          if [ -n "${{ inputs.month }}" ]; then
-            args+=(--month "${{ inputs.month }}")
+          history_count="1"
+          month=""
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            history_count="${{ inputs.history_count }}"
+            month="${{ inputs.month }}"
           fi
-          python scripts/ingest_madrid.py "${args[@]}"
+
+          if ! [[ "$history_count" =~ ^[0-9]+$ ]] || [ "$history_count" -lt 1 ] || [ "$history_count" -gt 24 ]; then
+            echo "::error::history_count must be an integer between 1 and 24"
+            exit 1
+          fi
+
+          if [ "$history_count" -gt 1 ]; then
+            args=(--count "$history_count")
+            if [ -n "$month" ]; then
+              args+=(--latest "$month")
+            fi
+            python scripts/backfill_madrid.py "${args[@]}"
+          else
+            args=()
+            if [ -n "$month" ]; then
+              args+=(--month "$month")
+            fi
+            python scripts/ingest_madrid.py "${args[@]}"
+          fi

@@ -6,8 +6,13 @@ on:
   workflow_dispatch:
     inputs:
       month:
-        description: "Optional source month (YYYY-MM). Leave blank for latest."
+        description: "Optional latest/source month (YYYY-MM). Leave blank for latest."
         required: false
+        type: string
+      history_count:
+        description: "Months to process ending at the selected/latest month (1-24)"
+        required: true
+        default: "1"
         type: string
       dry_run:
         description: "Run full source pipeline without writing to Supabase"
@@ -22,7 +27,7 @@ permissions:
 jobs:
   ingest:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 90
     env:
       SUPABASE_URL: https://pjyaevghxbimhknvmbxb.supabase.co
     steps:
@@ -33,13 +38,37 @@ jobs:
       - name: Run London ingestion
         shell: bash
         run: |
-          args=()
-          if [ "${{ github.event_name }}" != "schedule" ]; then
-            if [ -n "${{ inputs.month }}" ]; then
-              args+=(--month "${{ inputs.month }}")
+          history_count="1"
+          month=""
+          dry_run="false"
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            history_count="${{ inputs.history_count }}"
+            month="${{ inputs.month }}"
+            dry_run="${{ inputs.dry_run }}"
+          fi
+
+          if ! [[ "$history_count" =~ ^[0-9]+$ ]] || [ "$history_count" -lt 1 ] || [ "$history_count" -gt 24 ]; then
+            echo "::error::history_count must be an integer between 1 and 24"
+            exit 1
+          fi
+
+          if [ "$history_count" -gt 1 ]; then
+            args=(--count "$history_count")
+            if [ -n "$month" ]; then
+              args+=(--latest "$month")
             fi
-            if [ "${{ inputs.dry_run }}" = "true" ]; then
+            if [ "$dry_run" = "true" ]; then
               args+=(--dry-run)
             fi
+            python scripts/backfill_london.py "${args[@]}"
+          else
+            args=()
+            if [ -n "$month" ]; then
+              args+=(--month "$month")
+            fi
+            if [ "$dry_run" = "true" ]; then
+              args+=(--dry-run)
+            fi
+            python scripts/ingest_london.py "${args[@]}"
           fi
-          python scripts/ingest_london.py "${args[@]}"
