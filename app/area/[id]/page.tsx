@@ -44,6 +44,11 @@ function signalLevel(percentile: number | null | undefined) {
   return Math.min(5, Math.max(1, Math.floor(percentile * 5) + 1));
 }
 
+function sameMonthPreviousYear(month: string) {
+  const [year, value] = month.split("-").map(Number);
+  return `${year - 1}-${String(value).padStart(2, "0")}`;
+}
+
 function movementCopy(trend: number | null, locale: Locale) {
   if (trend === null) {
     return tr(locale, "Not enough stored history yet", "Todavía no hay suficiente historial almacenado");
@@ -112,7 +117,7 @@ export default async function AreaPage({ params, searchParams }: Props) {
     area = await getAreaProfile(areaId);
     if (area) {
       const [nextMonthly, allAreas] = await Promise.all([
-        getMonthlySummaries(area.id, 6),
+        getMonthlySummaries(area.id, 14),
         getNeighbourhoods(),
       ]);
       monthly = nextMonthly;
@@ -162,18 +167,24 @@ export default async function AreaPage({ params, searchParams }: Props) {
   const otherTotal = latestOther.reduce((sum, item) => sum + item.count, 0);
   const top = latestSafety.slice(0, 6);
   const otherTop = latestOther.slice(0, 5);
-  const totals = monthly
-    .map((item) => ({
-      month: item.month,
-      total: item.categories
-        .filter((category) => category.group === "safety")
-        .reduce((sum, category) => sum + category.count, 0),
-    }))
-    .reverse();
+  const safetyTotals = monthly.map((item) => ({
+    month: item.month,
+    total: item.categories
+      .filter((category) => category.group === "safety")
+      .reduce((sum, category) => sum + category.count, 0),
+  }));
+  const totals = safetyTotals.slice(0, 6).reverse();
   const first = totals[0]?.total ?? 0;
   const last = totals.at(-1)?.total ?? 0;
   const trend = totals.length < 2 || first === 0 ? null : Math.round(((last - first) / first) * 100);
   const max = Math.max(...totals.map((item) => item.total), 1);
+
+  const priorYearMonth = sameMonthPreviousYear(latest.month);
+  const priorYearTotal = safetyTotals.find((item) => item.month === priorYearMonth)?.total ?? null;
+  const yearOverYear =
+    priorYearTotal !== null && priorYearTotal > 0
+      ? Math.round(((safetyTotal - priorYearTotal) / priorYearTotal) * 100)
+      : null;
   const topShare = top[0] && safetyTotal > 0 ? Math.round((top[0].count / safetyTotal) * 100) : null;
   const cityMetric = cityMapMetrics.find((item) => item.areaId === area.id);
   const safetySignal = safetySignals.find((item) => item.areaId === area.id);
@@ -279,7 +290,7 @@ export default async function AreaPage({ params, searchParams }: Props) {
         )}
       </p>
 
-      <section className="area-key-facts area-key-facts-three">
+      <section className={yearOverYear === null ? "area-key-facts area-key-facts-three" : "area-key-facts"}>
         <article>
           <span>{tr(locale, "SAFETY-RELATED", "RELACIONADO CON SEGURIDAD")}</span>
           <strong>{safetyTotal.toLocaleString(localeTag(locale))}</strong>
@@ -311,6 +322,17 @@ export default async function AreaPage({ params, searchParams }: Props) {
               : tr(locale, "No category mix", "Sin mezcla de categorías")}
           </small>
         </article>
+        {yearOverYear !== null && priorYearTotal !== null ? (
+          <article>
+            <span>{tr(locale, "SAME MONTH LAST YEAR", "MISMO MES DEL AÑO ANTERIOR")}</span>
+            <strong>{`${yearOverYear > 0 ? "+" : ""}${yearOverYear}%`}</strong>
+            <small>
+              {locale === "es"
+                ? `${safetyTotal.toLocaleString(localeTag(locale))} ahora · ${priorYearTotal.toLocaleString(localeTag(locale))} en ${monthLabel(priorYearMonth, locale)}`
+                : `${safetyTotal.toLocaleString(localeTag(locale))} now · ${priorYearTotal.toLocaleString(localeTag(locale))} in ${monthLabel(priorYearMonth, locale)}`}
+            </small>
+          </article>
+        ) : null}
       </section>
 
       <div className="content-grid">
@@ -363,6 +385,15 @@ export default async function AreaPage({ params, searchParams }: Props) {
               </div>
             ))}
           </div>
+          {yearOverYear !== null ? (
+            <p className="density-caution area-yoy-note">
+              {tr(
+                locale,
+                "Year-over-year context compares the latest month with the same calendar month one year earlier, reducing simple seasonal month-to-month distortion. It still describes recorded activity, not personal risk.",
+                "El contexto interanual compara el último mes con el mismo mes natural de un año antes, reduciendo la distorsión de comparar meses estacionalmente distintos. Sigue describiendo actividad registrada, no riesgo personal.",
+              )}
+            </p>
+          ) : null}
         </section>
       </div>
 
