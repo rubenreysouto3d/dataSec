@@ -15,7 +15,10 @@ import {
 import CityAreaExplorer from "./CityAreaExplorer";
 import CityMap from "./CityMap";
 
-type Props = { params: Promise<{ city: string }> };
+type Props = {
+  params: Promise<{ city: string }>;
+  searchParams: Promise<{ view?: string }>;
+};
 
 const cityCopy: Record<CitySlug, {
   source: string;
@@ -49,8 +52,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function CityPage({ params }: Props) {
-  const { city } = await params;
+export default async function CityPage({ params, searchParams }: Props) {
+  const [{ city }, query] = await Promise.all([params, searchParams]);
   if (!isCitySlug(city)) notFound();
 
   let areas: Awaited<ReturnType<typeof getNeighbourhoods>> = [];
@@ -77,6 +80,7 @@ export default async function CityPage({ params }: Props) {
   }
 
   const copy = cityCopy[city];
+  const initialAudience = query.view === "visitor" ? "visitor" : "resident";
 
   return (
     <main className="city-page city-page-app">
@@ -104,6 +108,7 @@ export default async function CityPage({ params }: Props) {
             metrics={mapMetrics}
             activityContexts={activityContexts}
             safetySignals={safetySignals}
+            initialAudience={initialAudience}
           />
         </section>
       ) : (
@@ -146,11 +151,25 @@ export default async function CityPage({ params }: Props) {
           </div>
         </details>
         {!error ? (
-          <Link className="city-trends-link" href={`/city/${city}/trends`}>
-            <span>Recent change</span>
-            <strong>Recorded harm trends →</strong>
-            <small>Compare the latest 3 months with the previous 3.</small>
-          </Link>
+          <>
+            <div className="city-context-links">
+              <Link href={`/city/${city}/resident`}>
+                <span>Living here</span>
+                <strong>Resident neighbourhood context →</strong>
+                <small>Browse the same five-level Resident signal as the map.</small>
+              </Link>
+              <Link href={`/city/${city}/visitor`}>
+                <span>Short stay</span>
+                <strong>Visitor neighbourhood context →</strong>
+                <small>Browse the same theft-weighted Visitor signal as the map.</small>
+              </Link>
+            </div>
+            <Link className="city-trends-link" href={`/city/${city}/trends`}>
+              <span>Recent change</span>
+              <strong>Recorded harm trends →</strong>
+              <small>Compare the latest 3 months with the previous 3.</small>
+            </Link>
+          </>
         ) : null}
       </section>
     </main>
