@@ -2419,3 +2419,13 @@
   .embed-code-block{grid-template-columns:1fr}
   .embed-code-block a{white-space:normal}
 }
+
+.site-header-actions{display:flex;align-items:center;gap:22px}
+.language-switcher{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:900;letter-spacing:.08em}
+.language-switcher a{color:var(--muted);text-decoration:none}
+.language-switcher a.is-active{color:var(--accent)}
+.language-switcher span{color:var(--line)}
+@media(max-width:800px){
+  .site-header-actions{gap:12px}
+  .language-switcher{font-size:9px}
+}
