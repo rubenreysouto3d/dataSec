@@ -302,10 +302,14 @@ function Comparison({
   rightLabel: string;
   layer: MapLayerKey;
 }) {
-  const categories = Array.from(new Set([
-    ...left.categories.slice(0, 7).map((item) => item.slug),
-    ...right.categories.slice(0, 7).map((item) => item.slug),
-  ]));
+  const categorySlugs = (group: "safety" | "other", limit: number) =>
+    Array.from(new Set([
+      ...left.categories.filter((item) => item.group === group).slice(0, limit).map((item) => item.slug),
+      ...right.categories.filter((item) => item.group === group).slice(0, limit).map((item) => item.slug),
+    ]));
+
+  const safetyCategories = categorySlugs("safety", 7);
+  const otherCategories = categorySlugs("other", 5);
 
   const labelFor = (slug: string) =>
     left.categories.find((item) => item.slug === slug)?.label ??
@@ -403,21 +407,39 @@ function Comparison({
 
       <details className="compare-details">
         <summary>
-          <span>Detailed source incident mix</span>
-          <small>Raw recorded categories, separate from the selected comparison signal</small>
+          <span>Detailed recorded mix</span>
+          <small>Canonical categories, separate from the selected comparison signal</small>
         </summary>
+
         <div className="compare-category-table">
           <div className="compare-row compare-row-head">
-            <span>{leftLabel}</span><strong>Source mix · {left.month}</strong><span>{rightLabel}</span>
+            <span>{leftLabel}</span><strong>Safety-related · {left.month}</strong><span>{rightLabel}</span>
           </div>
-          {categories.map((slug) => (
+          {safetyCategories.length ? safetyCategories.map((slug) => (
             <div className="compare-row" key={slug}>
               <span>{valueFor(left, slug).toLocaleString("en-GB")}</span>
               <strong>{labelFor(slug)}</strong>
               <span>{valueFor(right, slug).toLocaleString("en-GB")}</span>
             </div>
-          ))}
+          )) : (
+            <div className="notice">No mapped safety categories are available for this snapshot.</div>
+          )}
         </div>
+
+        {otherCategories.length ? (
+          <div className="compare-category-table compare-category-table-other">
+            <div className="compare-row compare-row-head">
+              <span>{leftLabel}</span><strong>Other recorded activity</strong><span>{rightLabel}</span>
+            </div>
+            {otherCategories.map((slug) => (
+              <div className="compare-row" key={slug}>
+                <span>{valueFor(left, slug).toLocaleString("en-GB")}</span>
+                <strong>{labelFor(slug)}</strong>
+                <span>{valueFor(right, slug).toLocaleString("en-GB")}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </details>
 
       <details className="compare-note compare-note-details">
