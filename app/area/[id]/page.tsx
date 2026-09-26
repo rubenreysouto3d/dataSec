@@ -12,18 +12,29 @@ import {
   getNeighbourhoods,
   monthLabel,
 } from "@/lib/data";
+import {
+  localizeCanonicalCategory,
+  localeFromValue,
+  localeHref,
+  localeTag,
+  tr,
+  type Locale,
+} from "@/lib/i18n";
 
-type Props = { params: Promise<{ id: string }> };
+type Props = {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ lang?: string }>;
+};
 
-function signalBand(percentile: number | null | undefined) {
+function signalBand(percentile: number | null | undefined, locale: Locale) {
   if (percentile === null || percentile === undefined || !Number.isFinite(percentile)) {
-    return "Comparison unavailable";
+    return tr(locale, "Comparison unavailable", "Comparación no disponible");
   }
-  if (percentile < 0.2) return "Low relative signal";
-  if (percentile < 0.4) return "Lower than most areas";
-  if (percentile < 0.6) return "Around the city middle";
-  if (percentile < 0.8) return "Higher than most areas";
-  return "High relative signal";
+  if (percentile < 0.2) return tr(locale, "Low relative signal", "Señal relativa baja");
+  if (percentile < 0.4) return tr(locale, "Lower than most areas", "Más baja que en la mayoría de zonas");
+  if (percentile < 0.6) return tr(locale, "Around the city middle", "En torno a la media de la ciudad");
+  if (percentile < 0.8) return tr(locale, "Higher than most areas", "Más alta que en la mayoría de zonas");
+  return tr(locale, "High relative signal", "Señal relativa alta");
 }
 
 function signalLevel(percentile: number | null | undefined) {
@@ -33,12 +44,20 @@ function signalLevel(percentile: number | null | undefined) {
   return Math.min(5, Math.max(1, Math.floor(percentile * 5) + 1));
 }
 
-function movementCopy(trend: number | null) {
-  if (trend === null) return "Not enough stored history yet";
-  if (Math.abs(trend) < 5) return "Broadly stable across stored months";
+function movementCopy(trend: number | null, locale: Locale) {
+  if (trend === null) {
+    return tr(locale, "Not enough stored history yet", "Todavía no hay suficiente historial almacenado");
+  }
+  if (Math.abs(trend) < 5) {
+    return tr(locale, "Broadly stable across stored months", "Bastante estable en los meses almacenados");
+  }
   return trend > 0
-    ? `Recorded incidents are up ${trend}% across the stored window`
-    : `Recorded incidents are down ${Math.abs(trend)}% across the stored window`;
+    ? locale === "es"
+      ? `Las incidencias registradas suben un ${trend}% en la ventana almacenada`
+      : `Recorded incidents are up ${trend}% across the stored window`
+    : locale === "es"
+      ? `Las incidencias registradas bajan un ${Math.abs(trend)}% en la ventana almacenada`
+      : `Recorded incidents are down ${Math.abs(trend)}% across the stored window`;
 }
 
 export async function generateStaticParams() {
@@ -47,35 +66,41 @@ export async function generateStaticParams() {
   return areas.map((area) => ({ id: areaPathId(area.id) }));
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { id } = await params;
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
+  const [{ id }, query] = await Promise.all([params, searchParams]);
+  const locale = localeFromValue(query.lang);
   const areaId = areaIdFromPath(id);
   try {
     const [area, monthly] = await Promise.all([
       getAreaProfile(areaId),
       getMonthlySummaries(areaId, 1),
     ]);
-    if (!area) return { title: "Area not found" };
+    if (!area) return { title: tr(locale, "Area not found", "Zona no encontrada") };
 
     const latest = monthly[0];
     const mainSafetyCategory = latest?.categories.find((item) => item.group === "safety");
     const place = `${area.name}${area.parentName ? `, ${area.parentName}` : ""}`;
     const latestContext = latest
-      ? `Latest official snapshot: ${monthLabel(latest.month)}${mainSafetyCategory ? `; main mapped safety-related category: ${mainSafetyCategory.label}` : ""}.`
-      : "Official-source local context.";
+      ? locale === "es"
+        ? `Última captura oficial: ${monthLabel(latest.month, locale)}${mainSafetyCategory ? `; principal categoría de seguridad mapeada: ${localizeCanonicalCategory(locale, mainSafetyCategory.label)}` : ""}.`
+        : `Latest official snapshot: ${monthLabel(latest.month, locale)}${mainSafetyCategory ? `; main mapped safety-related category: ${mainSafetyCategory.label}` : ""}.`
+      : tr(locale, "Official-source local context.", "Contexto local de fuentes oficiales.");
 
     return {
       title: `${place}, ${area.cityName}`,
       description:
-        `${place}, ${area.cityName}: Resident and Visitor safety context from official public data. ${latestContext} Recent trend, source and methodology included.`,
+        locale === "es"
+          ? `${place}, ${area.cityName}: contexto de seguridad para residentes y visitantes a partir de datos públicos oficiales. ${latestContext} Incluye tendencia reciente, fuente y metodología.`
+          : `${place}, ${area.cityName}: Resident and Visitor safety context from official public data. ${latestContext} Recent trend, source and methodology included.`,
     };
   } catch {
-    return { title: "Area profile" };
+    return { title: tr(locale, "Area profile", "Ficha de zona") };
   }
 }
 
-export default async function AreaPage({ params }: Props) {
-  const { id } = await params;
+export default async function AreaPage({ params, searchParams }: Props) {
+  const [{ id }, query] = await Promise.all([params, searchParams]);
+  const locale = localeFromValue(query.lang);
   const areaId = areaIdFromPath(id);
 
   let area: Awaited<ReturnType<typeof getAreaProfile>> = null;
@@ -102,11 +127,27 @@ export default async function AreaPage({ params }: Props) {
     console.error(error);
     return (
       <main className="area-page">
-        <Link className="back" href="/">← Home</Link>
+        <Link className="back" href={localeHref(locale, "/")}>
+          ← {tr(locale, "Home", "Inicio")}
+        </Link>
         <section className="error-card">
-          <div className="eyebrow">Dataset unavailable</div>
-          <h1>We could not load this area right now.</h1>
-          <p>dataSec does not substitute fabricated figures when its validated data store cannot be reached.</p>
+          <div className="eyebrow">
+            {tr(locale, "Dataset unavailable", "Conjunto de datos no disponible")}
+          </div>
+          <h1>
+            {tr(
+              locale,
+              "We could not load this area right now.",
+              "No pudimos cargar esta zona en este momento.",
+            )}
+          </h1>
+          <p>
+            {tr(
+              locale,
+              "dataSec does not substitute fabricated figures when its validated data store cannot be reached.",
+              "dataSec no sustituye los datos por cifras inventadas cuando no puede acceder al almacén validado.",
+            )}
+          </p>
         </section>
       </main>
     );
@@ -154,68 +195,109 @@ export default async function AreaPage({ params }: Props) {
   const visitorMethod = "70% theft + robbery concentration + 30% violence + property concentration";
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://data-sec.vercel.app").replace(/\/$/, "");
   const widgetPathId = encodeURIComponent(areaPathId(area.id));
-  const residentWidgetUrl = `${siteUrl}/widget/${widgetPathId}?view=resident`;
-  const visitorWidgetUrl = `${siteUrl}/widget/${widgetPathId}?view=visitor`;
+  const widgetLang = locale === "es" ? "&lang=es" : "";
+  const residentWidgetUrl = `${siteUrl}/widget/${widgetPathId}?view=resident${widgetLang}`;
+  const visitorWidgetUrl = `${siteUrl}/widget/${widgetPathId}?view=visitor${widgetLang}`;
+  const localizedAreaType =
+    locale === "es"
+      ? area.citySlug === "london"
+        ? "zona de la Metropolitan Police"
+        : area.areaType === "municipal_district"
+          ? "distrito municipal"
+          : "barrio municipal"
+      : areaTypeLabel(area);
 
   return (
     <main className="area-page">
-      <Link className="back" href={`/city/${area.citySlug}`}>← {area.cityName}</Link>
+      <Link
+        className="back"
+        href={localeHref(locale, `/city/${area.citySlug}`)}
+      >
+        ← {area.cityName}
+      </Link>
       <section className="area-intro area-intro-minimal">
         <div>
           <div className="eyebrow">
-            {area.cityName}{area.parentName ? ` · ${area.parentName}` : ""} · {areaTypeLabel(area)}
+            {area.cityName}{area.parentName ? ` · ${area.parentName}` : ""} · {localizedAreaType}
           </div>
           <h1>{area.name}</h1>
         </div>
         <div className="area-intro-actions">
-          <span>{monthLabel(latest.month)}</span>
-          <Link className="area-compare-link" href={`/compare?a=${encodeURIComponent(area.id)}`}>
-            Compare →
+          <span>{monthLabel(latest.month, locale)}</span>
+          <Link
+            className="area-compare-link"
+            href={localeHref(locale, `/compare?a=${encodeURIComponent(area.id)}`)}
+          >
+            {tr(locale, "Compare →", "Comparar →")}
           </Link>
         </div>
       </section>
 
       <section className="area-perspectives area-perspectives-compact">
         <div className="area-perspectives-title">
-          <span>QUICK VIEW</span>
-          <h2>Resident or visitor?</h2>
+          <span>{tr(locale, "QUICK VIEW", "VISTA RÁPIDA")}</span>
+          <h2>{tr(locale, "Resident or visitor?", "¿Residente o visitante?")}</h2>
         </div>
         <article>
-          <span>RESIDENT</span>
-          <strong>{signalBand(residentPercentile)}</strong>
+          <span>{tr(locale, "RESIDENT", "RESIDENTE")}</span>
+          <strong>{signalBand(residentPercentile, locale)}</strong>
           <small>
-            {signalLevel(residentPercentile) ? `Level ${signalLevel(residentPercentile)}/5 · ` : ""}
-            Living here · local to {area.cityName}
+            {signalLevel(residentPercentile)
+              ? `${tr(locale, "Level", "Nivel")} ${signalLevel(residentPercentile)}/5 · `
+              : ""}
+            {tr(locale, "Living here", "Vivir aquí")} · {tr(locale, "local to", "local de")} {area.cityName}
           </small>
         </article>
         <article>
-          <span>VISITOR</span>
-          <strong>{signalBand(visitorPercentile)}</strong>
+          <span>{tr(locale, "VISITOR", "VISITANTE")}</span>
+          <strong>{signalBand(visitorPercentile, locale)}</strong>
           <small>
-            {signalLevel(visitorPercentile) ? `Level ${signalLevel(visitorPercentile)}/5 · ` : ""}
-            Short stay · local to {area.cityName}
+            {signalLevel(visitorPercentile)
+              ? `${tr(locale, "Level", "Nivel")} ${signalLevel(visitorPercentile)}/5 · `
+              : ""}
+            {tr(locale, "Short stay", "Estancia corta")} · {tr(locale, "local to", "local de")} {area.cityName}
           </small>
         </article>
       </section>
       <p className="density-caution area-quick-disclaimer">
-        Context only — these local indicators describe official-source patterns and do not predict or guarantee personal safety.
+        {tr(
+          locale,
+          "Context only — these local indicators describe official-source patterns and do not predict or guarantee personal safety.",
+          "Solo contexto: estos indicadores locales describen patrones de fuentes oficiales y no predicen ni garantizan la seguridad personal.",
+        )}
       </p>
 
       <section className="area-key-facts area-key-facts-three">
         <article>
-          <span>SAFETY-RELATED</span>
-          <strong>{safetyTotal.toLocaleString("en-GB")}</strong>
-          <small>{monthLabel(latest.month)} · mapped categories</small>
+          <span>{tr(locale, "SAFETY-RELATED", "RELACIONADO CON SEGURIDAD")}</span>
+          <strong>{safetyTotal.toLocaleString(localeTag(locale))}</strong>
+          <small>
+            {monthLabel(latest.month, locale)} · {tr(locale, "mapped categories", "categorías mapeadas")}
+          </small>
         </article>
         <article>
-          <span>TREND</span>
+          <span>{tr(locale, "TREND", "TENDENCIA")}</span>
           <strong>{trend === null ? "—" : `${trend > 0 ? "+" : ""}${trend}%`}</strong>
-          <small>{trend === null ? "More history needed" : Math.abs(trend) < 5 ? "Stable" : trend > 0 ? "Up" : "Down"}</small>
+          <small>
+            {trend === null
+              ? tr(locale, "More history needed", "Hace falta más historial")
+              : Math.abs(trend) < 5
+                ? tr(locale, "Stable", "Estable")
+                : trend > 0
+                  ? tr(locale, "Up", "Sube")
+                  : tr(locale, "Down", "Baja")}
+          </small>
         </article>
         <article>
-          <span>MAIN CATEGORY</span>
-          <strong>{top[0]?.label ?? "—"}</strong>
-          <small>{topShare !== null ? `${topShare}% of latest snapshot` : "No category mix"}</small>
+          <span>{tr(locale, "MAIN CATEGORY", "CATEGORÍA PRINCIPAL")}</span>
+          <strong>{top[0] ? localizeCanonicalCategory(locale, top[0].label) : "—"}</strong>
+          <small>
+            {topShare !== null
+              ? locale === "es"
+                ? `${topShare}% de la última captura`
+                : `${topShare}% of latest snapshot`
+              : tr(locale, "No category mix", "Sin mezcla de categorías")}
+          </small>
         </article>
       </section>
 
