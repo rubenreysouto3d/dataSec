@@ -1,8 +1,9 @@
 import type { MetadataRoute } from "next";
-
-export const dynamic = "force-static";
 import { getNeighbourhoods } from "@/lib/data";
 import { areaHref } from "@/lib/area-route";
+import { localeHref } from "@/lib/i18n";
+
+export const dynamic = "force-static";
 
 function siteUrl() {
   const fallback =
@@ -12,6 +13,40 @@ function siteUrl() {
   return (process.env.NEXT_PUBLIC_SITE_URL ?? fallback).replace(/\/$/, "");
 }
 
+type Frequency = NonNullable<MetadataRoute.Sitemap[number]["changeFrequency"]>;
+
+function localizedEntries(
+  base: string,
+  path: string,
+  changeFrequency: Frequency,
+  priority: number,
+): MetadataRoute.Sitemap {
+  const enPath = path;
+  const esPath = localeHref("es", path);
+  const enUrl = `${base}${enPath === "/" ? "" : enPath}`;
+  const esUrl = `${base}${esPath}`;
+  const languages = {
+    en: enUrl,
+    es: esUrl,
+    "x-default": enUrl,
+  };
+
+  return [
+    {
+      url: enUrl,
+      changeFrequency,
+      priority,
+      alternates: { languages },
+    },
+    {
+      url: esUrl,
+      changeFrequency,
+      priority,
+      alternates: { languages },
+    },
+  ];
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = siteUrl();
   let areas: Awaited<ReturnType<typeof getNeighbourhoods>> = [];
@@ -19,30 +54,32 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     areas = await getNeighbourhoods();
   } catch {
-    // A sitemap should still expose the stable top-level pages if the data store
-    // is temporarily unavailable during a build.
+    // Stable top-level pages remain visible if the data store is temporarily
+    // unavailable while generating the sitemap.
   }
 
-  const staticEntries: MetadataRoute.Sitemap = [
-    { url: base, changeFrequency: "weekly", priority: 1 },
-    { url: `${base}/city/london`, changeFrequency: "monthly", priority: 0.9 },
-    { url: `${base}/city/madrid`, changeFrequency: "monthly", priority: 0.9 },
-    { url: `${base}/city/london/resident`, changeFrequency: "monthly", priority: 0.82 },
-    { url: `${base}/city/london/visitor`, changeFrequency: "monthly", priority: 0.82 },
-    { url: `${base}/city/madrid/resident`, changeFrequency: "monthly", priority: 0.82 },
-    { url: `${base}/city/madrid/visitor`, changeFrequency: "monthly", priority: 0.82 },
-    { url: `${base}/city/london/trends`, changeFrequency: "monthly", priority: 0.75 },
-    { url: `${base}/city/madrid/trends`, changeFrequency: "monthly", priority: 0.75 },
-    { url: `${base}/status`, changeFrequency: "weekly", priority: 0.55 },
-    { url: `${base}/methodology`, changeFrequency: "monthly", priority: 0.5 },
-    { url: `${base}/disclaimer`, changeFrequency: "monthly", priority: 0.35 },
+  const staticPaths: Array<[string, Frequency, number]> = [
+    ["/", "weekly", 1],
+    ["/city/london", "monthly", 0.9],
+    ["/city/madrid", "monthly", 0.9],
+    ["/city/london/resident", "monthly", 0.82],
+    ["/city/london/visitor", "monthly", 0.82],
+    ["/city/madrid/resident", "monthly", 0.82],
+    ["/city/madrid/visitor", "monthly", 0.82],
+    ["/city/london/trends", "monthly", 0.75],
+    ["/city/madrid/trends", "monthly", 0.75],
+    ["/status", "weekly", 0.55],
+    ["/methodology", "monthly", 0.5],
+    ["/disclaimer", "monthly", 0.35],
   ];
 
-  const areaEntries: MetadataRoute.Sitemap = areas.map((area) => ({
-    url: `${base}${areaHref(area.id)}`,
-    changeFrequency: "monthly",
-    priority: 0.7,
-  }));
+  const staticEntries = staticPaths.flatMap(([path, frequency, priority]) =>
+    localizedEntries(base, path, frequency, priority),
+  );
+
+  const areaEntries = areas.flatMap((area) =>
+    localizedEntries(base, areaHref(area.id), "monthly", 0.7),
+  );
 
   return [...staticEntries, ...areaEntries];
 }
