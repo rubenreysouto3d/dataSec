@@ -1,4 +1,5 @@
 import type { CityMapMetric, CitySlug } from "@/lib/data";
+import type { Locale } from "@/lib/i18n";
 
 export const MAP_AUDIENCES = [
   {
@@ -73,6 +74,31 @@ export const CITY_FILTER_METHODS: Record<CitySlug, {
   },
 };
 
+
+export const CITY_FILTER_METHODS_ES: typeof CITY_FILTER_METHODS = {
+  london: {
+    residentPopulationLabel: "residentes del Censo de 2021",
+    residentUnitLabel: "por 10.000 residentes · Censo de 2021",
+    residentFallbackMethod: "violencia + propiedad por 10.000 residentes · denominador del Censo de 2021",
+    violencePropertyMethod: "categorías de delitos registrados por la Met Police mapeadas a violencia + propiedad",
+    theftMethod: "categorías de hurtos, robos y delitos relacionados con vehículos de la Met Police",
+    crimeRelatedMethod: "categorías delictivas de la Met Police; conducta antisocial excluida",
+    activityMethod: "toda la actividad de la fuente de la Metropolitan Police en la captura almacenada",
+  },
+  madrid: {
+    residentPopulationLabel: "residentes empadronados",
+    residentUnitLabel: "por 10.000 residentes empadronados",
+    residentFallbackMethod: "violencia + propiedad por 10.000 residentes empadronados",
+    violencePropertyMethod: "categorías de incidencias de Madrid mapeadas a violencia + propiedad",
+    theftMethod: "categorías de hurtos, robos y sustracciones de vehículos/propiedad de Madrid",
+    crimeRelatedMethod: "categorías delictivas de Madrid; respuestas no delictivas excluidas",
+    activityMethod: "toda la actividad de la fuente de Policía Municipal de Madrid",
+  },
+};
+
+export function cityFilterMethods(citySlug: CitySlug, locale: Locale) {
+  return locale === "es" ? CITY_FILTER_METHODS_ES[citySlug] : CITY_FILTER_METHODS[citySlug];
+}
 
 export function visitorExposureScore(metric: CityMapMetric | undefined) {
   if (!metric) return null;
