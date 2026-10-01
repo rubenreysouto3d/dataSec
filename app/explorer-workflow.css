@@ -117,3 +117,38 @@
     min-height:430px;height:55vh;max-height:640px
   }
 }
+
+/* Direct lookup and search-to-map are first-class tasks. */
+.data-home-global-search{max-width:630px;margin:2px 0 22px;display:flex;flex-direction:column;gap:8px}
+.data-home-global-search label{color:#25434b;font-size:12px;font-weight:760}
+.data-home-global-search>div{display:flex;border-radius:9px;border:1px solid #c9d8dc;overflow:hidden;background:#fff;box-shadow:0 7px 26px rgba(21,44,50,.06)}
+.data-home-global-search input{flex:1;min-width:0;padding:14px 15px;background:#fff;color:#1e353e;font:inherit;font-size:13px;border:0;outline:0}
+.data-home-global-search input:focus-visible{outline:3px solid #458b96;outline-offset:-3px}
+.data-home-global-search button{border:0;padding:0 18px;white-space:nowrap;background:#1a3037;color:white;font-size:12px;font-weight:750;cursor:pointer}
+.data-home-global-search button:hover{background:#24636d}
+.data-home-global-search small{font-size:10px;line-height:1.5;color:#63757b}
+.data-home-jump{background:transparent!important;color:#24636d!important;padding:4px 0!important;font-size:11px!important;text-decoration:underline!important;box-shadow:none!important}
+.search-task-intent{display:flex;align-items:center;gap:20px;margin:0 0 20px;flex-wrap:wrap}
+.search-task-intent>span{font-size:12px;font-weight:740;color:#25424b}
+.search-task-intent>div{display:flex;padding:3px;gap:3px;background:white;border:1px solid #d9e3e6;border-radius:8px}
+.search-task-intent button{border:0;background:transparent;color:#526873;padding:9px 18px;border-radius:5px;font:inherit;font-size:11px;cursor:pointer}
+.search-task-intent button.is-active{background:#1a3037;color:#fff;font-weight:740}
+.search-page .search-results{display:flex;flex-direction:column;gap:8px;max-width:1100px}
+.search-task-result{display:flex;gap:16px;justify-content:space-between;align-items:center;padding:17px 20px;border:1px solid #dee7e9;border-radius:9px;background:#fff}
+.search-task-result>div:first-child{display:flex;flex-direction:column;gap:3px}
+.search-task-result>div:first-child span{font-size:10px;color:#667681}
+.search-task-result>div:first-child strong{font-size:17px;color:#213841;letter-spacing:-.03em}
+.search-task-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.search-page .search-task-actions a{border:1px solid #dce5e7;border-radius:7px;padding:10px 13px;color:#24636d;
+  text-decoration:none;background:#f5f9f9;font-size:11px;font-weight:730;min-height:0;display:inline-flex}
+.search-page .search-task-actions a:first-child{background:#1a3037;border-color:#1a3037;color:white}
+.search-page .search-task-actions a:hover{filter:brightness(.95)}
+.area-intro-actions .area-map-link{display:inline-block;border:1px solid #dce4e6;border-radius:6px;
+  background:#edf4f5;color:#1d5963;font-size:11px;padding:9px 12px;font-weight:740;text-decoration:none}
+@media(max-width:650px){
+  .data-home-global-search>div{display:flex;flex-direction:column}
+  .data-home-global-search input{width:100%}
+  .data-home-global-search button{padding:13px}
+  .search-task-result{display:block}
+  .search-task-actions{margin-top:13px}
+}
