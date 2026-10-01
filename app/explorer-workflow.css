@@ -152,3 +152,20 @@
   .search-task-result{display:block}
   .search-task-actions{margin-top:13px}
 }
+
+/* Pin-and-compare within the live city view */
+.research-pin-control{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin:-4px 0 15px}
+.research-pin-control button{border:1px solid #afc8cb;color:#1d5961;background:#edf5f5;
+  border-radius:6px;font-size:10px;font-weight:730;cursor:pointer;padding:8px 10px}
+.research-pin-control button[aria-pressed=true]{background:#1a3037;border-color:#1a3037;color:#fff}
+.research-pin-control button:hover{filter:brightness(.96)}
+.research-inline-compare{border:1px solid #c8dcdf;border-radius:9px;background:#f0f7f7;
+  margin:6px 0 17px;padding:13px}
+.research-inline-compare>strong{display:block;font-size:11px;margin-bottom:10px;color:#20424a}
+.research-inline-compare>div{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.research-inline-compare article{min-width:0;border:1px solid #d8e6e8;border-radius:7px;padding:10px;background:#fff}
+.research-inline-compare article>span{display:block;font-size:10px;line-height:1.3;color:#5c6d75;
+  overflow-wrap:anywhere;min-height:26px}
+.research-inline-compare article>strong{display:block;font-size:16px;letter-spacing:-.045em;margin-top:7px}
+.research-inline-compare p{font-size:10px;line-height:1.55;color:#61757b;margin:11px 0}
+.research-inline-compare a{font-size:11px;font-weight:740;text-decoration:none;color:#1d5961}
