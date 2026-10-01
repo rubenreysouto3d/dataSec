@@ -248,6 +248,12 @@ export default async function AreaPage({ params, searchParams }: Props) {
         <div className="area-intro-actions">
           <span>{monthLabel(latest.month, locale)}</span>
           <Link
+            className="area-map-link"
+            href={localeHref(locale, `/city/${area.citySlug}?area=${encodeURIComponent(area.id)}`)}
+          >
+            {tr(locale, "View on map →", "Ver en el mapa →")}
+          </Link>
+          <Link
             className="area-compare-link"
             href={localeHref(locale, `/compare?a=${encodeURIComponent(area.id)}`)}
           >
