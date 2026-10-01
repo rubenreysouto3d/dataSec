@@ -5,6 +5,7 @@ import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { chromeCopy, localeFromValue, localeHref } from "@/lib/i18n";
 import "./globals.css";
 import "./design-refresh.css";
+import "./explorer-workflow.css";
 
 const indexSite = process.env.NEXT_PUBLIC_INDEX_SITE === "true";
 

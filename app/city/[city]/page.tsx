@@ -18,7 +18,7 @@ import { localeFromValue, localeHref, tr } from "@/lib/i18n";
 
 type Props = {
   params: Promise<{ city: string }>;
-  searchParams: Promise<{ view?: string; lang?: string }>;
+  searchParams: Promise<{ view?: string; lang?: string; area?: string }>;
 };
 
 const cityCopy: Record<CitySlug, {
@@ -83,6 +83,7 @@ export default async function CityPage({ params, searchParams }: Props) {
   const copy = cityCopy[city];
   const locale = localeFromValue(query.lang);
   const initialAudience = query.view === "visitor" ? "visitor" : "resident";
+  const initialAreaId = areas.some((area) => area.id === query.area) ? query.area : null;
   const sourceCopy =
     locale === "es"
       ? city === "london"
@@ -126,6 +127,20 @@ export default async function CityPage({ params, searchParams }: Props) {
         </div>
       </section>
 
+      <div className="city-source-identity">
+        <div>
+          <span>{tr(locale, "SOURCE FOR THIS CITY", "FUENTE DE ESTA CIUDAD")}</span>
+          <strong>{city === "madrid"
+            ? tr(locale, "Municipal police dispatch records", "Incidencias de la Policía Municipal")
+            : tr(locale, "Police-recorded offences", "Delitos registrados por la policía")}</strong>
+        </div>
+        <p>{tr(locale,
+          "Comparison applies only to areas inside this city. Source definitions differ between cities.",
+          "La comparación solo corresponde a las zonas de esta ciudad. Las definiciones de las fuentes son distintas entre ciudades.",
+        )}</p>
+        <Link href={localeHref(locale, "/methodology")}>{tr(locale, "Check the method", "Consultar método")} ↗</Link>
+      </div>
+
       {!error ? (
         <section className="city-map-section city-map-section-app">
           <CityMap
@@ -136,6 +151,7 @@ export default async function CityPage({ params, searchParams }: Props) {
             activityContexts={activityContexts}
             safetySignals={safetySignals}
             initialAudience={initialAudience}
+            initialAreaId={initialAreaId}
             locale={locale}
           />
         </section>

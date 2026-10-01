@@ -51,6 +51,17 @@ export default async function Home({
             "Explore official neighbourhood-level records in a map designed for the questions residents and visitors actually ask.",
             "Explora registros oficiales por barrios en un mapa pensado para las preguntas reales de residentes y visitantes.",
           )}</p>
+          <form action={localeHref(locale, "/search")} method="get" className="data-home-global-search" role="search">
+            <label htmlFor="home-lookup">{tr(locale, "Have a neighbourhood or hotel in mind?", "¿Tienes un barrio u hotel en mente?")}</label>
+            <div>
+              <input id="home-lookup" type="search" name="q" placeholder={tr(locale, "Type a neighbourhood, address or hotel…", "Escribe un barrio, dirección u hotel…")} required />
+              <button type="submit">{tr(locale, "Find area", "Buscar zona")} →</button>
+            </div>
+            <small>{tr(locale,
+              "Names match instantly; address and hotel lookup is requested only if you choose it on the next screen.",
+              "Los nombres se buscan al instante; las direcciones y hoteles se consultan solo si lo solicitas en la siguiente pantalla.",
+            )}</small>
+          </form>
           <a className="data-home-jump" href="#areas">
             {tr(locale, "Explore a city", "Explorar una ciudad")} <span aria-hidden="true">↓</span>
           </a>

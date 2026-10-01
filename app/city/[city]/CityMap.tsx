@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { areaHref } from "@/lib/area-route";
+import NeighbourhoodNavigator from "@/components/NeighbourhoodNavigator";
 import { locateAreaByCoordinates, resolvePlaceToArea } from "@/lib/public-data-client";
 import { areaDisplayName, cityNames } from "@/lib/data";
 import {
@@ -43,6 +44,7 @@ type Props = {
   activityContexts: CityActivityContext[];
   safetySignals: CitySafetySignal[];
   initialAudience?: MapAudienceKey;
+  initialAreaId?: string | null;
   locale?: Locale;
 };
 
@@ -188,7 +190,7 @@ function boundaryBounds(boundary: CityBoundary): Bounds | null {
 }
 
 function colorForPercentile(percentile: number | null) {
-  if (percentile === null || !Number.isFinite(percentile)) return "#c8c6bf";
+  if (percentile === null || !percentile !== null && Number.isFinite(percentile)) return "#c8c6bf";
   return MAP_COLOR_BANDS.find((band) => percentile < band.max)?.color ?? MAP_COLOR_BANDS.at(-1)!.color;
 }
 
@@ -250,7 +252,7 @@ function fallbackPath(boundary: CityBoundary, bounds: Bounds) {
 }
 
 function formatMetric(value: number | null, unit: string, locale: Locale) {
-  if (value === null || !Number.isFinite(value)) return tr(locale, "No value", "Sin valor");
+  if (value === null || !value !== null && Number.isFinite(value)) return tr(locale, "No value", "Sin valor");
   return value.toLocaleString(localeTag(locale), { maximumFractionDigits: 1 }) + unit;
 }
 
@@ -290,6 +292,7 @@ export default function CityMap({
   activityContexts,
   safetySignals,
   initialAudience = "resident",
+  initialAreaId = null,
   locale = "en",
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -307,7 +310,8 @@ export default function CityMap({
   const [layer, setLayer] = useState<LayerKey>(
     initialAudience === "visitor" ? "visitor-context" : "contextual-overview",
   );
-  const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
+  const [selectedAreaId, setSelectedAreaId] = useState<string | null>(initialAreaId);
+  const [pinnedAreaId, setPinnedAreaId] = useState<string | null>(null);
   const [areaSearch, setAreaSearch] = useState("");
   const [finderStatus, setFinderStatus] = useState<"idle" | "searching" | "locating" | "error">("idle");
   const [finderMessage, setFinderMessage] = useState("");
@@ -480,6 +484,15 @@ export default function CityMap({
     selectedSafetySignal,
     selectedAreaId ? visitorPercentileById.get(selectedAreaId) : null,
   );
+  const pinnedArea = pinnedAreaId ? areaById.get(pinnedAreaId) ?? null : null;
+  const pinnedMetric = pinnedAreaId
+    ? metricForLayer(
+        metricById.get(pinnedAreaId),
+        layer,
+        safetySignalById.get(pinnedAreaId),
+        visitorPercentileById.get(pinnedAreaId),
+      )
+    : null;
   const selectedPercentile =
     selectedMetric.percentile !== null && Number.isFinite(selectedMetric.percentile)
       ? Math.round(selectedMetric.percentile * 100)
@@ -781,29 +794,36 @@ export default function CityMap({
             title.textContent = String(props.name ?? "");
 
             const detail = document.createElement("span");
-            const value = Number(props.value);
-            const percentile = Number(props.percentile);
+            // Null is unknown, NOT the number zero. A missing indicator must
+            // never be shown as a low-value percentile on hover.
+            const value = props.value === null || props.value === undefined || props.value === ""
+              ? null : Number(props.value);
+            const percentile = props.percentile === null || props.percentile === undefined || props.percentile === ""
+              ? null : Number(props.percentile);
             const displayMode = String(props.displayMode ?? "recorded");
+            const numericValue = value === null || !Number.isFinite(value) ? null : value;
+            const position = percentile === null || !Number.isFinite(percentile)
+              ? null : Math.round(percentile * 100);
             detail.textContent =
               displayMode === "resident" || displayMode === "visitor"
                 ? String(props.band ?? "No city comparison")
-                : Number.isFinite(value)
-                  ? `${value.toLocaleString(localeTag(locale), { maximumFractionDigits: 1 })}${props.unit ?? ""}`
+                : numericValue !== null
+                  ? `${numericValue.toLocaleString(localeTag(locale), { maximumFractionDigits: 1 })}${props.unit ?? ""}`
                   : String(props.band ?? tr(locale, "No value", "Sin valor"));
 
             const context = document.createElement("small");
-            context.textContent = Number.isFinite(percentile)
+            context.textContent = position !== null
               ? displayMode === "resident"
                 ? locale === "es"
-                  ? `La preocupación residencial es mayor que en aproximadamente el ${Math.round(percentile * 100)}% de las zonas de ${cityName}`
-                  : `Residential concern is higher than about ${Math.round(percentile * 100)}% of ${cityName} areas`
+                  ? `La preocupación residencial es mayor que en aproximadamente el ${position}% de las zonas de ${cityName}`
+                  : `Residential concern is higher than about ${position}% of ${cityName} areas`
                 : displayMode === "visitor"
                   ? locale === "es"
-                    ? `La exposición para visitantes es mayor que en aproximadamente el ${Math.round(percentile * 100)}% de las zonas de ${cityName}`
-                    : `Visitor exposure is higher than about ${Math.round(percentile * 100)}% of ${cityName} areas`
+                    ? `La exposición para visitantes es mayor que en aproximadamente el ${position}% de las zonas de ${cityName}`
+                    : `Visitor exposure is higher than about ${position}% of ${cityName} areas`
                   : locale === "es"
-                    ? `El nivel registrado es mayor que en aproximadamente el ${Math.round(percentile * 100)}% de las zonas de ${cityName}`
-                    : `Recorded level is higher than about ${Math.round(percentile * 100)}% of ${cityName} areas`
+                    ? `El nivel registrado es mayor que en aproximadamente el ${position}% de las zonas de ${cityName}`
+                    : `Recorded level is higher than about ${position}% of ${cityName} areas`
               : tr(locale, "No city comparison available", "Sin comparación con la ciudad");
 
             const hint = document.createElement("small");
@@ -851,6 +871,23 @@ export default function CityMap({
       setMapReady(false);
     };
   }, [bounds, citySlug, locale]);
+
+  useEffect(() => {
+    // Select deep-linked neighbourhood after the map style and geometry load.
+    if (!mapReady || !initialAreaId || !mapRef.current) return;
+    const areaBoundary = boundaryById.get(initialAreaId);
+    if (!areaBoundary) return;
+    const itemBounds = boundaryBounds(areaBoundary);
+    if (itemBounds) mapRef.current.fitBounds(itemBounds, { padding: 65, duration: 0, maxZoom: 13 });
+  }, [mapReady, initialAreaId, boundaryById]);
+
+  useEffect(() => {
+    // Prevent MapLibre canvas clipping when detail panels change width.
+    if (!mapReady || !containerRef.current || !mapRef.current) return;
+    const resizeObserver = new ResizeObserver(() => mapRef.current?.resize?.());
+    resizeObserver.observe(containerRef.current);
+    return () => resizeObserver.disconnect();
+  }, [mapReady]);
 
   useEffect(() => {
     const source = mapRef.current?.getSource?.("datasec-areas");
@@ -1000,7 +1037,18 @@ export default function CityMap({
         </details>
       </div>
 
-      <div className={`map-stage ${selectedArea ? "has-selection" : ""}`}>
+      <div className="map-stage research-stage">
+        <NeighbourhoodNavigator
+          areas={areas}
+          metrics={metrics}
+          safetySignals={safetySignals}
+          visitorPercentiles={visitorPercentileById}
+          layer={layer}
+          cityName={cityName}
+          locale={locale}
+          selectedAreaId={selectedAreaId}
+          onSelect={focusArea}
+        />
         <div className="interactive-map-wrap">
           {!mapReady && bounds ? (
             <svg
@@ -1104,7 +1152,49 @@ export default function CityMap({
                 {cityName}{selectedArea.parentName ? ` · ${selectedArea.parentName}` : ""} · {formatMonth(latestMonth, locale)}
               </span>
               <h3>{selectedArea.name}</h3>
+              <div className="research-pin-control">
+                <button
+                  type="button"
+                  onClick={() => setPinnedAreaId(pinnedAreaId === selectedArea.id ? null : selectedArea.id)}
+                  aria-pressed={pinnedAreaId === selectedArea.id}
+                >
+                  {pinnedAreaId === selectedArea.id
+                    ? tr(locale, "Remove comparison reference", "Quitar zona de referencia")
+                    : tr(locale, "Pin to compare", "Fijar para comparar")}
+                </button>
+                {pinnedArea && pinnedArea.id !== selectedArea.id ? (
+                  <button type="button" onClick={() => setPinnedAreaId(null)}>
+                    {tr(locale, "Clear reference", "Borrar referencia")}
+                  </button>
+                ) : null}
+              </div>
+              {pinnedArea && pinnedMetric && pinnedArea.id !== selectedArea.id ? (
+                <section className="research-inline-compare" aria-label={tr(locale, "Live comparison", "Comparación inmediata")}>
+                  <strong>{tr(locale, "Compared with your reference", "Comparado con tu referencia")}</strong>
+                  <div>
+                    <article>
+                      <span>{pinnedArea.name}</span>
+                      <strong>{bandNumber(pinnedMetric.percentile) === null
+                        ? "—" : `${tr(locale, "Level", "Nivel")} ${bandNumber(pinnedMetric.percentile)}/5`}</strong>
+                    </article>
+                    <article>
+                      <span>{selectedArea.name}</span>
+                      <strong>{bandNumber(selectedMetric.percentile) === null
+                        ? "—" : `${tr(locale, "Level", "Nivel")} ${bandNumber(selectedMetric.percentile)}/5`}</strong>
+                    </article>
+                  </div>
+                  <p>{tr(locale,
+                    "Both levels use the same active indicator inside this city, not a predicted personal-risk score.",
+                    "Ambos niveles usan el mismo indicador activo dentro de esta ciudad, no una puntuación de riesgo personal.",
+                  )}</p>
+                  <a href={localeHref(
+                    locale,
+                    `/compare?a=${encodeURIComponent(pinnedArea.id)}&b=${encodeURIComponent(selectedArea.id)}&layer=${encodeURIComponent(layer)}`,
+                  )}>{tr(locale, "Detailed comparison ↗", "Comparación detallada ↗")}</a>
+                </section>
+              ) : null}
 
+              <div className="research-detail-question">{tr(locale, "What does this view show here?", "¿Qué muestra esta vista aquí?")}</div>
               <div className="map-selection-verdict">
                 <i style={{ background: colorForPercentile(selectedMetric.percentile) }} />
                 <div>
@@ -1182,6 +1272,19 @@ export default function CityMap({
                 </div>
               ) : null}
 
+              <div className="research-detail-context">
+                <strong>{tr(locale, "Before interpreting the colour", "Antes de interpretar el color")}</strong>
+                <p>{citySlug === "madrid"
+                  ? tr(locale,
+                    "Municipal-police dispatch records also include non-crime activity. A busy centre can concentrate records because of footfall, tourism and transport. Resident rates do not count visitors.",
+                    "Las incidencias policiales municipales también incluyen actividad no delictiva. El centro puede concentrar registros por afluencia, turismo y transporte. Las tasas por residente no incluyen visitantes.",
+                  )
+                  : tr(locale,
+                    "These are police-reported offences with approximate, anonymised locations. Busy central areas can record more offences partly because of visitors and daily activity.",
+                    "Son delitos registrados por la policía con ubicaciones aproximadas y anónimas. Las zonas céntricas concurridas pueden registrar más delitos, en parte por sus visitantes y actividad diaria.",
+                  )}</p>
+                <span>{tr(locale, "Indicator", "Indicador")}: {activeMetricCopy[metricKey].label}</span>
+              </div>
               <div className="map-selection-actions">
                 <a className="map-selection-link" href={localeHref(locale, areaHref(selectedArea.id))}>
                   {tr(locale, "Details", "Detalles")}
@@ -1190,7 +1293,7 @@ export default function CityMap({
                   className="map-selection-compare"
                   href={localeHref(
                     locale,
-                    `/compare?a=${encodeURIComponent(selectedArea.id)}&layer=${encodeURIComponent(layer)}`,
+                    `/compare?a=${encodeURIComponent(pinnedArea && pinnedArea.id !== selectedArea.id ? pinnedArea.id : selectedArea.id)}${pinnedArea && pinnedArea.id !== selectedArea.id ? `&b=${encodeURIComponent(selectedArea.id)}` : ""}&layer=${encodeURIComponent(layer)}`,
                   )}
                 >
                   {tr(locale, "Compare", "Comparar")}
@@ -1198,7 +1301,21 @@ export default function CityMap({
               </div>
             </div>
           </aside>
-        ) : null}
+        ) : (
+          <aside className="map-detail-panel research-empty-detail">
+            <span className="data-kicker">{tr(locale, "Read the evidence", "Consulta los datos")}</span>
+            <h2>{tr(locale, "Choose an area", "Elige una zona")}</h2>
+            <p>{tr(locale,
+              "Select a neighbourhood on the map or in the list. See its level, underlying figures and the limitations of this city's source.",
+              "Selecciona un barrio en el mapa o en la lista. Consulta su nivel, las cifras y las limitaciones de la fuente de esta ciudad.",
+            )}</p>
+            <div className="research-empty-steps">
+              <span>01 — {tr(locale, "Choose resident or visitor", "Elige residente o visitante")}</span>
+              <span>02 — {tr(locale, "Select a neighbourhood", "Selecciona un barrio")}</span>
+              <span>03 — {tr(locale, "Review data and compare", "Revisa y compara los datos")}</span>
+            </div>
+          </aside>
+        )}
       </div>
 
       <details className="map-explain map-explain-compact explorer-explain">
