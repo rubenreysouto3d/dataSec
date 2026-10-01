@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { areaHref } from "@/lib/area-route";
+import NeighbourhoodNavigator from "@/components/NeighbourhoodNavigator";
 import { locateAreaByCoordinates, resolvePlaceToArea } from "@/lib/public-data-client";
 import { areaDisplayName, cityNames } from "@/lib/data";
 import {
@@ -43,6 +44,7 @@ type Props = {
   activityContexts: CityActivityContext[];
   safetySignals: CitySafetySignal[];
   initialAudience?: MapAudienceKey;
+  initialAreaId?: string | null;
   locale?: Locale;
 };
 
@@ -290,6 +292,7 @@ export default function CityMap({
   activityContexts,
   safetySignals,
   initialAudience = "resident",
+  initialAreaId = null,
   locale = "en",
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -307,7 +310,7 @@ export default function CityMap({
   const [layer, setLayer] = useState<LayerKey>(
     initialAudience === "visitor" ? "visitor-context" : "contextual-overview",
   );
-  const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
+  const [selectedAreaId, setSelectedAreaId] = useState<string | null>(initialAreaId);
   const [areaSearch, setAreaSearch] = useState("");
   const [finderStatus, setFinderStatus] = useState<"idle" | "searching" | "locating" | "error">("idle");
   const [finderMessage, setFinderMessage] = useState("");
@@ -853,6 +856,23 @@ export default function CityMap({
   }, [bounds, citySlug, locale]);
 
   useEffect(() => {
+    // Select deep-linked neighbourhood after the map style and geometry load.
+    if (!mapReady || !initialAreaId || !mapRef.current) return;
+    const areaBoundary = boundaryById.get(initialAreaId);
+    if (!areaBoundary) return;
+    const itemBounds = boundaryBounds(areaBoundary);
+    if (itemBounds) mapRef.current.fitBounds(itemBounds, { padding: 65, duration: 0, maxZoom: 13 });
+  }, [mapReady, initialAreaId, boundaryById]);
+
+  useEffect(() => {
+    // Prevent MapLibre canvas clipping when detail panels change width.
+    if (!mapReady || !containerRef.current || !mapRef.current) return;
+    const resizeObserver = new ResizeObserver(() => mapRef.current?.resize?.());
+    resizeObserver.observe(containerRef.current);
+    return () => resizeObserver.disconnect();
+  }, [mapReady]);
+
+  useEffect(() => {
     const source = mapRef.current?.getSource?.("datasec-areas");
     source?.setData?.(geojson);
   }, [geojson]);
@@ -1000,7 +1020,18 @@ export default function CityMap({
         </details>
       </div>
 
-      <div className={`map-stage ${selectedArea ? "has-selection" : ""}`}>
+      <div className="map-stage research-stage">
+        <NeighbourhoodNavigator
+          areas={areas}
+          metrics={metrics}
+          safetySignals={safetySignals}
+          visitorPercentiles={visitorPercentileById}
+          layer={layer}
+          cityName={cityName}
+          locale={locale}
+          selectedAreaId={selectedAreaId}
+          onSelect={focusArea}
+        />
         <div className="interactive-map-wrap">
           {!mapReady && bounds ? (
             <svg
@@ -1105,6 +1136,7 @@ export default function CityMap({
               </span>
               <h3>{selectedArea.name}</h3>
 
+              <div className="research-detail-question">{tr(locale, "What does this view show here?", "¿Qué muestra esta vista aquí?")}</div>
               <div className="map-selection-verdict">
                 <i style={{ background: colorForPercentile(selectedMetric.percentile) }} />
                 <div>
@@ -1182,6 +1214,19 @@ export default function CityMap({
                 </div>
               ) : null}
 
+              <div className="research-detail-context">
+                <strong>{tr(locale, "Before interpreting the colour", "Antes de interpretar el color")}</strong>
+                <p>{citySlug === "madrid"
+                  ? tr(locale,
+                    "Municipal-police dispatch records also include non-crime activity. A busy centre can concentrate records because of footfall, tourism and transport. Resident rates do not count visitors.",
+                    "Las incidencias policiales municipales también incluyen actividad no delictiva. El centro puede concentrar registros por afluencia, turismo y transporte. Las tasas por residente no incluyen visitantes.",
+                  )
+                  : tr(locale,
+                    "These are police-reported offences with approximate, anonymised locations. Busy central areas can record more offences partly because of visitors and daily activity.",
+                    "Son delitos registrados por la policía con ubicaciones aproximadas y anónimas. Las zonas céntricas concurridas pueden registrar más delitos, en parte por sus visitantes y actividad diaria.",
+                  )}</p>
+                <span>{tr(locale, "Indicator", "Indicador")}: {activeMetricCopy[metricKey].label}</span>
+              </div>
               <div className="map-selection-actions">
                 <a className="map-selection-link" href={localeHref(locale, areaHref(selectedArea.id))}>
                   {tr(locale, "Details", "Detalles")}
@@ -1198,7 +1243,21 @@ export default function CityMap({
               </div>
             </div>
           </aside>
-        ) : null}
+        ) : (
+          <aside className="map-detail-panel research-empty-detail">
+            <span className="data-kicker">{tr(locale, "Read the evidence", "Consulta los datos")}</span>
+            <h2>{tr(locale, "Choose an area", "Elige una zona")}</h2>
+            <p>{tr(locale,
+              "Select a neighbourhood on the map or in the list. See its level, underlying figures and the limitations of this city's source.",
+              "Selecciona un barrio en el mapa o en la lista. Consulta su nivel, las cifras y las limitaciones de la fuente de esta ciudad.",
+            )}</p>
+            <div className="research-empty-steps">
+              <span>01 — {tr(locale, "Choose resident or visitor", "Elige residente o visitante")}</span>
+              <span>02 — {tr(locale, "Select a neighbourhood", "Selecciona un barrio")}</span>
+              <span>03 — {tr(locale, "Review data and compare", "Revisa y compara los datos")}</span>
+            </div>
+          </aside>
+        )}
       </div>
 
       <details className="map-explain map-explain-compact explorer-explain">
