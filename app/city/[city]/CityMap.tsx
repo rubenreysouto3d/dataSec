@@ -311,6 +311,7 @@ export default function CityMap({
     initialAudience === "visitor" ? "visitor-context" : "contextual-overview",
   );
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(initialAreaId);
+  const [pinnedAreaId, setPinnedAreaId] = useState<string | null>(null);
   const [areaSearch, setAreaSearch] = useState("");
   const [finderStatus, setFinderStatus] = useState<"idle" | "searching" | "locating" | "error">("idle");
   const [finderMessage, setFinderMessage] = useState("");
@@ -483,6 +484,15 @@ export default function CityMap({
     selectedSafetySignal,
     selectedAreaId ? visitorPercentileById.get(selectedAreaId) : null,
   );
+  const pinnedArea = pinnedAreaId ? areaById.get(pinnedAreaId) ?? null : null;
+  const pinnedMetric = pinnedAreaId
+    ? metricForLayer(
+        metricById.get(pinnedAreaId),
+        layer,
+        safetySignalById.get(pinnedAreaId),
+        visitorPercentileById.get(pinnedAreaId),
+      )
+    : null;
   const selectedPercentile =
     selectedMetric.percentile !== null && Number.isFinite(selectedMetric.percentile)
       ? Math.round(selectedMetric.percentile * 100)
@@ -1142,6 +1152,47 @@ export default function CityMap({
                 {cityName}{selectedArea.parentName ? ` · ${selectedArea.parentName}` : ""} · {formatMonth(latestMonth, locale)}
               </span>
               <h3>{selectedArea.name}</h3>
+              <div className="research-pin-control">
+                <button
+                  type="button"
+                  onClick={() => setPinnedAreaId(pinnedAreaId === selectedArea.id ? null : selectedArea.id)}
+                  aria-pressed={pinnedAreaId === selectedArea.id}
+                >
+                  {pinnedAreaId === selectedArea.id
+                    ? tr(locale, "Remove comparison reference", "Quitar zona de referencia")
+                    : tr(locale, "Pin to compare", "Fijar para comparar")}
+                </button>
+                {pinnedArea && pinnedArea.id !== selectedArea.id ? (
+                  <button type="button" onClick={() => setPinnedAreaId(null)}>
+                    {tr(locale, "Clear reference", "Borrar referencia")}
+                  </button>
+                ) : null}
+              </div>
+              {pinnedArea && pinnedMetric && pinnedArea.id !== selectedArea.id ? (
+                <section className="research-inline-compare" aria-label={tr(locale, "Live comparison", "Comparación inmediata")}>
+                  <strong>{tr(locale, "Compared with your reference", "Comparado con tu referencia")}</strong>
+                  <div>
+                    <article>
+                      <span>{pinnedArea.name}</span>
+                      <strong>{bandNumber(pinnedMetric.percentile) === null
+                        ? "—" : `${tr(locale, "Level", "Nivel")} ${bandNumber(pinnedMetric.percentile)}/5`}</strong>
+                    </article>
+                    <article>
+                      <span>{selectedArea.name}</span>
+                      <strong>{bandNumber(selectedMetric.percentile) === null
+                        ? "—" : `${tr(locale, "Level", "Nivel")} ${bandNumber(selectedMetric.percentile)}/5`}</strong>
+                    </article>
+                  </div>
+                  <p>{tr(locale,
+                    "Both levels use the same active indicator inside this city, not a predicted personal-risk score.",
+                    "Ambos niveles usan el mismo indicador activo dentro de esta ciudad, no una puntuación de riesgo personal.",
+                  )}</p>
+                  <a href={localeHref(
+                    locale,
+                    `/compare?a=${encodeURIComponent(pinnedArea.id)}&b=${encodeURIComponent(selectedArea.id)}&layer=${encodeURIComponent(layer)}`,
+                  )}>{tr(locale, "Detailed comparison ↗", "Comparación detallada ↗")}</a>
+                </section>
+              ) : null}
 
               <div className="research-detail-question">{tr(locale, "What does this view show here?", "¿Qué muestra esta vista aquí?")}</div>
               <div className="map-selection-verdict">
@@ -1242,7 +1293,7 @@ export default function CityMap({
                   className="map-selection-compare"
                   href={localeHref(
                     locale,
-                    `/compare?a=${encodeURIComponent(selectedArea.id)}&layer=${encodeURIComponent(layer)}`,
+                    `/compare?a=${encodeURIComponent(pinnedArea && pinnedArea.id !== selectedArea.id ? pinnedArea.id : selectedArea.id)}${pinnedArea && pinnedArea.id !== selectedArea.id ? `&b=${encodeURIComponent(selectedArea.id)}` : ""}&layer=${encodeURIComponent(layer)}`,
                   )}
                 >
                   {tr(locale, "Compare", "Comparar")}
