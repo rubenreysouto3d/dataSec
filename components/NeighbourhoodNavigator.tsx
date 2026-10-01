@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import type { CityMapMetric, CitySafetySignal, Neighbourhood } from "@/lib/data";
 import { MAP_COLOR_BANDS } from "@/lib/map-filters";
 import { areaDisplayName } from "@/lib/data";
-import { bandNumber, bandMode, metricForLayer, relativeBand, type MapLayerKey } from "@/lib/map-view";
+import { bandNumber, metricForLayer, type MapLayerKey } from "@/lib/map-view";
 import { tr, type Locale } from "@/lib/i18n";
 
 type Props = {
@@ -148,7 +148,7 @@ export default function NeighbourhoodNavigator({
         <div className="research-area-list">
           {matches.length === 0 ? (
             <p className="research-no-results">{tr(locale, "No areas match. Clear the search or choose a different level.", "No hay resultados. Borra la búsqueda o elige otro nivel.")}</p>
-          ) : matches.slice(0, limit).map(({ area, level, percentile }) => (
+          ) : matches.slice(0, limit).map(({ area, level }) => (
             <button
               type="button"
               key={area.id}
@@ -168,7 +168,7 @@ export default function NeighbourhoodNavigator({
               <span className="research-row-level">
                 {level === null
                   ? tr(locale, "No data", "Sin datos")
-                  : relativeBand(percentile, bandMode(layer === "contextual-overview" ? "contextual-overview" : layer === "visitor-context" ? "visitor-context" : "crime-related"), locale).replace(/^(Lowest|Lower|Highest|Menor|Mayor|Más baja|Más alta).*/, (text) => text)}
+                  : `${tr(locale, "Level", "Nivel")} ${level}/5`}
               </span>
             </button>
           ))}
