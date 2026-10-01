@@ -182,3 +182,16 @@ a,button,summary,input,select{ -webkit-tap-highlight-color:transparent }
   .site-header-actions{gap:8px}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
+
+/* The metric's long definition is available on demand, not competing with the map. */
+.explorer-active-definition{position:relative;z-index:7}
+.explorer-method-peek{position:relative;margin-left:auto;flex-shrink:0}
+.explorer-method-peek summary{list-style:none;padding:7px 10px;border:1px solid var(--line);border-radius:6px;cursor:pointer;background:white;font-size:10px;font-weight:730;color:var(--accent);white-space:nowrap}
+.explorer-method-peek summary::-webkit-details-marker{display:none}
+.explorer-method-peek summary::after{content:" +";font-size:12px}
+.explorer-method-peek[open] summary::after{content:" −"}
+.explorer-method-peek p{position:absolute;z-index:10;right:0;top:100%;width:min(390px,75vw);margin:7px 0 0;padding:17px;border:1px solid var(--line);border-radius:9px;background:white;box-shadow:var(--ds-shadow);font-size:11px;line-height:1.6;color:var(--ink)}
+@media(max-width:720px){
+  .explorer-method-peek{margin:10px 0 0}
+  .explorer-method-peek p{position:static;width:100%;box-shadow:none}
+}
