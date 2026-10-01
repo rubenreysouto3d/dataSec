@@ -19,6 +19,8 @@ export default function SearchClient({ areas, error }: Props) {
   const searchParams = useSearchParams();
   const q = searchParams.get("q") ?? "";
   const locale = localeFromValue(searchParams.get("lang"));
+  const initialView = searchParams.get("view") === "visitor" ? "visitor" : "resident";
+  const [view, setView] = useState<"resident" | "visitor">(initialView);
   const [value, setValue] = useState(q);
   const [placeLoading, setPlaceLoading] = useState(false);
   const [placeError, setPlaceError] = useState("");
@@ -49,7 +51,9 @@ export default function SearchClient({ areas, error }: Props) {
     event.preventDefault();
     const next = value.trim();
     router.push(
-      localeHref(locale, next ? `/search?q=${encodeURIComponent(next)}` : "/search"),
+      localeHref(locale, next
+        ? `/search?q=${encodeURIComponent(next)}&view=${view}`
+        : `/search?view=${view}`),
     );
   }
 
@@ -65,7 +69,9 @@ export default function SearchClient({ areas, error }: Props) {
         setPlaceError(tr(locale, "That place could not be matched to current London or Madrid coverage.", "Ese lugar no se pudo asociar a la cobertura actual de Londres o Madrid."));
         return;
       }
-      router.push(localeHref(locale, areaHref(area.id)));
+      router.push(localeHref(locale,
+        `/city/${area.citySlug}?view=${view}&area=${encodeURIComponent(area.id)}`,
+      ));
     } catch {
       setPlaceError(tr(locale, "Place lookup is temporarily unavailable.", "La búsqueda de lugares no está disponible temporalmente."));
     } finally {
@@ -82,6 +88,13 @@ export default function SearchClient({ areas, error }: Props) {
           : tr(locale, "Browse areas", "Explorar zonas")}
       </h1>
 
+      <div className="search-task-intent">
+        <span>{tr(locale, "What are you exploring?", "¿Qué quieres consultar?")}</span>
+        <div role="group" aria-label={tr(locale, "Purpose", "Objetivo")}>
+          <button type="button" className={view === "resident" ? "is-active" : ""} aria-pressed={view === "resident"} onClick={() => setView("resident")}>{tr(locale, "Living here", "Vivir aquí")}</button>
+          <button type="button" className={view === "visitor" ? "is-active" : ""} aria-pressed={view === "visitor"} onClick={() => setView("visitor")}>{tr(locale, "Visiting", "De visita")}</button>
+        </div>
+      </div>
       <form className="search-form search-form-page" onSubmit={submit}>
         <label className="sr-only" htmlFor="search-again">{tr(locale, "Search an area", "Buscar una zona")}</label>
         <input
@@ -90,7 +103,6 @@ export default function SearchClient({ areas, error }: Props) {
           value={value}
           onChange={(event) => setValue(event.target.value)}
           placeholder={tr(locale, "Try Camden, Brixton, Sol, Lavapiés…", "Prueba Camden, Brixton, Sol, Lavapiés…")}
-          autoFocus
         />
         <button type="submit">{tr(locale, "Search", "Buscar")}</button>
       </form>
@@ -144,11 +156,22 @@ export default function SearchClient({ areas, error }: Props) {
           ) : (
             <div className="search-results">
               {results.map((area) => (
-                <Link href={localeHref(locale, areaHref(area.id))} key={area.id}>
-                  <span>{area.cityName}{area.parentName ? ` · ${area.parentName}` : ""}</span>
-                  <strong>{area.name}</strong>
-                  <i>{tr(locale, "Open profile →", "Abrir ficha →")}</i>
-                </Link>
+                <article className="search-task-result" key={area.id}>
+                  <div>
+                    <span>{area.cityName}{area.parentName ? ` · ${area.parentName}` : ""}</span>
+                    <strong>{area.name}</strong>
+                  </div>
+                  <div className="search-task-actions">
+                    <Link href={localeHref(locale,
+                      `/city/${area.citySlug}?view=${view}&area=${encodeURIComponent(area.id)}`,
+                    )}>
+                      {tr(locale, "View in map →", "Ver en el mapa →")}
+                    </Link>
+                    <Link href={localeHref(locale, areaHref(area.id))}>
+                      {tr(locale, "Full profile", "Ficha completa")}
+                    </Link>
+                  </div>
+                </article>
               ))}
             </div>
           )}
