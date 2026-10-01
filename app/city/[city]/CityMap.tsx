@@ -190,7 +190,7 @@ function boundaryBounds(boundary: CityBoundary): Bounds | null {
 }
 
 function colorForPercentile(percentile: number | null) {
-  if (percentile === null || !Number.isFinite(percentile)) return "#c8c6bf";
+  if (percentile === null || !percentile !== null && Number.isFinite(percentile)) return "#c8c6bf";
   return MAP_COLOR_BANDS.find((band) => percentile < band.max)?.color ?? MAP_COLOR_BANDS.at(-1)!.color;
 }
 
@@ -252,7 +252,7 @@ function fallbackPath(boundary: CityBoundary, bounds: Bounds) {
 }
 
 function formatMetric(value: number | null, unit: string, locale: Locale) {
-  if (value === null || !Number.isFinite(value)) return tr(locale, "No value", "Sin valor");
+  if (value === null || !value !== null && Number.isFinite(value)) return tr(locale, "No value", "Sin valor");
   return value.toLocaleString(localeTag(locale), { maximumFractionDigits: 1 }) + unit;
 }
 
@@ -784,8 +784,12 @@ export default function CityMap({
             title.textContent = String(props.name ?? "");
 
             const detail = document.createElement("span");
-            const value = Number(props.value);
-            const percentile = Number(props.percentile);
+            // Null is unknown, NOT the number zero. A missing indicator must
+            // never be shown as a low-value percentile on hover.
+            const value = props.value === null || props.value === undefined || props.value === ""
+              ? null : Number(props.value);
+            const percentile = props.percentile === null || props.percentile === undefined || props.percentile === ""
+              ? null : Number(props.percentile);
             const displayMode = String(props.displayMode ?? "recorded");
             detail.textContent =
               displayMode === "resident" || displayMode === "visitor"
