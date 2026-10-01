@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { chromeCopy, localeFromValue, localeHref } from "@/lib/i18n";
 import "./globals.css";
+import "./design-refresh.css";
 
 const indexSite = process.env.NEXT_PUBLIC_INDEX_SITE === "true";
 
@@ -33,7 +34,8 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <div className="site-header-actions">
             <nav aria-label={locale === "es" ? "Navegación principal" : "Primary navigation"}>
               <Link href={localeHref(locale, "/#areas")}>{copy.cities}</Link>
-              <Link href={localeHref(locale, "/methodology")}>{copy.about}</Link>
+              <Link href={localeHref(locale, "/search")}>{locale === "es" ? "Buscar" : "Search"}</Link>
+              <Link href={localeHref(locale, "/methodology")}>{copy.methodology}</Link>
             </nav>
             <LanguageSwitcher locale={locale} />
           </div>
