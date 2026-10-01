@@ -869,6 +869,20 @@ export default function CityMap({
 
   return (
     <section className="city-map-panel interactive-map-panel explorer-map" style={MAP_COLOR_STYLE}>
+      <div className="explorer-intro">
+        <div>
+          <span className="data-kicker">{tr(locale, "Neighbourhood explorer", "Explorador de barrios")}</span>
+          <h1>{cityName}</h1>
+          <p>{tr(locale,
+            "Select an area to see its local level, supporting figures and source context.",
+            "Selecciona una zona para ver su nivel local, las cifras y el contexto de la fuente.",
+          )}</p>
+        </div>
+        <div className="explorer-period">
+          <span>{tr(locale, "Latest recorded month", "Último mes registrado")}</span>
+          <strong>{latestMonth ? formatMonth(latestMonth, locale) : tr(locale, "Pending", "Pendiente")}</strong>
+        </div>
+      </div>
       <div className="explorer-toolbar">
         <div className="explorer-mode">
           <span className="explorer-toolbar-label">{tr(locale, "View for", "Vista para")}</span>
@@ -975,14 +989,15 @@ export default function CityMap({
               ? `${cityName} ${tr(locale, "Visitor", "Visitante")}`
               : `${cityName} ${tr(locale, "filter", "filtro")}`}
         </strong>
-        <span>{currentMethod}</span>
-        <small>
-          {tr(
-            locale,
-            "Local comparison only · not comparable as one score across cities",
-            "Comparación solo local · no es una puntuación comparable entre ciudades",
-          )}
-        </small>
+        <span>{tr(
+          locale,
+          "Relative to other areas in this city, not a cross-city safety score.",
+          "Relativo a otras zonas de esta ciudad; no es una puntuación de seguridad entre ciudades.",
+        )}</span>
+        <details className="explorer-method-peek">
+          <summary>{tr(locale, "Indicator & method", "Indicador y método")}</summary>
+          <p>{activeMetricCopy[metricKey].note} {currentMethod}</p>
+        </details>
       </div>
 
       <div className={`map-stage ${selectedArea ? "has-selection" : ""}`}>
@@ -1093,7 +1108,7 @@ export default function CityMap({
               <div className="map-selection-verdict">
                 <i style={{ background: colorForPercentile(selectedMetric.percentile) }} />
                 <div>
-                  <strong>{relativeBand(selectedMetric.percentile, bandMode(metricKey))}</strong>
+                  <strong>{relativeBand(selectedMetric.percentile, bandMode(metricKey), locale)}</strong>
                   <small>
                     {selectedPercentile !== null
                       ? locale === "es"
