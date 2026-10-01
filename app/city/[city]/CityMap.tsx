@@ -791,26 +791,29 @@ export default function CityMap({
             const percentile = props.percentile === null || props.percentile === undefined || props.percentile === ""
               ? null : Number(props.percentile);
             const displayMode = String(props.displayMode ?? "recorded");
+            const numericValue = value === null || !Number.isFinite(value) ? null : value;
+            const position = percentile === null || !Number.isFinite(percentile)
+              ? null : Math.round(percentile * 100);
             detail.textContent =
               displayMode === "resident" || displayMode === "visitor"
                 ? String(props.band ?? "No city comparison")
-                : Number.isFinite(value)
-                  ? `${value.toLocaleString(localeTag(locale), { maximumFractionDigits: 1 })}${props.unit ?? ""}`
+                : numericValue !== null
+                  ? `${numericValue.toLocaleString(localeTag(locale), { maximumFractionDigits: 1 })}${props.unit ?? ""}`
                   : String(props.band ?? tr(locale, "No value", "Sin valor"));
 
             const context = document.createElement("small");
-            context.textContent = Number.isFinite(percentile)
+            context.textContent = position !== null
               ? displayMode === "resident"
                 ? locale === "es"
-                  ? `La preocupación residencial es mayor que en aproximadamente el ${Math.round(percentile * 100)}% de las zonas de ${cityName}`
-                  : `Residential concern is higher than about ${Math.round(percentile * 100)}% of ${cityName} areas`
+                  ? `La preocupación residencial es mayor que en aproximadamente el ${position}% de las zonas de ${cityName}`
+                  : `Residential concern is higher than about ${position}% of ${cityName} areas`
                 : displayMode === "visitor"
                   ? locale === "es"
-                    ? `La exposición para visitantes es mayor que en aproximadamente el ${Math.round(percentile * 100)}% de las zonas de ${cityName}`
-                    : `Visitor exposure is higher than about ${Math.round(percentile * 100)}% of ${cityName} areas`
+                    ? `La exposición para visitantes es mayor que en aproximadamente el ${position}% de las zonas de ${cityName}`
+                    : `Visitor exposure is higher than about ${position}% of ${cityName} areas`
                   : locale === "es"
-                    ? `El nivel registrado es mayor que en aproximadamente el ${Math.round(percentile * 100)}% de las zonas de ${cityName}`
-                    : `Recorded level is higher than about ${Math.round(percentile * 100)}% of ${cityName} areas`
+                    ? `El nivel registrado es mayor que en aproximadamente el ${position}% de las zonas de ${cityName}`
+                    : `Recorded level is higher than about ${position}% of ${cityName} areas`
               : tr(locale, "No city comparison available", "Sin comparación con la ciudad");
 
             const hint = document.createElement("small");
