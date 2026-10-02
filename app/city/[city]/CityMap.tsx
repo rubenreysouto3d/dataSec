@@ -1211,6 +1211,29 @@ export default function CityMap({
                 </div>
               </div>
 
+              <dl className="research-evidence-receipt" aria-label={tr(locale, "What was measured", "Qué se ha medido")}>
+                <div>
+                  <dt>{tr(locale, "Source records", "Registros de origen")}</dt>
+                  <dd>{selectedMetric.count === null ? "—" : selectedMetric.count.toLocaleString(localeTag(locale))}</dd>
+                </div>
+                <div>
+                  <dt>{tr(locale, "Recorded rate or density", "Tasa o densidad registrada")}</dt>
+                  <dd>{formatMetric(selectedMetric.value, selectedMetric.unit, locale)}</dd>
+                </div>
+                <div>
+                  <dt>{tr(locale, "Observation period", "Período observado")}</dt>
+                  <dd>{metricKey === "contextual-overview" && selectedSafetySignal && selectedSafetySignal.months >= 3 && selectedSafetySignal.residentPercentile !== null
+                    ? `${formatMonth(selectedSafetySignal.monthStart, locale)} – ${formatMonth(selectedSafetySignal.monthEnd, locale)}`
+                    : formatMonth(selectedBaseMetric?.month, locale)}</dd>
+                  {metricKey === "contextual-overview" && selectedSafetySignal && selectedSafetySignal.months >= 3 ? (
+                    <small>{selectedSafetySignal.months} {tr(locale, "published months; the recorded rate is monthly", "meses publicados; la tasa registrada es mensual")}</small>
+                  ) : null}
+                  {citySlug === "london" && metricKey === "contextual-overview" ? (
+                    <small>{tr(locale, "Population baseline: 2021 Census", "Población de referencia: censo de 2021")}</small>
+                  ) : null}
+                </div>
+              </dl>
+
               {metricKey === "contextual-overview" &&
               selectedSafetySignal !== undefined &&
               selectedSafetySignal.months >= 3 &&
