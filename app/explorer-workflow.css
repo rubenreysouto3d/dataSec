@@ -199,3 +199,15 @@
 .method-source-alert p{font-size:11px;line-height:1.7;max-width:900px;color:#615642}
 @media(max-width:720px){.method-source-methods{margin:24px auto;padding:18px}
   .method-source-cards{grid-template-columns:1fr}.method-source-cards article{padding:18px}}
+
+/* Evidence receipt: show numerator, denominator-derived measurement and dates. */
+.research-evidence-receipt{
+  display:grid;grid-template-columns:1fr 1fr;gap:10px;
+  margin:0 0 16px;padding:12px 0 15px;border-bottom:1px solid #e0e8ea;
+}
+.research-evidence-receipt>div{min-width:0;border:1px solid #e1e8ea;border-radius:7px;background:#fafcfc;padding:9px 10px}
+.research-evidence-receipt>div:last-child{grid-column:1/-1}
+.research-evidence-receipt dt{font-size:9px;line-height:1.4;letter-spacing:.035em;color:#60727a;margin-bottom:4px;font-weight:740}
+.research-evidence-receipt dd{font-size:15px;letter-spacing:-.035em;font-weight:780;color:#1b363f;margin:0;overflow-wrap:anywhere}
+.research-evidence-receipt small{display:block;color:#61747b;font-size:9px;line-height:1.6;margin:4px 0 0}
+@media(max-width:420px){.research-evidence-receipt dd{font-size:14px}}
