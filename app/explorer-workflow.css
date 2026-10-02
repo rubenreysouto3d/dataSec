@@ -169,3 +169,15 @@
 .research-inline-compare article>strong{display:block;font-size:16px;letter-spacing:-.045em;margin-top:7px}
 .research-inline-compare p{font-size:10px;line-height:1.55;color:#61757b;margin:11px 0}
 .research-inline-compare a{font-size:11px;font-weight:740;text-decoration:none;color:#1d5961}
+
+/* Source provenance is part of the decision, never hidden below legal copy. */
+.source-location-caveat{
+  display:block;margin:12px 0 18px;padding:15px 16px;border:1px solid #ddca9f;
+  border-left:4px solid #ac832f;border-radius:8px;background:#fffaf0;color:#4f3d1b
+}
+.source-location-caveat strong{display:block;font-size:12px;font-weight:760;line-height:1.4}
+.source-location-caveat p{font-size:11px;line-height:1.65;color:#574b34;margin:7px 0 10px}
+.source-location-caveat a{display:inline-block;font-size:11px;color:#695020;font-weight:720;text-decoration:underline}
+.explorer-map .source-location-caveat{margin:0 0 15px;padding:12px 13px}
+.explorer-map .source-location-caveat strong{font-size:11px}
+.explorer-map .source-location-caveat p{font-size:10px;line-height:1.55}
