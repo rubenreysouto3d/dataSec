@@ -181,3 +181,21 @@
 .explorer-map .source-location-caveat{margin:0 0 15px;padding:12px 13px}
 .explorer-map .source-location-caveat strong{font-size:11px}
 .explorer-map .source-location-caveat p{font-size:10px;line-height:1.55}
+
+/* The meaning of an indicator is an explicit, readable page section. */
+.method-source-methods{max-width:1250px;margin:35px auto 46px;border:1px solid #d8e3e5;
+  border-radius:14px;background:#f9fbfb;padding:clamp(20px,3vw,40px)}
+.method-source-methods>h2{font-size:clamp(25px,3vw,39px);line-height:1.17;
+  letter-spacing:-.055em;font-weight:750;margin:9px 0 12px;color:#20363f}
+.method-source-methods>p{font-size:13px;line-height:1.65;color:#536971;margin:0 0 22px;max-width:760px}
+.method-source-cards{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.method-source-cards article{border:1px solid #dce5e7;border-radius:11px;padding:22px;background:#fff;min-width:0}
+.method-source-cards h3{font-size:18px;line-height:1.25;letter-spacing:-.03em;font-weight:760;margin:0 0 13px}
+.method-source-cards p{font-size:12px;line-height:1.7;color:#546a73;margin:0 0 11px}
+.method-source-cards a,.method-source-alert a{color:#24636d;font-size:11px;font-weight:750;text-decoration:underline}
+.method-source-alert{margin-top:14px;padding:19px 21px;border:1px solid #ddca9f;border-left:4px solid #ac832f;
+  border-radius:8px;background:#fffbf2}
+.method-source-alert strong{font-size:13px;font-weight:770;color:#624e27}
+.method-source-alert p{font-size:11px;line-height:1.7;max-width:900px;color:#615642}
+@media(max-width:720px){.method-source-methods{margin:24px auto;padding:18px}
+  .method-source-cards{grid-template-columns:1fr}.method-source-cards article{padding:18px}}
