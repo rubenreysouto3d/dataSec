@@ -24,8 +24,8 @@ export default function SourceLocationCaveat({ locale }: { locale: Locale }) {
     <aside className="source-location-caveat" aria-label={tr(locale, "Official source warning", "Advertencia de la fuente oficial")}>
       <strong>{tr(locale, "Special source caveat: Guindalera", "Aviso especial de la fuente: Guindalera")}</strong>
       <p>{tr(locale,
-        "Madrid's source assigns some cases closed as citizen information to the 092 service address in Guindalera, regardless of where the original request originated. This can inflate the area's total dispatch activity. The selected incident-category indicators exclude administrative categories, but they are still recorded signals rather than individual risk.",
-        "La fuente de Madrid asigna a la dirección del servicio 092 en Guindalera algunos casos cerrados como información a la ciudadanía, independientemente de dónde se originara la solicitud. Esto puede inflar la actividad policial total de este barrio. Los indicadores de categorías seleccionadas excluyen las administrativas, pero siguen siendo registros, no riesgo individual.",
+        "Madrid's source assigns some cases closed as citizen information to the 092 service address in Guindalera, regardless of where the original request originated. This can inflate the area's total dispatch activity. Crime-category filters intentionally exclude administrative categories, but that does not eliminate every possible source or location bias and they are not individual-risk measures.",
+        "La fuente de Madrid asigna a la dirección del servicio 092 en Guindalera algunos casos cerrados como información a la ciudadanía, independientemente de dónde se originara la solicitud. Esto puede inflar la actividad policial total de este barrio. Los filtros de categorías delictivas excluyen intencionadamente las administrativas, pero eso no elimina todos los posibles sesgos de fuente o ubicación ni convierte los datos en una medida de riesgo individual.",
       )}</p>
       <a href={MADRID_DISPATCH_SOURCE} target="_blank" rel="noreferrer">
         {tr(locale, "Read the municipal source note ↗", "Leer la advertencia del Ayuntamiento ↗")}
