@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import SourceLocationCaveat, { isMadridDispatchLocationCaveat } from "@/components/SourceLocationCaveat";
-import { notFound } from "next/navigation";
+import { notFound, unstable_rethrow } from "next/navigation";
 import { areaIdFromPath, areaPathId } from "@/lib/area-route";
 import { buildVisitorPercentileMap, CITY_FILTER_METHODS } from "@/lib/map-filters";
 import {
@@ -99,7 +99,8 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
           ? `${place}, ${area.cityName}: contexto de seguridad para residentes y visitantes a partir de datos públicos oficiales. ${latestContext} Incluye tendencia reciente, fuente y metodología.`
           : `${place}, ${area.cityName}: Resident and Visitor safety context from official public data. ${latestContext} Recent trend, source and methodology included.`,
     };
-  } catch {
+  } catch (error) {
+    unstable_rethrow(error);
     return { title: tr(locale, "Area profile", "Ficha de zona") };
   }
 }
@@ -130,6 +131,7 @@ export default async function AreaPage({ params, searchParams }: Props) {
       safetySignals = await getCitySafetySignals(area.citySlug, cityAreaIds, cityMapMetrics);
     }
   } catch (error) {
+    unstable_rethrow(error);
     console.error(error);
     return (
       <main className="area-page">
