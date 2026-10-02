@@ -103,9 +103,9 @@ export function metricForLayer(
   if (layer === "visitor-context") {
     return {
       percentile: visitorPercentile ?? null,
-      value: null,
-      count: null,
-      unit: "",
+      value: metric?.theftPerKm2 ?? null,
+      count: metric?.theftCount ?? null,
+      unit: "/km²",
     };
   }
 
@@ -217,9 +217,9 @@ export function bandMode(
 export function mapLayerLabel(layer: MapLayerKey, locale: Locale = "en") {
   switch (layer) {
     case "contextual-overview":
-      return tr(locale, "Resident context", "Contexto para residentes");
+      return tr(locale, "Recorded residential indicator", "Indicador residencial registrado");
     case "visitor-context":
-      return tr(locale, "Visitor context", "Contexto para visitantes");
+      return tr(locale, "Recorded theft-category density", "Densidad de hurtos y robos registrados");
     case "residential-harm":
       return tr(locale, "Personal harm · recent history", "Daño personal · historial reciente");
     case "violence-property-resident":
