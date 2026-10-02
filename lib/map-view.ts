@@ -199,11 +199,11 @@ export function relativeBand(
     return tr(locale, "Highest recorded level", "Mayor nivel registrado");
   }
 
-  if (percentile < 0.2) return tr(locale, "Lowest 20% of areas", "20% de zonas con señal más baja");
-  if (percentile < 0.4) return tr(locale, "Lower than most areas", "Más baja que en la mayoría de zonas");
+  if (percentile < 0.2) return tr(locale, "Lowest relative band", "Banda relativa más baja");
+  if (percentile < 0.4) return tr(locale, "Lower relative band", "Banda relativa baja");
   if (percentile < 0.6) return tr(locale, "Around the city middle", "En torno a la media de la ciudad");
-  if (percentile < 0.8) return tr(locale, "Higher than most areas", "Más alta que en la mayoría de zonas");
-  return tr(locale, "Highest 20% of areas", "20% de zonas con señal más alta");
+  if (percentile < 0.8) return tr(locale, "Higher relative band", "Banda relativa alta");
+  return tr(locale, "Highest relative band", "Banda relativa más alta");
 }
 
 export function bandMode(
