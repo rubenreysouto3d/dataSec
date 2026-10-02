@@ -618,22 +618,18 @@ function percentileByValue(
   return new Map(items.map((item) => [item.key, firstRank.get(item.value) ?? 0]));
 }
 
+// Locked source-specific categories. A newly published dispatch type must be
+// reviewed explicitly before it is counted as personal-harm-related data.
+const MADRID_PERSONAL_HARM_SLUGS = new Set([
+  "madrid-dispatch-amenazas-y-atentados-terroristas",
+  "madrid-dispatch-atentado-agresion-a-empleado-publico",
+  "madrid-dispatch-reyertas-agresiones",
+  "madrid-dispatch-robos-con-violencia-intimidacion",
+  "madrid-dispatch-violencia-de-genero-y-familiar",
+]);
+
 function isMadridPersonalHarmMetric(metric: MetricRow) {
-  const text = `${metric.slug} ${metric.label}`
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-
-  const violentRobbery =
-    /robo/.test(text) && /(violencia|intimidacion)/.test(text);
-  const familyOrGenderViolence =
-    /violencia/.test(text) && /(genero|familiar)/.test(text);
-
-  return (
-    /reyerta|agresion|amenaza|atentado/.test(text) ||
-    violentRobbery ||
-    familyOrGenderViolence
-  );
+  return MADRID_PERSONAL_HARM_SLUGS.has(metric.slug);
 }
 
 function monthOffset(month: string, delta: number) {
@@ -745,37 +741,20 @@ export async function getCitySafetySignals(
     "descending",
   );
 
-  const withContext = withResident.map((item) => {
+  // District survey remains an independent 2025 piece of contextual evidence.
+  // Its district-level responses never alter a neighbourhood's crime/dispatch
+  // colour: combining percentiles at two geographies would hide their meaning.
+  return withResident.map((item) => {
     const districtCode = madridDistrictCode(item.areaId);
     const district = districtCode ? MADRID_DISTRICT_NIGHT_SAFETY_2025[districtCode] : undefined;
-    const districtConcernPercentile =
-      districtCode && district ? districtConcern.get(districtCode) ?? null : null;
-    const contextualRaw =
-      item.residentPercentile !== null && districtConcernPercentile !== null
-        ? (item.residentPercentile + districtConcernPercentile) / 2
-        : null;
     return {
       ...item,
       districtName: district?.name ?? null,
       districtNightSafety: district?.score ?? null,
-      districtConcernPercentile,
-      contextualRaw,
+      districtConcernPercentile:
+        districtCode && district ? districtConcern.get(districtCode) ?? null : null,
     };
   });
-
-  const overviewRanks = percentileByValue(
-    withContext
-      .filter((item) => item.contextualRaw !== null)
-      .map((item) => ({ key: item.areaId, value: item.contextualRaw ?? 0 })),
-  );
-
-  return withContext.map(({ contextualRaw: _contextualRaw, ...item }) => ({
-    ...item,
-    contextualConcernPercentile:
-      item.residentPercentile === null || item.districtConcernPercentile === null
-        ? null
-        : overviewRanks.get(item.areaId) ?? null,
-  }));
 }
 
 export async function getCityHarmTrends(
