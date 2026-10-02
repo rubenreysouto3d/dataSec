@@ -270,3 +270,23 @@
 @media (prefers-reduced-motion:reduce){
   .atlas *{scroll-behavior:auto!important;transition:none!important;animation:none!important}
 }
+
+/* Prototype owns its navigation. The established site keeps its normal chrome. */
+body:has(> .atlas) > .site-header,body:has(> .atlas) > .site-footer{display:none}
+body:has(> .atlas){background:#f5f6f1}
+.atlas-lab-strip{min-height:46px;background:#10272a;position:relative}
+.atlas-lab-strip>.atlas-mono{white-space:nowrap;color:#fff;font-size:13px;letter-spacing:-.04em}
+.atlas-lab-strip>.atlas-mono b{font-weight:500;color:#d7f17d}
+.atlas-lab-strip>.atlas-mono small{font-size:8px;vertical-align:top;letter-spacing:.01em}
+.atlas-lab-actions{display:flex;align-items:center;gap:18px}
+.atlas-lab-actions>a{font-family:Consolas,monospace;color:#d7f17d;font-size:10px;font-weight:740;
+  text-decoration:none;white-space:nowrap}
+.atlas-lab-actions>a:first-child{border:1px solid #66847c;border-radius:3px;padding:6px 8px}
+.atlas-lab-actions>a:hover{color:#fff}
+@media(min-width:701px){
+  .atlas-directory{top:0;max-height:100vh}
+}
+@media(max-width:700px){
+  .atlas-lab-strip{flex-wrap:nowrap}
+  .atlas-lab-strip>span:nth-child(2){display:none}
+}
