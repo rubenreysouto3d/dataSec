@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import SourceLocationCaveat, { isMadridDispatchLocationCaveat } from "@/components/SourceLocationCaveat";
 import { notFound } from "next/navigation";
 import { areaIdFromPath, areaPathId } from "@/lib/area-route";
 import { buildVisitorPercentileMap, CITY_FILTER_METHODS } from "@/lib/map-filters";
@@ -263,6 +264,8 @@ export default async function AreaPage({ params, searchParams }: Props) {
           </Link>
         </div>
       </section>
+
+      {isMadridDispatchLocationCaveat(area.citySlug, area.name) ? <SourceLocationCaveat locale={locale} /> : null}
 
       <section className="area-perspectives area-perspectives-compact">
         <div className="area-perspectives-title">
