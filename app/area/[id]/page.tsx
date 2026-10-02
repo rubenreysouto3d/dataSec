@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import SourceLocationCaveat, { isMadridDispatchLocationCaveat } from "@/components/SourceLocationCaveat";
 import { notFound, unstable_rethrow } from "next/navigation";
+import { connection } from "next/server";
 import { areaIdFromPath, areaPathId } from "@/lib/area-route";
 import { buildVisitorPercentileMap, CITY_FILTER_METHODS } from "@/lib/map-filters";
 import {
@@ -73,6 +74,10 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
+  // No known area params are generated for Vercel: await the request before
+  // reading dynamic details, rather than triggering a static-render bailout.
+  // The optional GitHub Pages full export resolves all params at build time.
+  if (process.env.GITHUB_PAGES !== "true") await connection();
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const locale = localeFromValue(query.lang);
   const areaId = areaIdFromPath(id);
@@ -106,6 +111,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 }
 
 export default async function AreaPage({ params, searchParams }: Props) {
+  if (process.env.GITHUB_PAGES !== "true") await connection();
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const locale = localeFromValue(query.lang);
   const areaId = areaIdFromPath(id);
