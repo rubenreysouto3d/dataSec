@@ -211,3 +211,22 @@
 .research-evidence-receipt dd{font-size:15px;letter-spacing:-.035em;font-weight:780;color:#1b363f;margin:0;overflow-wrap:anywhere}
 .research-evidence-receipt small{display:block;color:#61747b;font-size:9px;line-height:1.6;margin:4px 0 0}
 @media(max-width:420px){.research-evidence-receipt dd{font-size:14px}}
+
+/* Higher specificity than legacy .map-selection-card dl rules, including
+   legacy mobile three-column layouts. Keep all three evidence fields legible. */
+.map-selection-card .research-evidence-receipt{
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  gap:10px;margin:0 0 16px;
+}
+.map-selection-card .research-evidence-receipt>div{
+  display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;
+  min-width:0;padding:10px;gap:2px;
+}
+.map-selection-card .research-evidence-receipt>div:last-child{grid-column:1/-1}
+.map-selection-card .research-evidence-receipt dd{
+  display:block;width:100%;margin:0;text-align:left;overflow-wrap:anywhere;
+}
+@media(max-width:380px){
+  .map-selection-card .research-evidence-receipt{grid-template-columns:minmax(0,1fr)}
+  .map-selection-card .research-evidence-receipt>div:last-child{grid-column:1}
+}
