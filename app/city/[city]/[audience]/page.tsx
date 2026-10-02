@@ -49,7 +49,7 @@ const audienceCopy: Record<Audience, {
   visitor: {
     title: "Neighbourhood context for visitors",
     description: "Compare neighbourhoods using the same Visitor signal as the interactive map.",
-    intro: "For short stays and accommodation decisions. The signal weights theft and robbery more heavily and is designed to avoid treating resident population as the only exposure denominator.",
+    intro: "For short stays and accommodation decisions. The view uses one direct recorded indicator: theft, robbery and related property records per km²; no visitor-footfall denominator is available.",
   },
 };
 
@@ -137,14 +137,14 @@ export default async function CityAudiencePage({ params, searchParams }: Props) 
     audience === "visitor"
       ? tr(
           locale,
-          "70% theft + robbery concentration + 30% violence + property concentration",
-          "70% concentración de hurtos + robos + 30% concentración de violencia + propiedad",
+          "Recorded theft, robbery and related property categories per km² in the source month; not adjusted for visitor footfall.",
+          "Hurtos, robos y categorías de propiedad relacionadas registradas por km² en el mes de la fuente; sin ajuste por afluencia de visitantes.",
         )
-      : city === "madrid" && safetySignals.some((signal) => signal.contextualConcernPercentile !== null)
+      : city === "madrid" && safetySignals.some((signal) => signal.months >= 3 && signal.residentPercentile !== null)
         ? tr(
             locale,
-            "50% recent personal-harm percentile + 50% 2025 district night-safety perception percentile",
-            "50% percentil de daño personal reciente + 50% percentil de percepción de seguridad nocturna del distrito en 2025",
+            "Recorded selected personal-harm-related dispatches per 10,000 residents per month over recent available months. The 2025 district survey is shown separately.",
+            "Incidencias registradas de categorías seleccionadas relacionadas con daño personal por 10.000 residentes y mes durante los meses recientes disponibles. La encuesta distrital de 2025 se muestra por separado.",
           )
         : cityFilterMethods(city, locale).residentFallbackMethod;
 
