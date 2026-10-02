@@ -23,6 +23,13 @@ import {
   type Locale,
 } from "@/lib/i18n";
 
+// A zero-param generateStaticParams route can be marked for ISR and can
+// bail out as DYNAMIC_SERVER_USAGE on live first-hit rendering. These profiles
+// depend on live validated sources: run them at request time on Vercel.
+// The paused optional GitHub Pages static export needs a separate route
+// strategy before reactivation.
+export const dynamic = "force-dynamic";
+
 type Props = {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ lang?: string }>;
