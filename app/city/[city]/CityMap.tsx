@@ -253,7 +253,7 @@ function fallbackPath(boundary: CityBoundary, bounds: Bounds) {
 }
 
 function formatMetric(value: number | null, unit: string, locale: Locale) {
-  if (value === null || !value !== null && Number.isFinite(value)) return tr(locale, "No value", "Sin valor");
+  if (value === null || !Number.isFinite(value)) return tr(locale, "No value", "Sin valor");
   return value.toLocaleString(localeTag(locale), { maximumFractionDigits: 1 }) + unit;
 }
 
