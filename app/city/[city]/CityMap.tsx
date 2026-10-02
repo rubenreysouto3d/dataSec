@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { areaHref } from "@/lib/area-route";
 import NeighbourhoodNavigator from "@/components/NeighbourhoodNavigator";
+import SourceLocationCaveat, { isMadridDispatchLocationCaveat } from "@/components/SourceLocationCaveat";
 import { locateAreaByCoordinates, resolvePlaceToArea } from "@/lib/public-data-client";
 import { areaDisplayName, cityNames } from "@/lib/data";
 import {
@@ -1152,6 +1153,7 @@ export default function CityMap({
                 {cityName}{selectedArea.parentName ? ` · ${selectedArea.parentName}` : ""} · {formatMonth(latestMonth, locale)}
               </span>
               <h3>{selectedArea.name}</h3>
+              {isMadridDispatchLocationCaveat(citySlug, selectedArea.name) ? <SourceLocationCaveat locale={locale} /> : null}
               <div className="research-pin-control">
                 <button
                   type="button"
