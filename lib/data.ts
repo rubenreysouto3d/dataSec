@@ -1,4 +1,5 @@
 import { canonicalCategory, humanCategory } from "./category-taxonomy";
+import MADRID_PERSONAL_HARM_CATEGORIES from "@/data/sources/madrid-personal-harm-categories.json";
 
 const SUPABASE_URL = "https://pjyaevghxbimhknvmbxb.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_C5PkZoLjbXCuItBfzftrkw_KMLJB8E3";
@@ -620,13 +621,7 @@ function percentileByValue(
 
 // Locked source-specific categories. A newly published dispatch type must be
 // reviewed explicitly before it is counted as personal-harm-related data.
-const MADRID_PERSONAL_HARM_SLUGS = new Set([
-  "madrid-dispatch-amenazas-y-atentados-terroristas",
-  "madrid-dispatch-atentado-agresion-a-empleado-publico",
-  "madrid-dispatch-reyertas-agresiones",
-  "madrid-dispatch-robos-con-violencia-intimidacion",
-  "madrid-dispatch-violencia-de-genero-y-familiar",
-]);
+const MADRID_PERSONAL_HARM_SLUGS = new Set(MADRID_PERSONAL_HARM_CATEGORIES);
 
 function isMadridPersonalHarmMetric(metric: MetricRow) {
   return MADRID_PERSONAL_HARM_SLUGS.has(metric.slug);
