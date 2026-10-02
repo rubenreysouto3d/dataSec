@@ -30,12 +30,20 @@ assert.equal(scored.get("measured-zero"), 0);
 const data = readFileSync(new URL("../lib/data.ts", import.meta.url), "utf8");
 const view = readFileSync(new URL("../lib/map-view.ts", import.meta.url), "utf8");
 const policy = readFileSync(new URL("../docs/indicator-policy.md", import.meta.url), "utf8");
-const allowedSection = data.split("const MADRID_PERSONAL_HARM_SLUGS = new Set([")[1]?.split("]);")[0];
-assert.ok(allowedSection, "Explicit Madrid personal-harm source category list required");
-assert.ok(allowedSection.includes("reyertas-agresiones"));
-assert.ok(allowedSection.includes("robos-con-violencia-intimidacion"));
-assert.ok(allowedSection.includes("violencia-de-genero-y-familiar"));
-assert.ok(!allowedSection.includes("fallecidos-por-delito-o-causa-desconocida"), "Unknown-cause death isn't an explicit personal-harm event");
+const categories = JSON.parse(readFileSync(
+  new URL("../data/sources/madrid-personal-harm-categories.json", import.meta.url),
+  "utf8",
+));
+assert.equal(categories.length, new Set(categories).size, "Duplicate Madrid categories");
+assert.ok(categories.length >= 3);
+assert.ok(categories.includes("madrid-dispatch-reyertas-agresiones"));
+assert.ok(categories.includes("madrid-dispatch-robos-con-violencia-intimidacion"));
+assert.ok(categories.includes("madrid-dispatch-violencia-de-genero-y-familiar"));
+assert.ok(!categories.some((slug) => slug.includes("fallecidos-por-delito-o-causa-desconocida")),
+  "Unknown-cause death isn't an explicitly personal-harm event");
+const health = readFileSync(new URL("./check-data-store.mjs", import.meta.url), "utf8");
+assert.ok(data.includes("MADRID_PERSONAL_HARM_CATEGORIES"), "App must use shared audited category list");
+assert.ok(health.includes("madrid-personal-harm-categories.json"), "Data-health must use the same categories as the app");
 assert.ok(!data.includes("contextualConcernPercentile"), "Legacy survey/incident blended percentile retired");
 assert.ok(!view.includes("contextualConcernPercentile"), "Map may not silently reinstate the retired mixed signal");
 assert.ok(policy.includes("Guindalera") && policy.includes("092"), "Administrative location anomaly remains documented");
