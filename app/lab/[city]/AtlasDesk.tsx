@@ -124,10 +124,16 @@ export default function AtlasDesk({
   return (
     <main className="atlas" id="atlas-main">
       <div className="atlas-lab-strip">
-        <span className="atlas-mono">DS / PRODUCT LAB 02</span>
-        <span>{tr(locale, "Alternative product experience · preview, not the public homepage",
-          "Nueva experiencia de producto · versión de prueba, no la portada pública")}</span>
-        <Link href={localeHref(locale, "/")}>{tr(locale, "Current website ↗", "Web actual ↗")}</Link>
+        <span className="atlas-mono">dataSec <b>/ ATLAS</b> <small>V2</small></span>
+        <span>{tr(locale, "Independent product prototype · live official data",
+          "Prototipo independiente · datos oficiales reales")}</span>
+        <div className="atlas-lab-actions">
+          <Link href={localeHref(locale === "es" ? "en" : "es",
+            `/lab/${city}?view=${mode}${selectedId ? `&area=${encodeURIComponent(selectedId)}` : ""}`)}>
+            {locale === "es" ? "EN" : "ES"}
+          </Link>
+          <Link href={localeHref(locale, "/")}>{tr(locale, "Current website ↗", "Web actual ↗")}</Link>
+        </div>
       </div>
       <header className="atlas-heading">
         <div>
