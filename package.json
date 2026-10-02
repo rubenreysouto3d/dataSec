@@ -8,7 +8,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "check:source": "node scripts/check-police-contract.mjs",
-    "check:data": "node scripts/check-data-store.mjs"
+    "check:data": "node scripts/check-data-store.mjs",
+    "check:method": "node --experimental-strip-types scripts/check-indicator-method.mjs"
   },
   "dependencies": {
     "next": "16.3.6",

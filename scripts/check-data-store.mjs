@@ -225,14 +225,10 @@ if (
 }
 
 
-const madridHarmSlugs = [
-  "madrid-dispatch-amenazas-y-atentados-terroristas",
-  "madrid-dispatch-atentado-agresion-a-empleado-publico",
-  "madrid-dispatch-fallecidos-por-delito-o-causa-desconocida",
-  "madrid-dispatch-reyertas-agresiones",
-  "madrid-dispatch-robos-con-violencia-intimidacion",
-  "madrid-dispatch-violencia-de-genero-y-familiar",
-];
+const madridHarmSlugs = JSON.parse(readFileSync(
+  new URL("../data/sources/madrid-personal-harm-categories.json", import.meta.url),
+  "utf8",
+));
 const madridHistoryStart = shiftMonth(madrid.latestMonth, -5);
 const madridHarmRows = [];
 const madridHarmPageSize = 1000;

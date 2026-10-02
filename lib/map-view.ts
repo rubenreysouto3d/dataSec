@@ -74,41 +74,38 @@ export function metricForLayer(
   visitorPercentile?: number | null,
 ): MapLayerMetric {
   if (layer === "contextual-overview") {
+    // Madrid's observational time series takes priority when it has >=3
+    // observed months. Survey perception is shown separately and NEVER
+    // combined arithmetically with reported incident records.
+    const hasRecentHarm = safetySignal !== undefined &&
+      safetySignal.months >= 3 &&
+      safetySignal.residentPercentile !== null &&
+      safetySignal.personalHarmPer10k !== null;
     const hasResidentValue =
       metric?.violencePropertyResidentPercentile !== null &&
       metric?.violencePropertyResidentPercentile !== undefined &&
       metric?.violencePropertyPer10k !== null &&
       metric?.violencePropertyPer10k !== undefined;
-    const fallbackPercentile =
-      metric?.violencePropertyResidentPercentile ??
-      metric?.violencePropertyDensityPercentile ??
-      null;
     return {
-      percentile: safetySignal?.contextualConcernPercentile ?? fallbackPercentile,
-      value:
-        safetySignal?.contextualConcernPercentile !== null &&
-        safetySignal?.contextualConcernPercentile !== undefined
-          ? null
-          : hasResidentValue
-            ? metric?.violencePropertyPer10k ?? null
-            : metric?.violencePropertyPerKm2 ?? null,
-      count: safetySignal?.personalHarmCount ?? metric?.violencePropertyCount ?? null,
-      unit:
-        safetySignal?.contextualConcernPercentile !== null &&
-        safetySignal?.contextualConcernPercentile !== undefined
-          ? ""
-          : hasResidentValue
-            ? "/10k residents"
-            : "/km²",
+      percentile: hasRecentHarm
+        ? safetySignal.residentPercentile
+        : hasResidentValue ? metric!.violencePropertyResidentPercentile : null,
+      value: hasRecentHarm
+        ? safetySignal.personalHarmPer10k
+        : hasResidentValue ? metric!.violencePropertyPer10k : null,
+      count: hasRecentHarm
+        ? safetySignal.personalHarmCount
+        : hasResidentValue ? metric!.violencePropertyCount : null,
+      unit: hasRecentHarm ? "/10k residents / month" : "/10k residents",
     };
   }
 
   if (layer === "visitor-context") {
     return {
       percentile: visitorPercentile ?? null,
-      value: null,
-      count: null,
-      unit: "",
+      value: metric?.theftPerKm2 ?? null,
+      count: metric?.theftCount ?? null,
+      unit: "/km²",
     };
   }
 
@@ -192,27 +189,21 @@ export function relativeBand(
     return tr(locale, "No city comparison", "Sin comparación con la ciudad");
   }
 
-  if (mode === "resident") {
-    if (percentile < 0.2) return tr(locale, "Lowest residential concern", "Menor preocupación residencial");
-    if (percentile < 0.4) return tr(locale, "Lower residential concern", "Preocupación residencial baja");
+  if (mode === "resident" || mode === "visitor") {
+    // The same vocabulary works for both observable indicators without
+    // presenting an incident percentile as personal safety or exposure.
+    if (percentile < 0.2) return tr(locale, "Lowest recorded level", "Menor nivel registrado");
+    if (percentile < 0.4) return tr(locale, "Lower recorded level", "Nivel registrado bajo");
     if (percentile < 0.6) return tr(locale, "Around the city middle", "En torno a la media de la ciudad");
-    if (percentile < 0.8) return tr(locale, "Higher residential concern", "Preocupación residencial alta");
-    return tr(locale, "Highest residential concern", "Mayor preocupación residencial");
+    if (percentile < 0.8) return tr(locale, "Higher recorded level", "Nivel registrado alto");
+    return tr(locale, "Highest recorded level", "Mayor nivel registrado");
   }
 
-  if (mode === "visitor") {
-    if (percentile < 0.2) return tr(locale, "Lowest visitor exposure", "Menor exposición para visitantes");
-    if (percentile < 0.4) return tr(locale, "Lower visitor exposure", "Exposición baja para visitantes");
-    if (percentile < 0.6) return tr(locale, "Around the city middle", "En torno a la media de la ciudad");
-    if (percentile < 0.8) return tr(locale, "Higher visitor exposure", "Exposición alta para visitantes");
-    return tr(locale, "Highest visitor exposure", "Mayor exposición para visitantes");
-  }
-
-  if (percentile < 0.2) return tr(locale, "Lowest 20% of areas", "20% de zonas con señal más baja");
-  if (percentile < 0.4) return tr(locale, "Lower than most areas", "Más baja que en la mayoría de zonas");
+  if (percentile < 0.2) return tr(locale, "Lowest relative band", "Banda relativa más baja");
+  if (percentile < 0.4) return tr(locale, "Lower relative band", "Banda relativa baja");
   if (percentile < 0.6) return tr(locale, "Around the city middle", "En torno a la media de la ciudad");
-  if (percentile < 0.8) return tr(locale, "Higher than most areas", "Más alta que en la mayoría de zonas");
-  return tr(locale, "Highest 20% of areas", "20% de zonas con señal más alta");
+  if (percentile < 0.8) return tr(locale, "Higher relative band", "Banda relativa alta");
+  return tr(locale, "Highest relative band", "Banda relativa más alta");
 }
 
 export function bandMode(
@@ -226,9 +217,9 @@ export function bandMode(
 export function mapLayerLabel(layer: MapLayerKey, locale: Locale = "en") {
   switch (layer) {
     case "contextual-overview":
-      return tr(locale, "Resident context", "Contexto para residentes");
+      return tr(locale, "Recorded residential indicator", "Indicador residencial registrado");
     case "visitor-context":
-      return tr(locale, "Visitor context", "Contexto para visitantes");
+      return tr(locale, "Recorded theft-category density", "Densidad de hurtos y robos registrados");
     case "residential-harm":
       return tr(locale, "Personal harm · recent history", "Daño personal · historial reciente");
     case "violence-property-resident":

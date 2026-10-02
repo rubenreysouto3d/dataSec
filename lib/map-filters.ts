@@ -34,11 +34,11 @@ export const MAP_ADVANCED_FILTERS = [
 ] as const;
 
 export const MAP_COLOR_BANDS = [
-  { max: 0.2, label: "Lowest 20%", color: "#3f9b63" },
+  { max: 0.2, label: "Lowest band", color: "#3f9b63" },
   { max: 0.4, label: "Lower", color: "#8ab85b" },
   { max: 0.6, label: "Middle", color: "#dfc64c" },
   { max: 0.8, label: "Higher", color: "#e28a43" },
-  { max: 1, label: "Highest 20%", color: "#c84c3f" },
+  { max: 1, label: "Highest band", color: "#c84c3f" },
 ] as const;
 
 export type MapAudienceKey = (typeof MAP_AUDIENCES)[number]["key"];
@@ -100,33 +100,19 @@ export function cityFilterMethods(citySlug: CitySlug, locale: Locale) {
   return locale === "es" ? CITY_FILTER_METHODS_ES[citySlug] : CITY_FILTER_METHODS[citySlug];
 }
 
+/**
+ * Tourist-oriented observable indicator, not an estimate of the chance that a
+ * visitor will experience a crime. Keep the underlying category mix inspectable.
+ * Avoid opaque, unvalidated blends of unlike category percentiles.
+ */
 export function visitorExposureScore(metric: CityMapMetric | undefined) {
-  if (!metric) return null;
-  const theft = metric.theftDensityPercentile;
-  const violence = metric.violencePropertyDensityPercentile;
-  if (theft === null && violence === null) return null;
-  if (theft === null) return violence;
-  if (violence === null) return theft;
-  return theft * 0.7 + violence * 0.3;
+  if (!metric || metric.theftPerKm2 === null) return null;
+  const value = metric.theftDensityPercentile;
+  return value !== null && Number.isFinite(value) ? value : null;
 }
 
 export function buildVisitorPercentileMap(metrics: CityMapMetric[]) {
-  const scored = metrics
-    .map((metric) => ({ areaId: metric.areaId, score: visitorExposureScore(metric) }))
-    .filter((item): item is { areaId: string; score: number } =>
-      item.score !== null && Number.isFinite(item.score),
-    )
-    .sort((a, b) => a.score - b.score);
-
-  const denominator = Math.max(scored.length - 1, 1);
-  const firstRankByScore = new Map<number, number>();
-  scored.forEach((item, index) => {
-    if (!firstRankByScore.has(item.score)) {
-      firstRankByScore.set(item.score, index / denominator);
-    }
-  });
-
   return new Map(
-    scored.map((item) => [item.areaId, firstRankByScore.get(item.score) ?? 0]),
+    metrics.map((metric) => [metric.areaId, visitorExposureScore(metric)]),
   );
 }

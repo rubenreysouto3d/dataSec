@@ -109,7 +109,7 @@ export default function CompareClient({
     [safetySignals],
   );
   const visitorById = useMemo(() => {
-    const result = new Map<string, number>();
+    const result = new Map<string, number | null>();
     for (const citySlug of ["london", "madrid"] as const) {
       const cityMetrics = metrics.filter((metric) => metric.citySlug === citySlug);
       for (const [areaId, percentile] of buildVisitorPercentileMap(cityMetrics)) {

@@ -31,7 +31,7 @@ const cityCopy: Record<CitySlug, {
   },
   madrid: {
     source: "Official municipal police dispatch incidents. This dataset is broader than crime and includes traffic, assistance, public-space and administrative responses.",
-    caution: "Counts and density are not a personal-risk score. Central neighbourhoods can legitimately concentrate recorded incidents because of nightlife, tourism and footfall; resident-normalised rates can also overstate those same areas because visitors are not included in the resident denominator.",
+    caution: "Counts and density are not a personal-risk score. Central neighbourhoods can concentrate recorded incidents because of nightlife, tourism and footfall. The visitor view has no footfall denominator. The Resident map does not combine Madrid's 2025 district perception survey with registered incidents. Guindalera has a documented 092 administrative-address artefact in total source activity.",
   },
 };
 
@@ -94,7 +94,7 @@ export default async function CityPage({ params, searchParams }: Props) {
     locale === "es"
       ? city === "london"
         ? "Las ubicaciones publicadas son anónimas y aproximadas. Una densidad alta en zonas centrales puede reflejar afluencia, vida nocturna y actividad de transporte."
-        : "Los recuentos y la densidad no son una puntuación de riesgo personal. Los barrios céntricos pueden concentrar incidencias por turismo, ocio y afluencia; las tasas por residente también pueden sobrerrepresentarlos porque los visitantes no están en el denominador."
+        : "Los recuentos y la densidad no son una puntuación de riesgo personal. El centro puede concentrar incidencias por turismo, ocio y afluencia; la vista de visitantes no dispone de un denominador de afluencia. La encuesta distrital de percepción de 2025 no se mezcla con las incidencias de la vista Residente. Guindalera presenta una distorsión administrativa documentada por el servicio 092 en la actividad total."
       : copy.caution;
 
   return (

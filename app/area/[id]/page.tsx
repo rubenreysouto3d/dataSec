@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import SourceLocationCaveat, { isMadridDispatchLocationCaveat } from "@/components/SourceLocationCaveat";
 import { notFound } from "next/navigation";
 import { areaIdFromPath, areaPathId } from "@/lib/area-route";
 import { buildVisitorPercentileMap, CITY_FILTER_METHODS } from "@/lib/map-filters";
@@ -189,19 +190,21 @@ export default async function AreaPage({ params, searchParams }: Props) {
   const cityMetric = cityMapMetrics.find((item) => item.areaId === area.id);
   const safetySignal = safetySignals.find((item) => item.areaId === area.id);
   const visitorPercentile = buildVisitorPercentileMap(cityMapMetrics).get(area.id) ?? null;
-  const residentPercentile =
-    safetySignal?.contextualConcernPercentile ??
-    cityMetric?.violencePropertyResidentPercentile ??
-    cityMetric?.violencePropertyDensityPercentile ??
-    null;
+  const hasRecentMadridEvidence = safetySignal !== undefined &&
+    safetySignal.months >= 3 && safetySignal.residentPercentile !== null &&
+    safetySignal.personalHarmPer10k !== null;
+  const residentPercentile = hasRecentMadridEvidence
+    ? safetySignal.residentPercentile
+    : cityMetric?.violencePropertyPer10k !== null &&
+        cityMetric?.violencePropertyPer10k !== undefined
+      ? cityMetric.violencePropertyResidentPercentile : null;
   const methods = CITY_FILTER_METHODS[area.citySlug];
   const residentMethod =
-    safetySignal?.contextualConcernPercentile !== null &&
-    safetySignal?.contextualConcernPercentile !== undefined
+    hasRecentMadridEvidence
       ? tr(
           locale,
-          "50% recent personal-harm percentile + 50% 2025 district night-safety perception percentile",
-          "50% percentil de daño personal reciente + 50% percentil de percepción de seguridad nocturna del distrito en 2025",
+          "Recorded selected personal-harm-related dispatches in recent available months per 10,000 registered residents per month (survey perception is independent context).",
+          "Incidencias registradas de categorías seleccionadas relacionadas con daño personal en los meses recientes disponibles por 10.000 residentes empadronados al mes (la percepción de la encuesta es contexto independiente).",
         )
       : cityMetric?.violencePropertyResidentPercentile !== null &&
           cityMetric?.violencePropertyResidentPercentile !== undefined
@@ -210,11 +213,11 @@ export default async function AreaPage({ params, searchParams }: Props) {
             ? "violencia + propiedad por 10.000 residentes · denominador del Censo de 2021"
             : "violencia + propiedad por 10.000 residentes empadronados"
           : methods.residentFallbackMethod
-        : tr(locale, "violence + property density", "densidad de violencia + propiedad");
+        : tr(locale, "Resident indicator unavailable", "Indicador residente no disponible");
   const visitorMethod = tr(
     locale,
-    "70% theft + robbery concentration + 30% violence + property concentration",
-    "70% concentración de hurtos + robos + 30% concentración de violencia + propiedad",
+    "Recorded theft, robbery and related property incidents per km²; no visitor denominator available.",
+    "Incidencias registradas de hurtos, robos y categorías de propiedad relacionadas por km²; sin denominador de visitantes.",
   );
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://data-sec.vercel.app").replace(/\/$/, "");
   const widgetPathId = encodeURIComponent(areaPathId(area.id));
@@ -261,6 +264,8 @@ export default async function AreaPage({ params, searchParams }: Props) {
           </Link>
         </div>
       </section>
+
+      {isMadridDispatchLocationCaveat(area.citySlug, area.name) ? <SourceLocationCaveat locale={locale} /> : null}
 
       <section className="area-perspectives area-perspectives-compact">
         <div className="area-perspectives-title">

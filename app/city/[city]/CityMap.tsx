@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { areaHref } from "@/lib/area-route";
 import NeighbourhoodNavigator from "@/components/NeighbourhoodNavigator";
+import SourceLocationCaveat, { isMadridDispatchLocationCaveat } from "@/components/SourceLocationCaveat";
 import { locateAreaByCoordinates, resolvePlaceToArea } from "@/lib/public-data-client";
 import { areaDisplayName, cityNames } from "@/lib/data";
 import {
@@ -65,14 +66,14 @@ const MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
 
 const metricCopy: Record<MetricKey, { label: string; short: string; note: string }> = {
   "contextual-overview": {
-    label: "Resident context",
-    short: "Resident context",
-    note: "Residential context using the best official signals available for this city. The percentile is local to this city and is not a cross-city score.",
+    label: "Resident records",
+    short: "Resident records",
+    note: "Madrid: selected personal-harm dispatch categories across available recent months per 10,000 registered residents per month. London: selected violence and property offences per 10,000 people using 2021 Census population. This is a recorded indicator, not a safety probability.",
   },
   "visitor-context": {
-    label: "Visitor context",
-    short: "Visitor context",
-    note: "Short-stay context weighted toward theft and robbery, with a smaller violence/property component. It uses area concentration rather than registered residents. The percentile is local to this city.",
+    label: "Visitor records",
+    short: "Visitor records",
+    note: "One observable metric: theft, robbery and related property categories recorded per km² in the source month. It is NOT adjusted for the number of visitors, tourists or trips. Inspect the separate violence and property figure alongside it.",
   },
   "residential-harm": {
     label: "Personal harm · recent history",
@@ -103,14 +104,14 @@ const metricCopy: Record<MetricKey, { label: string; short: string; note: string
 
 const metricCopyEs: typeof metricCopy = {
   "contextual-overview": {
-    label: "Contexto para residentes",
-    short: "Contexto residente",
-    note: "Contexto residencial con las mejores señales oficiales disponibles para esta ciudad. El percentil es local y no es una puntuación entre ciudades.",
+    label: "Registros para residentes",
+    short: "Registros residente",
+    note: "Madrid: categorías seleccionadas de incidencias relacionadas con daño personal en meses recientes por 10.000 residentes empadronados y mes. Londres: violencia y delitos contra la propiedad por 10.000 habitantes usando el censo de 2021. Son registros, no probabilidades de seguridad.",
   },
   "visitor-context": {
-    label: "Contexto para visitantes",
-    short: "Contexto visitante",
-    note: "Contexto de estancia corta ponderado hacia hurtos y robos, con un componente menor de violencia/propiedad. Usa concentración por zona en lugar de población empadronada.",
+    label: "Registros para visitantes",
+    short: "Registros visitante",
+    note: "Un solo indicador observable: hurtos, robos y categorías de propiedad relacionadas por km² durante el mes de la fuente. NO se ajusta por número de visitantes ni turistas. Se muestran por separado los registros de violencia y propiedad.",
   },
   "residential-harm": {
     label: "Daño personal · historial reciente",
@@ -303,8 +304,8 @@ export default function CityMap({
   const residentCoverage = metrics.filter((metric) => metric.population !== null).length;
   const hasResidentLayer = residentCoverage >= Math.max(1, Math.floor(areas.length * 0.8));
   const hasReliableSafetySignal = safetySignals.some((signal) => signal.months >= 3);
-  const hasContextualOverview = safetySignals.some(
-    (signal) => signal.months >= 3 && signal.contextualConcernPercentile !== null,
+  const hasRecentMadridEvidence = safetySignals.some(
+    (signal) => signal.months >= 3 && signal.residentPercentile !== null,
   );
   const [audience, setAudience] = useState<AudienceKey>(initialAudience);
   const [layer, setLayer] = useState<LayerKey>(
@@ -320,23 +321,23 @@ export default function CityMap({
   const cityMethods = cityFilterMethods(citySlug, locale);
   const activeMetricCopy = locale === "es" ? metricCopyEs : metricCopy;
   const residentMethod =
-    citySlug === "madrid" && hasContextualOverview
+    citySlug === "madrid" && hasRecentMadridEvidence
       ? tr(
           locale,
-          "50% recent personal-harm percentile + 50% 2025 district night-safety perception percentile",
-          "50% percentil de daño personal reciente + 50% percentil de percepción de seguridad nocturna del distrito en 2025",
+          "Recorded personal-harm-related police dispatches across available recent months, per 10,000 registered residents per month. The 2025 district survey is independent context and does not affect the colour.",
+          "Incidencias policiales seleccionadas relacionadas con daño personal en los meses recientes disponibles, por 10.000 residentes empadronados al mes. La encuesta distrital de 2025 es contexto independiente y no influye en el color.",
         )
       : hasResidentLayer
         ? cityMethods.residentFallbackMethod
         : tr(
             locale,
-            "violence + property density (population denominator unavailable)",
-            "densidad de violencia + propiedad (denominador de población no disponible)",
+            "Resident population data insufficient; no primary resident comparison for affected areas.",
+            "Población residente insuficiente; sin comparación principal para las zonas afectadas.",
           );
   const visitorMethod = tr(
     locale,
-    "70% theft + robbery concentration + 30% violence + property concentration",
-    "70% concentración de hurtos + robos + 30% concentración de violencia + propiedad",
+    "Recorded theft, robbery and related property incidents per km². No visitor-footfall denominator is available; the violence/property indicator is shown separately.",
+    "Registros de hurtos, robos y categorías de propiedad relacionadas por km². No hay denominador de afluencia de visitantes; la señal de violencia/propiedad se muestra por separado.",
   );
 
   const safetyWindowMonths = safetySignals.reduce((max, signal) => Math.max(max, signal.months), 0);
@@ -815,12 +816,12 @@ export default function CityMap({
             context.textContent = position !== null
               ? displayMode === "resident"
                 ? locale === "es"
-                  ? `La preocupación residencial es mayor que en aproximadamente el ${position}% de las zonas de ${cityName}`
-                  : `Residential concern is higher than about ${position}% of ${cityName} areas`
+                  ? `Este indicador registrado es mayor que en aproximadamente el ${position}% de las zonas de ${cityName}`
+                  : `This recorded indicator is higher than in about ${position}% of ${cityName} areas`
                 : displayMode === "visitor"
                   ? locale === "es"
-                    ? `La exposición para visitantes es mayor que en aproximadamente el ${position}% de las zonas de ${cityName}`
-                    : `Visitor exposure is higher than about ${position}% of ${cityName} areas`
+                    ? `El indicador registrado para visitantes es mayor que en aproximadamente el ${position}% de las zonas de ${cityName}`
+                    : `This recorded visitor indicator is higher than in about ${position}% of ${cityName} areas`
                   : locale === "es"
                     ? `El nivel registrado es mayor que en aproximadamente el ${position}% de las zonas de ${cityName}`
                     : `Recorded level is higher than about ${position}% of ${cityName} areas`
@@ -1152,6 +1153,7 @@ export default function CityMap({
                 {cityName}{selectedArea.parentName ? ` · ${selectedArea.parentName}` : ""} · {formatMonth(latestMonth, locale)}
               </span>
               <h3>{selectedArea.name}</h3>
+              {isMadridDispatchLocationCaveat(citySlug, selectedArea.name) ? <SourceLocationCaveat locale={locale} /> : null}
               <div className="research-pin-control">
                 <button
                   type="button"
@@ -1209,9 +1211,33 @@ export default function CityMap({
                 </div>
               </div>
 
+              <dl className="research-evidence-receipt" aria-label={tr(locale, "What was measured", "Qué se ha medido")}>
+                <div>
+                  <dt>{tr(locale, "Source records", "Registros de origen")}</dt>
+                  <dd>{selectedMetric.count === null ? "—" : selectedMetric.count.toLocaleString(localeTag(locale))}</dd>
+                </div>
+                <div>
+                  <dt>{tr(locale, "Recorded rate or density", "Tasa o densidad registrada")}</dt>
+                  <dd>{formatMetric(selectedMetric.value, selectedMetric.unit, locale)}</dd>
+                </div>
+                <div>
+                  <dt>{tr(locale, "Observation period", "Período observado")}</dt>
+                  <dd>{metricKey === "contextual-overview" && selectedSafetySignal && selectedSafetySignal.months >= 3 && selectedSafetySignal.residentPercentile !== null
+                    ? `${formatMonth(selectedSafetySignal.monthStart, locale)} – ${formatMonth(selectedSafetySignal.monthEnd, locale)}`
+                    : formatMonth(selectedBaseMetric?.month, locale)}</dd>
+                  {metricKey === "contextual-overview" && selectedSafetySignal && selectedSafetySignal.months >= 3 ? (
+                    <small>{selectedSafetySignal.months} {tr(locale, "published months; the recorded rate is monthly", "meses publicados; la tasa registrada es mensual")}</small>
+                  ) : null}
+                  {citySlug === "london" && metricKey === "contextual-overview" ? (
+                    <small>{tr(locale, "Population baseline: 2021 Census", "Población de referencia: censo de 2021")}</small>
+                  ) : null}
+                </div>
+              </dl>
+
               {metricKey === "contextual-overview" &&
-              selectedSafetySignal?.contextualConcernPercentile !== null &&
-              selectedSafetySignal?.contextualConcernPercentile !== undefined ? (
+              selectedSafetySignal !== undefined &&
+              selectedSafetySignal.months >= 3 &&
+              selectedSafetySignal.residentPercentile !== null ? (
                 <div className="map-overview-components">
                   <div>
                     <span>{tr(locale, "Recorded personal harm", "Daño personal registrado")}</span>
@@ -1225,13 +1251,13 @@ export default function CityMap({
                     </small>
                   </div>
                   <div>
-                    <span>{tr(locale, "Resident perception at night", "Percepción residente por la noche")}</span>
+                    <span>{tr(locale, "2025 district respondents' night perception", "Percepción nocturna de encuestados por distrito (2025)")}</span>
                     <strong>
                       {selectedSafetySignal.districtNightSafety !== null
                         ? `${selectedSafetySignal.districtNightSafety.toFixed(1)}/10`
                         : tr(locale, "Unavailable", "No disponible")}
                     </strong>
-                    <small>{selectedSafetySignal.districtName ?? tr(locale, "District unavailable", "Distrito no disponible")} · {tr(locale, "2025 survey", "encuesta 2025")}</small>
+                    <small>{selectedSafetySignal.districtName ?? tr(locale, "District unavailable", "Distrito no disponible")} · <a href="https://www.madrid.es/UnidadesDescentralizadas/Calidad/Observatorio_Ciudad/06_S_Percepcion/EncuestasCalidad/EncuestaMadrides/ficheros/2025/Informe_Res_2025.pdf#page=81" target="_blank" rel="noreferrer">{tr(locale, "Source: 2025 district survey ↗", "Fuente: encuesta distrital 2025 ↗")}</a> · {tr(locale, "Separate from map colour", "Separada del color del mapa")}</small>
                   </div>
                 </div>
               ) : metricKey === "visitor-context" && selectedBaseMetric ? (
