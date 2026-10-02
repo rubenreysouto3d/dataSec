@@ -109,6 +109,11 @@ The user-facing map vocabulary is global, not city-specific. Every supported cit
 
 A city adapter may use a different official source definition or denominator behind a filter when local data is not directly equivalent, but it must preserve the filter's user intent and disclose the city-specific method in the interface.
 
-Resident prefers recurring-exposure context and a resident denominator when official population coverage exists. Visitor avoids resident denominators and prioritises theft/robbery plus violence/property concentration because short-stay visitors are not represented in registered-population counts.
+Resident uses an identifiable official-source recorded category rate per resident rather than treating a survey response as a neighbourhood incident. Visitor uses directly observed theft/robbery-related categories per km², with violence/property shown separately; there is no defensible official visitor-footfall denominator for each neighbourhood. Neither view claims to estimate an individual's probability of victimisation.
 
 City-specific datasets may add evidence to a common mode (for example Madrid resident-perception survey data), but they must not add a city-only public filter. New cities inherit this contract by default.
+
+
+## Auditable method revision, October 2026
+
+The previous Madrid 50/50 district survey + neighbourhood incident composite and visitor 70/30 category-weighted composite are retired. District perception remains clearly separate 2025 context; current city-relative map colours derive from one observable category series. Refer to `docs/indicator-policy.md` for exact definitions and known source anomalies, including Guindalera's 092 administrative-assignment caveat.
