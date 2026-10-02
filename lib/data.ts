@@ -171,7 +171,6 @@ export type CitySafetySignal = {
   districtName: string | null;
   districtNightSafety: number | null;
   districtConcernPercentile: number | null;
-  contextualConcernPercentile: number | null;
 };
 
 export type CityMapMetric = {
@@ -632,7 +631,6 @@ function isMadridPersonalHarmMetric(metric: MetricRow) {
 
   return (
     /reyerta|agresion|amenaza|atentado/.test(text) ||
-    /fallecid/.test(text) ||
     violentRobbery ||
     familyOrGenderViolence
   );
