@@ -63,8 +63,8 @@ export default async function MethodologyPage() {
             <p>
               {tr(
                 locale,
-                "Every city exposes the same two primary views. Resident focuses on recurring residential exposure; Visitor focuses on short-stay street exposure, especially theft and robbery.",
-                "Cada ciudad ofrece las mismas dos vistas principales. Residente se centra en el contexto residencial recurrente; Visitante en la exposición de una estancia corta, especialmente hurtos y robos.",
+                "Every city exposes two views, but each represents identifiable source measurements rather than measured personal exposure: resident-normalised incidents and theft/robbery-related concentration.",
+                "Cada ciudad tiene dos vistas, pero ambas representan registros identificables de sus fuentes, no exposición personal medida: incidencias normalizadas por residentes y concentración de categorías relacionadas con hurtos y robos.",
               )}
             </p>
           </div>
@@ -97,6 +97,53 @@ export default async function MethodologyPage() {
             </p>
           </div>
         </article>
+      </section>
+
+      <section className="method-source-methods" aria-labelledby="source-methods-heading">
+        <span className="data-kicker">{tr(locale, "Behind the colours", "Qué hay detrás de los colores")}</span>
+        <h2 id="source-methods-heading">{tr(locale, "Two views. Two observable indicators.", "Dos vistas. Dos indicadores observables.")}</h2>
+        <p>{tr(locale,
+          "Colour bands describe the rank of a recorded indicator against areas in the same city. Neither view measures your likelihood of experiencing crime.",
+          "Los colores representan la posición de un indicador registrado frente a otras zonas de la misma ciudad. Ninguna vista mide tu probabilidad de sufrir un delito.",
+        )}</p>
+        <div className="method-source-cards">
+          <article>
+            <h3>{tr(locale, "Resident: recorded incidents per resident", "Residente: incidencias registradas por habitante")}</h3>
+            <p>{tr(locale,
+              "Madrid: selected personal-harm-related police-dispatch categories averaged over available recent months per 10,000 registered residents per month. London: latest-month recorded violence/property categories per 10,000 people using the 2021 Census.",
+              "Madrid: categorías seleccionadas de incidencias policiales relacionadas con daño personal promediadas durante los meses recientes disponibles por 10.000 residentes empadronados y mes. Londres: categorías registradas de violencia y propiedad del último mes por 10.000 habitantes según el censo de 2021.",
+            )}</p>
+            <p>{tr(locale,
+              "Madrid's 2025 district-level survey is independent context alongside the recorded signal. It does not influence the map colour.",
+              "La encuesta de percepción distrital madrileña de 2025 es contexto independiente junto al indicador registrado. No influye en el color del mapa.",
+            )}</p>
+            <a href="https://www.madrid.es/UnidadesDescentralizadas/Calidad/Observatorio_Ciudad/06_S_Percepcion/EncuestasCalidad/EncuestaMadrides/ficheros/2025/Informe_Res_2025.pdf#page=81" target="_blank" rel="noreferrer">
+              {tr(locale, "Official 2025 district survey ↗", "Encuesta distrital oficial de 2025 ↗")}
+            </a>
+          </article>
+          <article>
+            <h3>{tr(locale, "Visitor: recorded category concentration", "Visitante: concentración de categorías registradas")}</h3>
+            <p>{tr(locale,
+              "The latest month's theft, robbery and related property categories per km². Violence/property is a separate supporting indicator. Source category definitions differ between Madrid and London.",
+              "Hurtos, robos y categorías de propiedad relacionadas del último mes por km². Violencia/propiedad es otro indicador complementario. Las categorías de las fuentes difieren entre Madrid y Londres.",
+            )}</p>
+            <p>{tr(locale,
+              "This is not a visitor incident rate: comparable visitor and commuter counts are not available for each neighbourhood and month.",
+              "No es una tasa de delitos por visitante: no hay recuentos comparables de visitantes y población flotante por barrio y mes.",
+            )}</p>
+            <Link href={localeHref(locale, "/status")}>{tr(locale, "Check source periods ↗", "Consultar períodos de las fuentes ↗")}</Link>
+          </article>
+        </div>
+        <div className="method-source-alert">
+          <strong>{tr(locale, "A documented location anomaly", "Una anomalía geográfica documentada")}</strong>
+          <p>{tr(locale,
+            "Madrid warns that some citizen-information requests are assigned to the 092 administrative address in Guindalera. This can distort total source activity there; the Guindalera map card and profile contain this warning.",
+            "El Ayuntamiento de Madrid advierte de que algunas solicitudes de información ciudadana se asignan a la dirección administrativa del 092 en Guindalera. Esto puede distorsionar allí la actividad policial total; el mapa y la ficha de Guindalera muestran la advertencia.",
+          )}</p>
+          <a href="https://datos.madrid.es/dataset/837676-0-incidencias-recibidas-en-la-emisora-central-de-policia-municipal/information" target="_blank" rel="noreferrer">
+            {tr(locale, "Municipal source and location note ↗", "Fuente municipal y advertencia sobre la ubicación ↗")}
+          </a>
+        </div>
       </section>
 
       <section className="method-limits">
