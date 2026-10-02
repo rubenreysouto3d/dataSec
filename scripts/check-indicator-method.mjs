@@ -32,6 +32,7 @@ const view = readFileSync(new URL("../lib/map-view.ts", import.meta.url), "utf8"
 const areaPage = readFileSync(new URL("../app/area/[id]/page.tsx", import.meta.url), "utf8");
 const mapPage = readFileSync(new URL("../app/city/[city]/CityMap.tsx", import.meta.url), "utf8");
 assert.ok(areaPage.includes("unstable_rethrow(error)"), "Next dynamic control-flow exceptions must not be swallowed");
+assert.ok(areaPage.includes("await connection()"), "On-demand area profiles must await actual requests instead of static prerendering");
 assert.ok(mapPage.includes("value === null || !Number.isFinite(value)"), "A finite recorded value must never be displayed as no data");
 const policy = readFileSync(new URL("../docs/indicator-policy.md", import.meta.url), "utf8");
 const categories = JSON.parse(readFileSync(
