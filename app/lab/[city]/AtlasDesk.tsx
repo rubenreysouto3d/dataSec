@@ -40,8 +40,9 @@ function localBand(percentile: number | null, locale: Locale) {
   return tr(locale, "Upper fifth", "Tramo superior");
 }
 function evidence(metric: CityMapMetric | undefined, signal: CitySafetySignal | undefined,
-  mode: Mode, visitorRank: number | null): MapLayerMetric {
-  return metricForLayer(metric, mode === "visitor" ? "visitor-context" : "contextual-overview", signal, visitorRank);
+  mode: Mode, visitorRank: number | null,
+  residentLayer: "residential-harm" | "contextual-overview"): MapLayerMetric {
+  return metricForLayer(metric, mode === "visitor" ? "visitor-context" : residentLayer, signal, visitorRank);
 }
 
 export default function AtlasDesk({
@@ -56,22 +57,28 @@ export default function AtlasDesk({
   const signalById = useMemo(() => new Map(safetySignals.map((item) => [item.areaId, item])), [safetySignals]);
   const areaById = useMemo(() => new Map(areas.map((item) => [item.id, item])), [areas]);
   const visitorById = useMemo(() => buildVisitorPercentileMap(metrics), [metrics]);
+  // One source definition for the whole city's Resident view. Once the recent
+  // series exists, a missing area must stay unknown rather than silently
+  // becoming a different (latest-month violence/property) indicator.
+  const hasCityHarmSeries = city === "madrid" && safetySignals.some((item) =>
+    item.months >= 3 && item.residentPercentile !== null && item.personalHarmPer10k !== null);
+  const residentLayer = hasCityHarmSeries ? "residential-harm" : "contextual-overview";
   const values = useMemo(() => new Map(areas.map((item) => [
     item.id,
-    evidence(metricById.get(item.id), signalById.get(item.id), mode, visitorById.get(item.id) ?? null).percentile,
-  ])), [areas, metricById, signalById, mode, visitorById]);
+    evidence(metricById.get(item.id), signalById.get(item.id), mode, visitorById.get(item.id) ?? null, residentLayer).percentile,
+  ])), [areas, metricById, signalById, mode, visitorById, residentLayer]);
   const eligible = [...values.values()].filter((value) => value !== null && Number.isFinite(value)).length;
   const selected = selectedId ? areaById.get(selectedId) ?? null : null;
   const selectedMetric = selected ? metricById.get(selected.id) : undefined;
   const selectedSignal = selected ? signalById.get(selected.id) : undefined;
   const primary = selected
-    ? evidence(selectedMetric, selectedSignal, mode, visitorById.get(selected.id) ?? null)
+    ? evidence(selectedMetric, selectedSignal, mode, visitorById.get(selected.id) ?? null, residentLayer)
     : null;
   const level = primary ? bandNumber(primary.percentile) : null;
   const comparison = comparisonId ? areaById.get(comparisonId) : null;
   const comparisonMetric = comparison ? metricById.get(comparison.id) : undefined;
   const compared = comparison
-    ? evidence(comparisonMetric, signalById.get(comparison.id), mode, visitorById.get(comparison.id) ?? null)
+    ? evidence(comparisonMetric, signalById.get(comparison.id), mode, visitorById.get(comparison.id) ?? null, residentLayer)
     : null;
   const matching = useMemo(() => {
     const term = normalize(search);
@@ -96,12 +103,15 @@ export default function AtlasDesk({
 
   const measuredValueLabel = mode === "visitor"
     ? tr(locale, "Recorded theft-related events / km²", "Registros de hurtos y robos / km²")
-    : city === "madrid"
+    : city === "madrid" && hasCityHarmSeries
       ? tr(locale, "Selected personal-harm dispatches / 10k registered residents / month",
         "Incidencias seleccionadas de daño personal / 10.000 empadronados / mes")
-      : tr(locale, "Recorded violence + property / 10k residents", "Violencia y propiedad registradas / 10.000 habitantes");
+      : city === "madrid"
+        ? tr(locale, "Selected violence/property dispatches / 10k registered residents",
+          "Incidencias seleccionadas de violencia/propiedad / 10.000 empadronados")
+        : tr(locale, "Recorded violence + property / 10k residents", "Violencia y propiedad registradas / 10.000 habitantes");
 
-  const actualPeriod = mode === "resident" && city === "madrid" &&
+  const actualPeriod = mode === "resident" && hasCityHarmSeries &&
     selectedSignal && selectedSignal.months >= 3 && primary?.value !== null
     ? `${selectedSignal.monthStart} — ${selectedSignal.monthEnd} · ${selectedSignal.months} ${tr(locale, "published months", "meses publicados")}`
     : selectedMetric?.month ?? latest;
@@ -111,12 +121,17 @@ export default function AtlasDesk({
       "The colour shows the within-city position for theft and robbery-related recorded incidents per km². There is no visitor denominator.",
       "El color sitúa la concentración registrada de hurtos y robos por km² respecto a esta ciudad. No se dispone de un denominador de visitantes.",
     )
-    : city === "madrid"
+    : city === "madrid" && hasCityHarmSeries
       ? tr(locale,
-        "The colour compares selected police dispatch events related to personal harm per 10,000 registered residents, averaged across available recent published months. The district survey is separate.",
-        "El color compara incidencias policiales seleccionadas relacionadas con daño personal por 10.000 empadronados, promediadas sobre los meses recientes disponibles. La encuesta distrital se presenta por separado.",
+        "The colour compares selected police dispatch events related to personal harm per 10,000 registered residents, averaged across available recent published months. The district survey is separate. Missing neighbourhood data is never replaced with a different incident indicator.",
+        "El color compara incidencias policiales seleccionadas relacionadas con daño personal por 10.000 empadronados, promediadas sobre los meses recientes disponibles. La encuesta distrital se presenta por separado. La ausencia de datos de un barrio nunca se sustituye por otro indicador.",
       )
-      : tr(locale,
+      : city === "madrid"
+        ? tr(locale,
+          "The recent personal-harm series has insufficient citywide coverage. Until it is available, this entire city uses the same selected violence/property dispatch rate per 10,000 registered residents where it is measured.",
+          "La serie reciente de daño personal no tiene suficiente cobertura. Hasta que esté disponible, toda la ciudad usa la misma tasa de incidencias seleccionadas de violencia/propiedad por 10.000 empadronados donde exista.",
+        )
+        : tr(locale,
         "The colour compares recorded violence and property offences per 10,000 residents within London. The population denominator comes from the 2021 Census.",
         "El color compara delitos registrados de violencia y propiedad por 10.000 habitantes dentro de Londres. El denominador de población procede del censo de 2021.",
       );
