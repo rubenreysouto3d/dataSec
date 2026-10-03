@@ -92,7 +92,7 @@ export default function V2Home({areas,available}:{areas:Area[];available:boolean
           se consultan al solicitarlos.</p></div>
       <Link href={"/v2/choose?view="+purpose+
         "&alat=40.416900&alng=-3.703400&aplace=Puerta+del+Sol%2C+Madrid"+
-        "&blat=40.427000&blng=-3.701900&bplace=Glorieta+de+Bilbao%2C+Madrid"}>
+        "&blat=40.428970&blng=-3.702720&bplace=Glorieta+de+Bilbao%2C+Madrid"}>
           Comparar Sol y Bilbao ↗</Link>
     </section>
     <section className="d3-next">
