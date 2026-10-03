@@ -163,10 +163,16 @@ export default function V2Research({city,areas,boundaries,metrics,signals,initia
           </div>:null}
         </div>
         <div className="dv2-rail-directory">
-          <span>{selected?"OTRAS ZONAS":"PUNTO DE PARTIDA"}</span>
-          {areas.slice(0,6).map(a=><button key={a.id} type="button" className={a.id===selectedId?"active":""}
-            onClick={()=>selectArea(a.id)}><strong>{a.name}</strong><small>{a.parentName||""}</small></button>)}
-          <small>Busca cualquier otro barrio por nombre o selecciónalo en el mapa.</small>
+          <span>{selected?"SIGUIENTE DECISIÓN":"EXPLORAR SIN BUSCAR"}</span>
+          <button type="button" onClick={()=>setTab("map")}>
+            <strong>{selected?"Volver al mapa":"Elegir sobre el mapa"} ↗</strong>
+            <small>{areas.length} zonas oficiales disponibles</small>
+          </button>
+          {selected?<button type="button" onClick={()=>setTab("compare")}>
+            <strong>Comparar esta zona →</strong>
+            <small>Con otra de la misma ciudad</small>
+          </button>:null}
+          <small>No mostramos una selección arbitraria de barrios como si fuesen recomendaciones.</small>
         </div>
         <div className="dv2-rail-city">
           <span>CAMBIAR DE CIUDAD</span>
