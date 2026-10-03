@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AtlasMap from "./AtlasMap";
 import SourceLocationCaveat, { isMadridDispatchLocationCaveat } from "@/components/SourceLocationCaveat";
 import { areaDisplayName, cityNames, type CityBoundary, type CityMapMetric, type CitySafetySignal, type CitySlug, type Neighbourhood } from "@/lib/data";
 import { areaHref } from "@/lib/area-route";
-import { buildVisitorPercentileMap, MAP_COLOR_BANDS } from "@/lib/map-filters";
-import { bandNumber, metricForLayer } from "@/lib/map-view";
+import { MAP_COLOR_BANDS } from "@/lib/map-filters";
+import { bandNumber } from "@/lib/map-view";
+import { createPlaceEvidenceContext, placeEvidenceExplanation, placeEvidenceLabel, placeEvidenceSource } from "@/lib/place-evidence";
 import { localeHref, localeTag, tr, type Locale } from "@/lib/i18n";
 
 type Mode = "resident" | "visitor";
@@ -57,24 +58,16 @@ export default function FieldExplorer({
   const areaById = useMemo(() => new Map(areas.map((area) => [area.id, area])), [areas]);
   const metricById = useMemo(() => new Map(metrics.map((metric) => [metric.areaId, metric])), [metrics]);
   const signalById = useMemo(() => new Map(safetySignals.map((signal) => [signal.areaId, signal])), [safetySignals]);
-  const visitorById = useMemo(() => buildVisitorPercentileMap(metrics), [metrics]);
-  const hasCityHarmSeries = city === "madrid" && safetySignals.some(
-    (signal) => signal.months >= 3 && signal.residentPercentile !== null && signal.personalHarmPer10k !== null,
+  const evidenceContext = useMemo(
+    () => createPlaceEvidenceContext(city, metrics, safetySignals),
+    [city, metrics, safetySignals],
   );
-  const residentLayer = hasCityHarmSeries ? "residential-harm" : "contextual-overview";
-  const getEvidence = (id: string, currentMode: Mode) =>
-    metricForLayer(
-      metricById.get(id),
-      currentMode === "visitor" ? "visitor-context" : residentLayer,
-      signalById.get(id),
-      visitorById.get(id) ?? null,
-    );
+  const hasCityHarmSeries = evidenceContext.hasCityHarmSeries;
+  const getEvidence = evidenceContext.read;
 
   const values = useMemo(() => new Map(areas.map((area) => [
     area.id, getEvidence(area.id, mode).percentile,
-    // getEvidence uses immutable source maps; mode is the only changing filter.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  ])), [areas, metricById, signalById, visitorById, mode, residentLayer]);
+  ])), [areas, evidenceContext, mode]);
   const eligible = Array.from(values.values()).filter((value) => value !== null && Number.isFinite(value)).length;
 
   const selected = selectedId ? areaById.get(selectedId) ?? null : null;
@@ -86,8 +79,18 @@ export default function FieldExplorer({
   const compared = comparedArea ? getEvidence(comparedArea.id, mode) : null;
   const comparedLevel = compared ? bandNumber(compared.percentile) : null;
   const comparisonMetric = comparedArea ? metricById.get(comparedArea.id) : undefined;
-  const comparisonSignal = comparedArea ? signalById.get(comparedArea.id) : undefined;
   const latest = metrics.reduce((current, metric) => metric.month > current ? metric.month : current, "");
+  const [shareStatus, setShareStatus] = useState("");
+  // Selection and purpose are URL state: the same link opens in web/mobile
+  // and can be consumed by the browser extension without duplicating a view.
+  useEffect(() => {
+    const next = new URL(window.location.href);
+    next.searchParams.set("view", mode);
+    if (selectedId) next.searchParams.set("area", selectedId);
+    else next.searchParams.delete("area");
+    window.history.replaceState(window.history.state, "", next.pathname + next.search + next.hash);
+    setShareStatus("");
+  }, [mode, selectedId]);
 
   const suggestions = useMemo(() => {
     const term = normalise(query);
@@ -116,49 +119,11 @@ export default function FieldExplorer({
     setComparisonId(null);
   }
 
-  const metricLabel = mode === "visitor"
-    ? tr(locale, "Recorded theft/robbery-related incidents per km²", "Hurtos y robos registrados por km²")
-    : city === "madrid" && hasCityHarmSeries
-      ? tr(locale, "Selected personal-harm dispatches / 10,000 registered residents / month", "Incidencias seleccionadas de daño personal / 10.000 residentes / mes")
-      : city === "madrid"
-        ? tr(locale, "Selected violence/property dispatches / 10,000 registered residents", "Incidencias seleccionadas de violencia/propiedad / 10.000 residentes")
-        : tr(locale, "Recorded violence + property / 10,000 Census residents", "Violencia y propiedad registradas / 10.000 habitantes del censo");
-
-  const period = mode === "resident" && hasCityHarmSeries &&
-    selectedSignal && selectedSignal.months >= 3 && primary?.value !== null
-    ? selectedSignal.monthStart + " – " + selectedSignal.monthEnd
-    : selectedMetric?.month ?? latest;
-
-  const comparisonPeriod = mode === "resident" && hasCityHarmSeries &&
-    comparisonSignal && comparisonSignal.months >= 3 && compared?.value !== null
-    ? comparisonSignal.monthStart + " – " + comparisonSignal.monthEnd
-    : comparisonMetric?.month ?? latest;
-
-  const source = city === "madrid" ? {
-    label: tr(locale, "Madrid Municipal Police dispatches", "Incidencias de Policía Municipal de Madrid"),
-    url: "https://datos.madrid.es/dataset/837676-0-incidencias-recibidas-en-la-emisora-central-de-policia-municipal/information",
-    note: tr(locale, "Dispatch calls are not a certified count of crimes.", "Las incidencias policiales no equivalen a delitos acreditados."),
-  } : {
-    label: tr(locale, "Metropolitan Police / UK Police open data", "Metropolitan Police / datos abiertos británicos"),
-    url: "https://data.police.uk/about/",
-    note: tr(locale, "Recorded offences; geographic points are approximate.", "Delitos registrados; ubicaciones geográficas aproximadas."),
-  };
-
-  const explanation = mode === "visitor"
-    ? tr(locale,
-        "This is the concentration of selected recorded theft and robbery categories per km². It is not a visitor risk rate: comparable visitor counts are unavailable.",
-        "Es la concentración de categorías seleccionadas de hurtos y robos registrados por km². No es una tasa de riesgo para visitantes: no disponemos de afluencia comparable.")
-    : city === "madrid" && hasCityHarmSeries
-      ? tr(locale,
-          "Selected municipal police dispatches concerning personal harm per registered resident, averaged across available recent months. District-level perception surveys remain separate.",
-          "Incidencias seleccionadas de Policía Municipal relacionadas con daños personales por residente empadronado, promediadas entre los meses recientes disponibles. Las encuestas distritales se mantienen aparte.")
-      : city === "madrid"
-        ? tr(locale,
-            "The recent personal-harm series lacks enough city coverage, so the same selected violence/property dispatch indicator is used for all measured neighbourhoods.",
-            "La serie reciente de daño personal no tiene cobertura suficiente, por lo que se aplica el mismo indicador seleccionado de incidencias de violencia/propiedad a todos los barrios con datos.")
-        : tr(locale,
-            "Selected recorded violence and property offences relative to 2021 Census residents; these categories differ from Madrid's municipal dispatches.",
-            "Delitos seleccionados de violencia y propiedad registrados respecto a residentes del censo de 2021; no son equivalentes a las incidencias municipales de Madrid.");
+  const metricLabel = placeEvidenceLabel(city, mode, hasCityHarmSeries, locale);
+  const period = primary?.period ?? null;
+  const comparisonPeriod = compared?.period ?? null;
+  const source = placeEvidenceSource(city, locale);
+  const explanation = placeEvidenceExplanation(city, mode, hasCityHarmSeries, locale);
 
   const langLink = localeHref(locale === "es" ? "en" : "es",
     "/lab/" + city + "?view=" + mode + (selected ? "&area=" + encodeURIComponent(selected.id) : ""));
@@ -353,6 +318,18 @@ export default function FieldExplorer({
                 <p>{source.note}</p>
               </details>
               <div className="fx-deep-links">
+                <button type="button" onClick={async () => {
+                  const share = new URL(window.location.href);
+                  share.searchParams.set("view", mode);
+                  share.searchParams.set("area", selected.id);
+                  try {
+                    await navigator.clipboard.writeText(share.toString());
+                    setShareStatus(tr(locale, "Link copied", "Enlace copiado"));
+                  } catch {
+                    setShareStatus(tr(locale, "Use the link below to share this place.", "Utiliza el enlace de abajo para compartir esta zona."));
+                  }
+                }}>{tr(locale, "Copy this place link ↗", "Copiar enlace de la zona ↗")}</button>
+                {shareStatus ? <span role="status">{shareStatus}</span> : null}
                 <Link href={localeHref(locale, areaHref(selected.id))}>{tr(locale, "Complete area profile ↗", "Ficha completa de la zona ↗")}</Link>
                 <Link href={localeHref(locale, "/lab/" + city + "?view=" + mode + "&area=" + encodeURIComponent(selected.id))}>
                   {tr(locale, "Link to this view ↗", "Enlace a esta vista ↗")}</Link>
