@@ -98,15 +98,22 @@ export default function ChoiceClient({initialFirst,initialSecond,purpose,sites,c
     if(!sites||nearbyState==="loading")return;
     setNearbyState("loading");
     try {
-      const data=await Promise.all(sites.map(async site=>{
-        const params=new URLSearchParams({lat:String(site.point.latitude),lng:String(site.point.longitude)});
-        const result=await fetch("/v2/api/nearby?"+params.toString());
-        if(!result.ok)throw new Error("Missing context");
-        const body=(await result.json()) as NearbyResponse;
-        if(!Array.isArray(body.places))throw new Error("Invalid context");
-        return body;
-      }));
-      setNearby(data as [NearbyResponse,NearbyResponse]);setNearbyState("ready");
+      // Respect volunteer map infrastructure: one explicit request at a time.
+      // A failure in one location must not erase valid observations for the other.
+      const data:[NearbyResponse|null,NearbyResponse|null]=[null,null];
+      for(let i=0;i<2;i++){
+        try {
+          const site=sites[i];
+          const params=new URLSearchParams({lat:String(site.point.latitude),lng:String(site.point.longitude)});
+          const result=await fetch("/v2/api/nearby?"+params.toString());
+          if(!result.ok)throw new Error("Missing context");
+          const body=(await result.json()) as NearbyResponse;
+          if(!Array.isArray(body.places))throw new Error("Invalid context");
+          data[i]=body;
+        }catch {data[i]=null;}
+      }
+      setNearby(data);
+      setNearbyState(data.some(Boolean)?"ready":"error");
     } catch {
       setNearbyState("error");
     }
@@ -179,16 +186,16 @@ export default function ChoiceClient({initialFirst,initialSecond,purpose,sites,c
               nearbyState==="error"?"Reintentar consulta →":"Comparar el entorno inmediato ↗"}</button>}
         </header>
         {nearbyState==="error"&&<p role="alert" className="choice-error">No hay datos del entorno disponibles ahora. El resto de la comparación sigue siendo válido.</p>}
-        {nearbyState==="ready"&&nearby[0]&&nearby[1]&&<>
+        {nearbyState==="ready"&&<>
           <div className="choice-filters" role="group" aria-label="Servicios que te interesan">
             {sections.map(s=><button key={s.key} type="button" aria-pressed={focus===s.key}
               className={focus===s.key?"selected":""} onClick={()=>setFocus(s.key)}>{s.label}</button>)}
           </div>
           <div className="choice-nearby-grid">{nearby.map((site,i)=>{
-            const items=site!.places.filter(p=>p.category===focus);
+            const items=site?.places.filter(p=>p.category===focus)??[];
             return <article key={i}><h4>UBICACIÓN {i===0?"A":"B"}</h4>
-              <strong>{items.length?items[0].name:"Sin elementos identificados"}</strong>
-              <span>{items.length?"~"+items[0].distanceMeters+" m en línea recta":"La ausencia no confirma que no haya servicios"}</span>
+              <strong>{!site?"Consulta no disponible":items.length?items[0].name:"Sin elementos identificados"}</strong>
+              <span>{!site?"No hay respuesta para esta ubicación":items.length?"~"+items[0].distanceMeters+" m en línea recta":"La ausencia no confirma que no haya servicios"}</span>
               {items.map(p=><a key={p.id} href={placeLink(p)} target="_blank" rel="noopener noreferrer">
                 {p.name} <small>~{p.distanceMeters} m ↗</small></a>)}
             </article>;
