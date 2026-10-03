@@ -85,6 +85,8 @@ export default function FieldExplorer({
   const comparedArea = comparisonId ? areaById.get(comparisonId) ?? null : null;
   const compared = comparedArea ? getEvidence(comparedArea.id, mode) : null;
   const comparedLevel = compared ? bandNumber(compared.percentile) : null;
+  const comparisonMetric = comparedArea ? metricById.get(comparedArea.id) : undefined;
+  const comparisonSignal = comparedArea ? signalById.get(comparedArea.id) : undefined;
   const latest = metrics.reduce((current, metric) => metric.month > current ? metric.month : current, "");
 
   const suggestions = useMemo(() => {
@@ -126,6 +128,11 @@ export default function FieldExplorer({
     selectedSignal && selectedSignal.months >= 3 && primary?.value !== null
     ? selectedSignal.monthStart + " – " + selectedSignal.monthEnd
     : selectedMetric?.month ?? latest;
+
+  const comparisonPeriod = mode === "resident" && hasCityHarmSeries &&
+    comparisonSignal && comparisonSignal.months >= 3 && compared?.value !== null
+    ? comparisonSignal.monthStart + " – " + comparisonSignal.monthEnd
+    : comparisonMetric?.month ?? latest;
 
   const source = city === "madrid" ? {
     label: tr(locale, "Madrid Municipal Police dispatches", "Incidencias de Policía Municipal de Madrid"),
@@ -227,9 +234,7 @@ export default function FieldExplorer({
             values={values} selectedId={selectedId} onSelect={choose} locale={locale}/>
           <div className="fx-map-caption" aria-hidden="true">
             <span>{tr(locale, "Selected measure", "Indicador seleccionado")}</span>
-            <strong>{mode === "visitor"
-              ? tr(locale, "Theft & robbery records", "Registros de hurtos y robos")
-              : tr(locale, "Resident-related records", "Registros relativos a residentes")}</strong>
+            <strong>{metricLabel}</strong>
           </div>
           <div className="fx-legend">
             <div className="fx-legend-heading">{tr(locale, "Relative to other areas in this city", "Comparado con otras zonas de esta ciudad")}</div>
@@ -284,8 +289,8 @@ export default function FieldExplorer({
                   ))}
                 </div>
                 <small>{tr(locale,
-                  "Comparison within this city, for this indicator only.",
-                  "Comparación dentro de esta ciudad y solo para este indicador.")}</small>
+                  "Same-city comparison of this recorded indicator. Not a measure of personal safety.",
+                  "Comparación de este indicador dentro de la ciudad. No mide la seguridad personal.")}</small>
               </div>
               {isMadridDispatchLocationCaveat(city, selected.name) ?
                 <div className="fx-caveat"><SourceLocationCaveat locale={locale}/></div> : null}
@@ -319,16 +324,17 @@ export default function FieldExplorer({
                     ) : null}
                     {comparedArea && compared ? (
                       <div className="fx-comparison">
-                        {[{ area: selected, metric: primary, level }, { area: comparedArea, metric: compared, level: comparedLevel }].map((item) => (
+                        {[{ area: selected, metric: primary, level, period }, { area: comparedArea, metric: compared, level: comparedLevel, period: comparisonPeriod }].map((item) => (
                           <div key={item.area.id}>
                             <span>{item.area.name}</span>
                             <strong>{formatted(item.metric.value, locale)}</strong>
                             <small>{bandLabel(item.level, locale)}</small>
+                            <small>{item.period || "—"}</small>
                           </div>
                         ))}
                         <p>{tr(locale,
-                          "Same indicator, period and city. This is not a comparison of personal safety.",
-                          "Mismo indicador, período y ciudad. No compara la seguridad personal.")}</p>
+                          "Same indicator and city; observation periods are shown separately. This is not a personal safety ranking.",
+                          "Mismo indicador y ciudad; se indican los períodos de cada zona. No clasifica la seguridad personal.")}</p>
                       </div>
                     ) : null}
                   </div>
