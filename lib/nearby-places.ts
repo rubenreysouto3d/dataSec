@@ -2,7 +2,7 @@
  * OSM amenities are volunteer-maintained, not an authoritative services census.
  * Distance is straight-line from the searched point, not a walking journey.
  */
-export type NearbyCategory = "transport" | "pharmacy" | "groceries" | "health";
+export type NearbyCategory = "transport" | "pharmacy" | "groceries" | "health" | "education" | "green";
 export type NearbyPlace = {
   id: string;
   name: string;
@@ -29,6 +29,8 @@ export function pointDistanceMeters(aLat:number,aLng:number,bLat:number,bLng:num
 
 function categoryOf(tags: Record<string,string>): NearbyCategory | null {
   if (tags.amenity === "pharmacy") return "pharmacy";
+  if (tags.amenity === "school" || tags.amenity === "kindergarten") return "education";
+  if (tags.leisure === "park" || tags.leisure === "playground") return "green";
   if (tags.amenity === "hospital" || tags.amenity === "clinic") return "health";
   if (tags.shop === "supermarket" || tags.shop === "convenience") return "groceries";
   if (tags.railway === "subway_entrance" || tags.railway === "station" ||
@@ -51,7 +53,7 @@ export function tidyNearby(elements: Element[],lat:number,lng:number):NearbyPlac
     const id=e.type+"/"+e.id;
     distinct.set(id,{id,name,category,distanceMeters:distance,latitude:pos.lat,longitude:pos.lon});
   }
-  const groups: NearbyCategory[]=["transport","groceries","pharmacy","health"];
+  const groups: NearbyCategory[]=["transport","groceries","pharmacy","health","education","green"];
   return groups.flatMap(cat=>
     [...distinct.values()].filter(x=>x.category===cat)
       .sort((a,b)=>a.distanceMeters-b.distanceMeters).slice(0,4));
