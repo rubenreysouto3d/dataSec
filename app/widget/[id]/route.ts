@@ -1,15 +1,9 @@
 import { areaHref, areaIdFromPath } from "@/lib/area-route";
-import {
-  areaDisplayName,
-  getAreaProfile,
-  getCityMapMetrics,
-  getCitySafetySignals,
-  getNeighbourhoods,
-  monthLabel,
-} from "@/lib/data";
-import { buildVisitorPercentileMap } from "@/lib/map-filters";
-import { bandNumber, metricForLayer, relativeBand } from "@/lib/map-view";
-import { localeFromValue, tr } from "@/lib/i18n";
+import { areaDisplayName } from "@/lib/data";
+import { loadPlaceEvidence } from "@/lib/place-evidence-server";
+import { placeEvidenceExplanation, placeEvidenceLabel, placeEvidenceSource } from "@/lib/place-evidence";
+import { bandNumber, relativeBand } from "@/lib/map-view";
+import { localeFromValue, localeTag, tr } from "@/lib/i18n";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -49,43 +43,30 @@ export async function GET(request: Request, { params }: Props) {
   const locale = localeFromValue(url.searchParams.get("lang"));
 
   try {
-    const area = await getAreaProfile(areaId);
-    if (!area) {
+    const result = await loadPlaceEvidence(areaId, view);
+    if (!result) {
       return htmlResponse(
         `<!doctype html><title>${tr(locale, "Area not found", "Zona no encontrada")}</title><p>${tr(locale, "Area not found.", "Zona no encontrada.")}</p>`,
         404,
       );
     }
 
-    const cityAreas = await getNeighbourhoods(area.citySlug);
-    const areaIds = cityAreas.map((item) => item.id);
-    const metrics = await getCityMapMetrics(area.citySlug, areaIds);
-    const safetySignals = await getCitySafetySignals(area.citySlug, areaIds, metrics);
-
-    const metricById = new Map(metrics.map((metric) => [metric.areaId, metric]));
-    const safetyById = new Map(safetySignals.map((signal) => [signal.areaId, signal]));
-    const visitorById = buildVisitorPercentileMap(metrics);
-
-    const selected = metricForLayer(
-      metricById.get(area.id),
-      view === "visitor" ? "visitor-context" : "contextual-overview",
-      safetyById.get(area.id),
-      visitorById.get(area.id),
-    );
-
-    const level = bandNumber(selected.percentile);
-    const band = relativeBand(selected.percentile, view, locale);
-    const percentile =
-      selected.percentile === null || !Number.isFinite(selected.percentile)
-        ? null
-        : Math.round(selected.percentile * 100);
-    const latestMonth = metrics.reduce(
-      (latest, metric) => (!latest || metric.month > latest ? metric.month : latest),
-      "",
-    );
+    const { area, evidence, hasCityHarmSeries } = result;
+    const level = bandNumber(evidence.percentile);
+    const band = relativeBand(evidence.percentile, view, locale);
+    const percentile = evidence.percentile === null ? null : Math.round(evidence.percentile * 100);
+    const indicatorLabel = placeEvidenceLabel(area.citySlug, view, hasCityHarmSeries, locale);
+    const source = placeEvidenceSource(area.citySlug, locale);
+    const explanation = placeEvidenceExplanation(area.citySlug, view, hasCityHarmSeries, locale);
+    const value = evidence.value === null
+      ? tr(locale, "Not available", "Sin datos")
+      : new Intl.NumberFormat(localeTag(locale), { maximumFractionDigits: 1 }).format(evidence.value);
 
     const origin = url.origin;
-    const fullUrl = `${origin}${areaHref(area.id)}`;
+    const fullUrl = new URL("/lab/" + area.citySlug, origin);
+    fullUrl.searchParams.set("view", view);
+    fullUrl.searchParams.set("area", area.id);
+    fullUrl.searchParams.set("lang", locale);
     const title = areaDisplayName(area);
     const viewLabel =
       view === "visitor"
@@ -127,26 +108,28 @@ a:hover{text-decoration:underline}
   </div>
   <div class="place">
     <h1>${escapeHtml(title)}</h1>
-    <p>${escapeHtml(area.cityName)}${latestMonth ? ` · ${escapeHtml(monthLabel(latestMonth, locale))}` : ""}</p>
+    <p>${escapeHtml(area.cityName)} · ${escapeHtml(evidence.period ?? tr(locale, "Insufficient observations", "Observaciones insuficientes"))}</p>
   </div>
   <div class="signal">
-    <div class="level">${level ?? "—"}<small>${tr(locale, "level", "nivel")} / 5</small></div>
+    <div class="level">${level ?? "—"}<small>${tr(locale, "relative band", "tramo relativo")} / 5</small></div>
     <div>
-      <strong>${escapeHtml(band)}</strong>
-      <span>${percentile === null
+      <strong>${escapeHtml(band)} · ${escapeHtml(indicatorLabel)}</strong>
+      <span>${escapeHtml(value)} · ${percentile === null
         ? tr(locale, "Local percentile unavailable", "Percentil local no disponible")
         : locale === "es"
           ? `percentil ${percentile} dentro de ${escapeHtml(area.cityName)}`
           : `${percentile}th percentile within ${escapeHtml(area.cityName)}`}</span>
     </div>
   </div>
+  <p style="font-size:9px;line-height:1.4;color:var(--muted);margin:0">${escapeHtml(explanation)}</p>
+  <a href="${escapeHtml(source.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(source.label)} ↗</a>
   <div class="foot">
     <div class="note">${tr(
       locale,
-      "Official-source context only. Not a prediction or guarantee of personal safety.",
-      "Solo contexto de fuentes oficiales. No es una predicción ni una garantía de seguridad personal.",
+      "Source-linked records only. No prediction or guarantee of personal safety.",
+      "Solo registros con fuente identificada. No se predice ni garantiza la seguridad personal.",
     )}</div>
-    <a href="${escapeHtml(fullUrl)}" target="_blank" rel="noopener noreferrer">${tr(locale, "Full context →", "Contexto completo →")}</a>
+    <a href="${escapeHtml(fullUrl.toString())}" target="_blank" rel="noopener noreferrer">${tr(locale, "Full context →", "Contexto completo →")}</a>
   </div>
 </article>
 </body>
