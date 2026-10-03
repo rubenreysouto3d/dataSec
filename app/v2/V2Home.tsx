@@ -50,11 +50,11 @@ export default function V2Home({ areas, available }: { areas: Area[]; available:
     finally { setLoading(false); }
   }
   return <main>
-    <section className="dv2-hero dv2-container" aria-labelledby="dv2-title">
+    <section className="dv2-hero dv2-hero-report dv2-container" aria-labelledby="dv2-title">
       <div className="dv2-hero-main">
         <span className="dv2-eyebrow"><span className="dv2-live-dot"/> DATASEC / CONOCE EL TERRENO</span>
-        <h1 id="dv2-title">No vayas<br/><em>a ciegas.</em></h1>
-        <p>Antes de reservar, mudarte o recorrer un barrio, entiende qué se sabe de ese lugar. Sin titulares alarmistas y sin esconder las limitaciones de los datos.</p>
+        <h1 id="dv2-title">Antes de ir,<br/><em>investiga.</em></h1>
+        <p>Busca una dirección. Te mostramos datos reales de su entorno y lo que todavía desconocemos.</p>
         <div className="dv2-search-panel">
           <p className="dv2-step">01 <span>¿Qué estás planeando?</span></p>
           <div className="dv2-purpose-picker" role="group" aria-label="Elige el objetivo de tu investigación">
@@ -115,22 +115,11 @@ export default function V2Home({ areas, available }: { areas: Area[]; available:
             <span>Empieza explorando:</span>
             <Link href={"/v2/explore/madrid?view="+purpose}>Madrid ↗</Link>
             <Link href={"/v2/explore/london?view="+purpose}>Londres ↗</Link>
+            <Link className="dv2-try-report" href={locationReportHref({
+              latitude:40.4169,longitude:-3.7034,label:"Puerta del Sol, Madrid",view:purpose,
+            })}>Probar un informe real: Puerta del Sol ↗</Link>
           </div>
         </div>
-      </div>
-      <aside className="dv2-hero-aside" aria-label="Qué descubrirás en DataSec">
-        <span className="dv2-aside-label">UN LUGAR, MUCHAS CAPAS</span>
-        <div className="dv2-ribbon"><span>01</span><div><strong>Situación registrada</strong><p>Indicadores oficiales y cuándo fueron medidos.</p></div></div>
-        <div className="dv2-ribbon"><span>02</span><div><strong>Contexto real</strong><p>Qué cambia entre ir de visita y elegir una vivienda.</p></div></div>
-        <div className="dv2-ribbon"><span>03</span><div><strong>Sin certezas inventadas</strong><p>Si la evidencia no llega a una calle, no la señalamos.</p></div></div>
-        <div className="dv2-aside-bottom">UNA DECISIÓN INFORMADA<br/><em>EMPIEZA POR PREGUNTAR MEJOR.</em></div>
-      </aside>
-    </section>
-
-    <section className="dv2-mission-strip">
-      <div className="dv2-container dv2-mission-inner">
-        <div><strong>Para visitar</strong><span>Compara ubicaciones antes de reservar. Interpreta incidencias sin confundir afluencia con riesgo personal.</span></div>
-        <div><strong>Para vivir</strong><span>Una mala fama no es un dato actual. Compara registros, evolución disponible y, progresivamente, servicios y entorno.</span></div>
       </div>
     </section>
 
