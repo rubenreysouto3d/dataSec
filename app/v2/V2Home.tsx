@@ -67,6 +67,7 @@ export default function V2Home({ areas, available }: { areas: Area[]; available:
             </button>
           </div>
           <p className="dv2-step">02 <span>¿Qué lugar quieres investigar?</span></p>
+          <div className="dv2-home-search-wrap">
           <div className="dv2-home-search">
             <label htmlFor="dv2-search" className="dv2-sr-only">Ciudad, barrio o dirección</label>
             <span aria-hidden="true">⌕</span>
@@ -101,6 +102,7 @@ export default function V2Home({ areas, available }: { areas: Area[]; available:
               {lookupError ? <p role="alert" className="dv2-error">{lookupError}</p> : null}
             </div>
           </div> : null}
+          </div>
           <div className="dv2-quick">
             <span>Empieza explorando:</span>
             <Link href={"/v2/explore/madrid?view="+purpose}>Madrid ↗</Link>
