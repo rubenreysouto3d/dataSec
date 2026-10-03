@@ -3,14 +3,14 @@ import Link from "next/link";
 import { notFound, unstable_rethrow } from "next/navigation";
 import { cityNames, getCityBoundaries, getCityMapMetrics, getCitySafetySignals, getNeighbourhoods, type CitySlug } from "@/lib/data";
 import { localeFromValue, localeHref, tr } from "@/lib/i18n";
-import AtlasDesk from "./AtlasDesk";
-import "./atlas.css";
+import FieldExplorer from "./FieldExplorer";
+import "./field-explorer.css";
 
 // Deliberately isolated product-preview route. Do not index or replace the
 // established site until the new end-to-end journey is verified and accepted.
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
-  title: "DataSec Lab — A place is more than a colour",
+  title: "DataSec Lab — Explore an area",
   robots: { index: false, follow: false },
 };
 
@@ -50,15 +50,15 @@ export default async function AtlasPreview({
   }
 
   const requestedArea = areas.find((area) => area.id === query.area);
-  // Neutral, explicitly non-recommended worked examples; the URL can override.
-  const sample = areas.find((area) => area.name === (slug === "madrid" ? "Sol" : "Clissold"));
-  return <AtlasDesk
+  // Empty initial canvas unless the user followed an explicit area link.
+  
+  return <FieldExplorer
     city={slug}
     areas={areas}
     metrics={metrics}
     boundaries={boundaries}
     safetySignals={safetySignals}
-    initialAreaId={requestedArea?.id ?? (query.area ? null : sample?.id ?? null)}
+    initialAreaId={requestedArea?.id ?? null}
     initialMode={query.view === "visitor" ? "visitor" : "resident"}
     locale={locale}
   />;

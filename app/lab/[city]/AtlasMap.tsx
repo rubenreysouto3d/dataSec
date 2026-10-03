@@ -127,8 +127,16 @@ export default function AtlasMap({
             const id = event.features?.[0]?.properties?.id;
             if (typeof id === "string") onSelectRef.current(id);
           });
+          const hoverPopup = new lib.Popup({ closeButton: false, closeOnClick: false, offset: 13, className: "fx-map-hover" });
           map.on("mouseenter", "atlas-fill", () => { map.getCanvas().style.cursor = "pointer"; });
-          map.on("mouseleave", "atlas-fill", () => { map.getCanvas().style.cursor = ""; });
+          map.on("mousemove", "atlas-fill", (event: any) => {
+            const name = event.features?.[0]?.properties?.name;
+            if (typeof name === "string") hoverPopup.setLngLat(event.lngLat).setText(name).addTo(map);
+          });
+          map.on("mouseleave", "atlas-fill", () => {
+            map.getCanvas().style.cursor = "";
+            hoverPopup.remove();
+          });
           map.fitBounds(wholeCityBounds, { padding: 32, duration: 0, maxZoom: city === "madrid" ? 12 : 11 });
           setReady(true);
         });
