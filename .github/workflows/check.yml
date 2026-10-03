@@ -28,6 +28,7 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run check:method
       - run: npm run check:place
+      - run: npm run check:v2
       - run: npm run typecheck
       - run: node --check extension/service-worker.js
       - run: node --check extension/content.js
