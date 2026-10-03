@@ -414,3 +414,15 @@ body:has(.dv2){margin:0;background:#f4f3ee}
 .dv2-map-placeholder>p{max-width:360px;font-size:12px;color:#6c8170;line-height:1.6}
 .dv2-map-placeholder>button{padding:10px 18px;border:1px solid #8caa93;border-radius:6px;
   background:#fff;color:#27513a;font-weight:740}
+
+/* Address report is the primary task, no brochure-like decorative sidebar. */
+.dv2-hero.dv2-hero-report{grid-template-columns:minmax(0,830px);justify-content:center;min-height:0;padding-block:54px 62px}
+.dv2-hero-report .dv2-hero-main>p{max-width:620px}
+.dv2-hero-report .dv2-search-panel{margin-top:30px}
+.dv2-try-report{display:block;flex-basis:100%;margin-top:5px;font-size:12px!important;font-weight:760!important;color:#256145!important}
+.dv2-city-section{padding-top:53px}
+@media(max-width:650px){
+  .dv2-hero.dv2-hero-report{padding-block:28px 38px}
+  .dv2-hero-report .dv2-hero-main>p{font-size:12px}
+  .dv2-hero-report .dv2-search-panel{margin-top:18px}
+}

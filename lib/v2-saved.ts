@@ -3,6 +3,9 @@ export type SavedPlace = {
   city: "madrid" | "london";
   name: string;
   purpose: "visitor" | "resident";
+  areaId?: string;
+  latitude?: number;
+  longitude?: number;
 };
 const STORAGE_KEY = "datasec.saved.v2";
 export function readSaved(): SavedPlace[] {

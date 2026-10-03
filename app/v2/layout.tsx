@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function V2Layout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="dv2" id="main-content">
+    <div className="dv2" id="main-content" lang="es">
       <header className="dv2-top">
         <Link className="dv2-logo" href="/v2" aria-label="dataSec inicio">
           <span className="dv2-symbol" aria-hidden="true">◈</span>data<span>Sec</span><sup> BETA</sup>

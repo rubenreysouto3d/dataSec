@@ -181,6 +181,7 @@ type NominatimResult = {
   lat: string;
   lon: string;
   display_name: string;
+  addresstype?: string;
 };
 
 const GEOCODER_URL = "https://nominatim.openstreetmap.org/search";
@@ -192,6 +193,9 @@ export async function resolvePlaceToArea(
   name: string;
   citySlug: "london" | "madrid";
   matchedPlace: string;
+  latitude: number;
+  longitude: number;
+  locationKind: "specific" | "broad";
 } | null> {
   const params = new URLSearchParams({
     q: query,
@@ -221,6 +225,9 @@ export async function resolvePlaceToArea(
       return {
         ...area,
         matchedPlace: result.display_name,
+        latitude,
+        longitude,
+        locationKind: ["city", "town", "municipality", "county", "state", "country", "suburb", "quarter", "neighbourhood"].includes(result.addresstype ?? "") ? "broad" : "specific",
       };
     }
   }
