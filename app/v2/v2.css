@@ -426,3 +426,94 @@ body:has(.dv2){margin:0;background:#f4f3ee}
   .dv2-hero-report .dv2-hero-main>p{font-size:12px}
   .dv2-hero-report .dv2-search-panel{margin-top:18px}
 }
+
+/* A decision-led homepage: no brochure sidebar or city-grid overload. */
+.d3-home{width:min(1130px,calc(100% - 84px));padding-top:64px;padding-bottom:96px}
+.d3-hero>h1{font-size:clamp(46px,6.1vw,85px);font-weight:800;line-height:1.04;letter-spacing:-.078em;margin:17px 0}
+.d3-hero h1 em,.d3-cities h1 em{font:italic 400 1em Georgia,serif;letter-spacing:-.05em;color:#a86f52}
+.d3-hero>p{font-size:14px;line-height:1.75;color:#718174;max-width:640px}
+.d3-purpose{display:flex;gap:7px;margin:25px 0 29px}
+.d3-purpose button{font-size:12px;border:1px solid #c7d7c6;background:#fff;color:#526e56;
+  padding:11px 18px;border-radius:7px;font-weight:760}
+.d3-purpose button.active{color:#fff;background:#2b513d;border-color:#2b513d}
+.d3-actions{display:grid;grid-template-columns:1fr 1fr;gap:13px;align-items:stretch}
+.d3-primary-card,.d3-search-card{border:1px solid #d8e4d7;padding:clamp(19px,3vw,33px);border-radius:12px;
+  display:flex;flex-direction:column;min-width:0}
+.d3-primary-card{background:#284939;color:#f4f6ec!important}
+.d3-search-card{background:white}
+.d3-actions span,.d3-live-example span,.d3-next .dv2-eyebrow{font:750 10px ui-monospace,Consolas,monospace;letter-spacing:.12em}
+.d3-primary-card>span{color:#b9d5bd}
+.d3-search-card>span{color:#748774}
+.d3-actions h2{font-size:clamp(25px,2.7vw,37px);font-weight:790;letter-spacing:-.06em;
+  line-height:1.13;margin:24px 0 15px;max-width:405px}
+.d3-primary-card p{font-size:12px;line-height:1.75;color:#c9d7c9;max-width:380px}
+.d3-primary-card>strong{font-size:13px;margin-top:auto;padding-top:53px;color:#fff;display:flex;justify-content:space-between}
+.d3-primary-card>strong span{font-size:23px;font-family:inherit}
+.d3-primary-card:hover{background:#33644a;transform:translateY(-1px)}
+.d3-search-card label{font-size:11px;color:#69796d;margin:4px 0 7px}
+.d3-search-line{display:flex;gap:5px}
+.d3-search-line input{border:1px solid #c3d1c1;border-radius:6px;padding:0 12px;font-size:12px;
+  height:45px;width:100%;min-width:0;color:#2b4838}
+.d3-search-line button{background:#294f3b;color:white;border:0;border-radius:6px;font-size:12px;
+  padding:11px 15px;font-weight:730;white-space:nowrap}
+.d3-search-line button:disabled{opacity:.5;cursor:not-allowed}
+.d3-provider{font-size:10px;line-height:1.65;color:#869385;margin-top:13px!important}
+.d3-candidate{border:1px solid #c7d9c6;background:#e9f3e7;border-radius:7px;padding:12px;margin-top:12px;
+  display:flex;flex-direction:column;gap:8px}
+.d3-candidate small{font:720 9px ui-monospace,Consolas,monospace;color:#537257}
+.d3-candidate>strong{font-size:12px;overflow-wrap:anywhere}
+.d3-candidate button{border:0;border-radius:5px;background:#27543a;color:white;padding:12px;font-size:12px;font-weight:760}
+.d3-candidate p{font-size:12px;color:#916b51}
+.d3-error{font-size:12px;color:#ab553e}
+.d3-areamatches{border-top:1px solid #e1e9df;padding-top:10px;margin-top:10px;display:flex;flex-direction:column;gap:5px}
+.d3-areamatches small{font-size:10px;color:#728472}
+.d3-areamatches a{font-size:11px;font-weight:720;color:#477351}
+.d3-live-example{background:#e8efe4;border:1px solid #d1e0cc;border-radius:9px;
+  padding:20px 25px;margin-top:15px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+.d3-live-example>div{display:flex;flex-direction:column;gap:5px}
+.d3-live-example span{font-size:9px;color:#628168}
+.d3-live-example strong{font-size:16px;letter-spacing:-.03em}
+.d3-live-example p{font-size:10px;line-height:1.6;color:#768775;max-width:590px}
+.d3-live-example a{color:#fff!important;background:#2e5940;border-radius:6px;padding:12px 17px;font-size:12px;font-weight:760;white-space:nowrap}
+.d3-next{display:flex;gap:25px;justify-content:space-between;align-items:end;padding-top:55px;margin-top:47px;border-top:1px solid #d5e0d5}
+.d3-next h2{font-size:clamp(24px,3vw,34px);letter-spacing:-.06em;font-weight:760;margin:11px 0}
+.d3-next p{font-size:12px;color:#778877;line-height:1.65;max-width:580px}
+.d3-next>div:last-child{display:flex;flex-direction:column;gap:10px;align-items:end;white-space:nowrap}
+.d3-next a{font-size:12px;font-weight:760;color:#41694a;text-decoration:underline;text-underline-offset:3px}
+.d3-cities{padding-top:59px;padding-bottom:90px}
+.d3-back{display:inline-block;margin-bottom:45px;color:#47704e;font-size:12px;font-weight:730}
+.d3-cities h1{font-size:clamp(38px,5vw,68px);letter-spacing:-.07em;line-height:1.07;margin:12px 0 17px}
+.d3-cities>p{max-width:700px;color:#6d806e;line-height:1.65;font-size:13px;margin-bottom:36px}
+.d3-citygrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}
+.d3-citygrid article{background:#f7f8f4;border:1px solid #d9e1d5;border-radius:9px;
+  padding:22px;display:flex;flex-direction:column;gap:8px;min-height:239px}
+.d3-citygrid article.live{background:#e8f0e4;border-color:#bfd4bc}
+.d3-city-status{font:750 10px ui-monospace,Consolas,monospace;letter-spacing:.05em;color:#8b8c75}
+.d3-citygrid article.live .d3-city-status{color:#4c845b}
+.d3-citygrid h2{font-size:29px;letter-spacing:-.06em;line-height:1.1;margin-top:10px}
+.d3-citygrid article>span{font-size:11px;color:#7a8c7d}
+.d3-citygrid p{font-size:11px;color:#687b6c;line-height:1.65}
+.d3-city-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:auto}
+.d3-city-actions a{font-size:11px;font-weight:760;color:#386b47;text-decoration:underline}
+.d3-city-source{margin-top:auto;font-size:10px;color:#7b8c7c}
+a.d3-city-source{color:#4f7657;text-decoration:underline}
+@media(max-width:950px){.d3-citygrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:730px){
+  .d3-home{width:calc(100% - 38px);padding-top:39px;padding-bottom:60px}
+  .d3-actions{grid-template-columns:1fr}
+  .d3-primary-card>strong{padding-top:34px}
+  .d3-search-card h2{margin-top:17px}
+  .d3-next{align-items:start;flex-direction:column}
+  .d3-next>div:last-child{align-items:start}
+  .d3-live-example{align-items:start;flex-direction:column}
+}
+@media(max-width:470px){
+  .d3-home{width:calc(100% - 32px)}
+  .d3-hero h1{font-size:clamp(45px,12vw,59px)}
+  .d3-hero>p{font-size:12px}
+  .d3-purpose button{flex:1;padding:11px 10px}
+  .d3-actions h2{font-size:28px}
+  .d3-live-example a{width:100%;text-align:center;white-space:normal}
+  .d3-citygrid{grid-template-columns:1fr}
+  .d3-cities{padding-top:34px}
+}
