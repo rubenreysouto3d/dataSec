@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import AtlasMap from "./AtlasMap";
+import { resolvePlaceToArea } from "@/lib/public-data-client";
 import SourceLocationCaveat, { isMadridDispatchLocationCaveat } from "@/components/SourceLocationCaveat";
 import { areaDisplayName, cityNames, type CityBoundary, type CityMapMetric, type CitySafetySignal, type CitySlug, type Neighbourhood } from "@/lib/data";
 import { areaHref } from "@/lib/area-route";
@@ -51,6 +52,9 @@ export default function FieldExplorer({
   const [selectedId, setSelectedId] = useState<string | null>(initialAreaId);
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [geoError, setGeoError] = useState("");
+  const [geoCandidate, setGeoCandidate] = useState<Awaited<ReturnType<typeof resolvePlaceToArea>>>(null);
   const [comparing, setComparing] = useState(false);
   const [compareQuery, setCompareQuery] = useState("");
   const [comparisonId, setComparisonId] = useState<string | null>(null);
@@ -114,9 +118,30 @@ export default function FieldExplorer({
     setSelectedId(id);
     setQuery("");
     setSearchOpen(false);
+    setGeoCandidate(null);
+    setGeoError("");
     setComparing(false);
     setCompareQuery("");
     setComparisonId(null);
+  }
+
+  async function lookupTypedAddress() {
+    const typed = query.trim();
+    if (typed.length < 4 || geoLoading) return;
+    setGeoLoading(true);
+    setGeoError("");
+    setGeoCandidate(null);
+    try {
+      const matched = await resolvePlaceToArea(typed);
+      if (matched) setGeoCandidate(matched);
+      else setGeoError(tr(locale,
+        "No precise area match in Madrid/London. Include a full address and city.",
+        "No se encontró una zona precisa en Madrid/Londres. Incluye dirección completa y ciudad."));
+    } catch {
+      setGeoError(tr(locale, "Address service temporarily unavailable.", "Servicio de direcciones no disponible temporalmente."));
+    } finally {
+      setGeoLoading(false);
+    }
   }
 
   const metricLabel = placeEvidenceLabel(city, mode, hasCityHarmSeries, locale);
@@ -156,24 +181,48 @@ export default function FieldExplorer({
             <div className="fx-search-box">
               <span aria-hidden="true">⌕</span>
               <input id="fx-search" type="search" autoComplete="off" value={query}
-                placeholder={tr(locale, "Search by neighbourhood or district", "Busca por barrio o distrito")}
-                onChange={(event) => { setQuery(event.target.value); setSearchOpen(true); }}
+                placeholder={tr(locale, "Neighbourhood or full address", "Barrio o dirección completa")}
+                onChange={(event) => { setQuery(event.target.value); setSearchOpen(true); setGeoCandidate(null); setGeoError(""); }}
                 onFocus={() => setSearchOpen(true)}
                 onKeyDown={(event) => {
                   if (event.key === "Escape") setSearchOpen(false);
                   if (event.key === "Enter" && suggestions[0]) { event.preventDefault(); choose(suggestions[0].id); }
                 }}/>
               {query ? <button type="button" aria-label={tr(locale, "Clear search", "Borrar búsqueda")}
-                onClick={() => { setQuery(""); setSearchOpen(false); }}>×</button> : null}
+                onClick={() => { setQuery(""); setSearchOpen(false); setGeoCandidate(null); setGeoError(""); }}>×</button> : null}
             </div>
             {searchOpen && query.trim() ? (
-              <div className="fx-suggestions" role="listbox" aria-label={tr(locale, "Matching places", "Zonas coincidentes")}>
+              <div className="fx-suggestions" role="group" aria-label={tr(locale, "Matching places", "Zonas coincidentes")}>
                 {suggestions.length ? suggestions.map((area) => (
-                  <button role="option" aria-selected={selectedId === area.id} key={area.id}
+                  <button aria-pressed={selectedId === area.id} key={area.id}
                     type="button" onClick={() => choose(area.id)}>
                     <strong>{area.name}</strong><span>{area.parentName || cityNames[city]}</span>
                   </button>
-                )) : <p>{tr(locale, "No matching area. Try a different name.", "Sin coincidencias. Prueba otro nombre.")}</p>}
+                )) : <p>{tr(locale, "No official area matches. A full address may be resolved below.", "No coincide ningún barrio oficial. Puedes consultar una dirección completa abajo.")}</p>}
+                {query.trim().length >= 4 ? (
+                  <div className="fx-geo-lookup">
+                    <button type="button" disabled={geoLoading} onClick={lookupTypedAddress}>
+                      {geoLoading
+                        ? tr(locale, "Finding address…", "Buscando dirección…")
+                        : tr(locale, "Look up this address ↗", "Consultar esta dirección ↗")}
+                    </button>
+                    <small>{tr(locale,
+                      "Explicit lookup via OpenStreetMap. Confirm the matched address before opening.",
+                      "Búsqueda explícita mediante OpenStreetMap. Comprueba la dirección encontrada antes de abrirla.")}</small>
+                    {geoCandidate ? <div className="fx-geo-match" role="status">
+                      <strong>{geoCandidate.matchedPlace}</strong>
+                      <span>{geoCandidate.name} · {geoCandidate.citySlug === "madrid" ? "Madrid" : "London"}</span>
+                      {geoCandidate.citySlug === city
+                        ? <button type="button" onClick={() => choose(geoCandidate.id)}>
+                            {tr(locale, "Confirm and open this area →", "Confirmar y abrir esta zona →")}
+                          </button>
+                        : <Link href={localeHref(locale, "/lab/" + geoCandidate.citySlug + "?view=" + mode + "&area=" + encodeURIComponent(geoCandidate.id))}>
+                            {tr(locale, "Confirm and switch city →", "Confirmar y cambiar de ciudad →")}
+                          </Link>}
+                    </div> : null}
+                    {geoError ? <p role="alert">{geoError}</p> : null}
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </div>
