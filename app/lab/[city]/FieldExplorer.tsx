@@ -166,7 +166,7 @@ export default function FieldExplorer({
   return (
     <main className="field-explorer" id="main-content">
       <header className="fx-header">
-        <div className="fx-brand"><span className="fx-brand-mark" aria-hidden="true">◈</span><strong>dataSec</strong><span className="fx-beta">{tr(locale, "Explorer preview", "Nuevo explorador")}</span></div>
+        <div className="fx-brand"><span className="fx-brand-mark" aria-hidden="true">◈</span><strong>dataSec</strong><span className="fx-beta">{tr(locale, "Explorer", "Explorador")}</span></div>
         <nav aria-label={tr(locale, "Choose a city", "Elige ciudad")} className="fx-cities">
           {(["madrid", "london"] as const).map((slug) => (
             <Link key={slug} className={city === slug ? "active" : ""}
@@ -176,7 +176,7 @@ export default function FieldExplorer({
         </nav>
         <div className="fx-utility">
           <Link href={langLink} aria-label={tr(locale, "Switch language", "Cambiar idioma")}>{locale === "es" ? "EN" : "ES"}</Link>
-          <Link href={localeHref(locale, "/")} className="fx-old-site">{tr(locale, "Old site ↗", "Web anterior ↗")}</Link>
+          <Link href={localeHref(locale, "/")} className="fx-old-site">{tr(locale, "Home ↗", "Inicio ↗")}</Link>
         </div>
       </header>
 
