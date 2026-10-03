@@ -30,6 +30,7 @@ jobs:
       - run: npm run check:place
       - run: npm run check:v2
       - run: npm run check:report
+      - run: npm run check:choice
       - run: npm run typecheck
       - run: node --check extension/service-worker.js
       - run: node --check extension/content.js
