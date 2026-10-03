@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { unstable_rethrow } from "next/navigation";
-import { getNeighbourhoods } from "@/lib/data";
+import { getAreaProfile, getNeighbourhoods } from "@/lib/data";
 import { locateAreaByCoordinates } from "@/lib/public-data-client";
-import { loadPlaceEvidence } from "@/lib/place-evidence-server";
 import { readReportPoint } from "@/lib/location-report";
 import { createPlaceEvidenceContext, placeEvidenceLabel, placeEvidenceExplanation, placeEvidenceSource } from "@/lib/place-evidence";
 import { getCityMapMetrics, getCitySafetySignals } from "@/lib/data";
@@ -37,18 +36,19 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
       <p>Actualmente podemos contrastar ubicaciones dentro de las zonas almacenadas de Madrid y Londres.</p>
       <Link href="/v2">Buscar otro lugar →</Link>
     </main>;
-    const result = await loadPlaceEvidence(located.id, point.view);
-    if (!result || result.area.citySlug !== located.citySlug) throw new Error("Missing source-linked area");
-    const areas = await getNeighbourhoods(result.area.citySlug);
+    const area = await getAreaProfile(located.id);
+    if (!area || area.citySlug !== located.citySlug) throw new Error("Missing source-linked area");
+    const areas = await getNeighbourhoods(area.citySlug);
     const sameDistrict = areas
-      .filter(a => a.id !== result.area.id && result.area.parentAreaId &&
-        a.parentAreaId === result.area.parentAreaId)
+      .filter(a => a.id !== area.id && area.parentAreaId &&
+        a.parentAreaId === area.parentAreaId)
       .sort((a,b) => a.name.localeCompare(b.name, "es"))
       .slice(0, 12);
     const ids = areas.map(a=>a.id);
-    const metrics = await getCityMapMetrics(result.area.citySlug,ids);
-    const signals = await getCitySafetySignals(result.area.citySlug,ids,metrics);
-    const reader = createPlaceEvidenceContext(result.area.citySlug,metrics,signals);
+    const metrics = await getCityMapMetrics(area.citySlug,ids);
+    const signals = await getCitySafetySignals(area.citySlug,ids,metrics);
+    const reader = createPlaceEvidenceContext(area.citySlug,metrics,signals);
+    const evidence = reader.read(area.id,point.view);
     const alternatives = sameDistrict.map(a => ({
       id: a.id,
       name: a.name,
@@ -58,11 +58,11 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
     }));
     return <LocationReport
       point={point}
-      area={result.area}
-      evidence={result.evidence}
-      indicator={placeEvidenceLabel(result.area.citySlug,point.view,result.hasCityHarmSeries,"es")}
-      explanation={placeEvidenceExplanation(result.area.citySlug,point.view,result.hasCityHarmSeries,"es")}
-      source={placeEvidenceSource(result.area.citySlug,"es")}
+      area={area}
+      evidence={evidence}
+      indicator={placeEvidenceLabel(area.citySlug,point.view,reader.hasCityHarmSeries,"es")}
+      explanation={placeEvidenceExplanation(area.citySlug,point.view,reader.hasCityHarmSeries,"es")}
+      source={placeEvidenceSource(area.citySlug,"es")}
       alternatives={alternatives}
     />;
   } catch(error) {
