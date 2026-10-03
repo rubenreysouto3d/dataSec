@@ -51,8 +51,8 @@ export default function HomeGateway({ locale, areas, cities, checkedLabel, avail
     : undefined;
 
   const goArea = (area: AreaOption) => localeHref(locale,
-    "/lab/" + area.citySlug + "?view=" + mode + "&area=" + encodeURIComponent(area.id));
-  const goCity = (slug: CitySlug) => localeHref(locale, "/lab/" + slug + "?view=" + mode);
+    "/explore/" + area.citySlug + "?view=" + mode + "&area=" + encodeURIComponent(area.id));
+  const goCity = (slug: CitySlug) => localeHref(locale, "/explore/" + slug + "?view=" + mode);
 
   async function lookupAddress() {
     const exactQuery = search.trim();
@@ -183,7 +183,7 @@ export default function HomeGateway({ locale, areas, cities, checkedLabel, avail
             "Official neighbourhood names. For a broad view, choose a city below.",
             "Nombres oficiales de barrios. Para explorar sin buscar, elige una ciudad.")}</div>
         </section>
-        <section className="hg-cities" aria-labelledby="hg-cities-title">
+        <section id="areas" className="hg-cities" aria-labelledby="hg-cities-title">
           <div className="hg-section-heading"><h2 id="hg-cities-title">{tr(locale, "Or start on a map", "O empieza por el mapa")}</h2>
             <span>{tr(locale, "LIVE DATA / TWO CITIES", "DATOS ACTIVOS / DOS CIUDADES")}</span></div>
           <div className="hg-city-grid">
