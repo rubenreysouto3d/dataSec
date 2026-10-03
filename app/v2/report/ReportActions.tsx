@@ -81,6 +81,7 @@ export function ReportShare({point}:{point:ReportPoint}) {
         setStatus("Enlace copiado");
       }catch{setStatus("Puedes copiar la dirección del navegador.");}
     }}>Compartir ↗</button>
+    <small className="drep-share-caveat">Compartir revela la ubicación consultada.</small>
     {status&&<small role="status">{status}</small>}
   </span>;
 }
