@@ -7,6 +7,7 @@ import SourceLocationCaveat, { isMadridDispatchLocationCaveat } from "@/componen
 import { areaDisplayName, type CityBoundary, type CityMapMetric, type CitySafetySignal, type CitySlug, type Neighbourhood } from "@/lib/data";
 import { createPlaceEvidenceContext, placeEvidenceLabel, placeEvidenceExplanation, placeEvidenceSource, type PlacePurpose } from "@/lib/place-evidence";
 import { resolvePlaceToArea } from "@/lib/public-data-client";
+import { locationReportHref } from "@/lib/location-report";
 import { MAP_COLOR_BANDS } from "@/lib/map-filters";
 import { bandNumber } from "@/lib/map-view";
 import { readSaved, toggleSaved } from "@/lib/v2-saved";
@@ -171,9 +172,10 @@ export default function V2Research({city,areas,metrics,signals,initialId,initial
             <small>Solo tras pulsar se consulta el geocodificador de prueba OpenStreetMap.</small>
             {candidate?<div className="dv2-found">
               <strong>Confirma la ubicación</strong><p>{candidate.matchedPlace}</p>
-              {candidate.citySlug===city?<button type="button" onClick={()=>selectArea(candidate.id)}>
-                Abrir {candidate.name} →</button>
-                :<Link href={"/v2/explore/"+candidate.citySlug+"?view="+purpose+"&area="+encodeURIComponent(candidate.id)}>Abrir {candidate.name} en {label(candidate.citySlug)} →</Link>}
+              {candidate.locationKind==="broad"
+                ? <Link href={"/v2/explore/"+candidate.citySlug+"?view="+purpose+"&area="+encodeURIComponent(candidate.id)}>Explorar {candidate.name} →</Link>
+                : <Link href={locationReportHref({latitude:candidate.latitude,longitude:candidate.longitude,
+                    label:candidate.matchedPlace,view:purpose})}>Crear informe de esta ubicación →</Link>}
             </div>:null}
             {geoError?<p role="alert" className="dv2-error">{geoError}</p>:null}
           </div>:null}
