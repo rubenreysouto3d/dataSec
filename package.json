@@ -12,7 +12,8 @@
     "check:method": "node --experimental-strip-types scripts/check-indicator-method.mjs",
     "check:place": "node scripts/check-place-evidence.cjs",
     "check:v2": "node scripts/check-product-v2.cjs",
-    "check:report": "node scripts/check-location-report.cjs"
+    "check:report": "node scripts/check-location-report.cjs",
+    "check:choice": "node scripts/check-address-choice.cjs"
   },
   "dependencies": {
     "next": "16.3.6",

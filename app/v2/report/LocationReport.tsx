@@ -3,6 +3,7 @@ import type { AreaProfile } from "@/lib/data";
 import type { PlaceEvidence } from "@/lib/place-evidence";
 import type { ReportPoint } from "@/lib/location-report";
 import { locationReportHref } from "@/lib/location-report";
+import { choiceHref } from "@/lib/address-choice";
 import { bandNumber } from "@/lib/map-view";
 import { NearbyServices, ReportMap, ReportSave, ReportShare } from "./ReportActions";
 import "./report.css";
@@ -55,6 +56,7 @@ export default function LocationReport({point,area,evidence,indicator,explanatio
         <div className="drep-quick-actions">
           <ReportSave point={point} areaId={area.id} city={area.citySlug}/>
           <ReportShare point={point}/>
+          <Link className="drep-compare-link" href={choiceHref(point,null,point.view)}>Comparar con otra dirección ↗</Link>
         </div>
       </div>
     </div>

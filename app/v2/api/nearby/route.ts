@@ -25,8 +25,10 @@ export async function GET(request: Request) {
 nwr["amenity"~"^(pharmacy|clinic|hospital)$"](around:750,${lat},${lng});
 nwr["shop"~"^(supermarket|convenience)$"](around:750,${lat},${lng});
 nwr["railway"~"^(station|subway_entrance)$"](around:750,${lat},${lng});
+nwr["amenity"~"^(school|kindergarten)$"](around:750,${lat},${lng});
+nwr["leisure"~"^(park|playground)$"](around:750,${lat},${lng});
 );
-out center 140;`;
+out center 320;`;
     const endpoint=new URL(overpass);
     endpoint.searchParams.set("data",query);
     const response=await fetch(endpoint.toString(), {

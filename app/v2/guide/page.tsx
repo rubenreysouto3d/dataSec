@@ -12,6 +12,6 @@ export default function Guide() {
       <section><span>03 / CONTEXTO</span><h2>Una calle no es una sentencia</h2><p>La precisión de los incidentes varía entre fuentes. Las ubicaciones británicas publicadas están anonimizadas. No etiquetamos calles para evitar sin evidencia local contrastada, pertinente y suficientemente precisa.</p></section>
       <section><span>04 / ELIGE</span><h2>Compara correctamente</h2><p>Comparamos el mismo indicador dentro de una ciudad e indicamos siempre los períodos. Transporte, servicios, vivienda y condiciones del entorno se incorporarán únicamente con datos verificables.</p></section>
     </div>
-    <div className="dv2-guide-call"><strong>Estado actual</strong><p>Madrid y Londres tienen datos operativos. Las otras ciudades están en evaluación y no muestran puntuaciones ficticias.</p><Link href="/v2#ciudades">Consultar cobertura →</Link></div>
+    <div className="dv2-guide-call"><strong>Estado actual</strong><p>Madrid y Londres tienen datos operativos. Las otras ciudades están en evaluación y no muestran puntuaciones ficticias.</p><Link href="/v2/cities">Consultar cobertura →</Link></div>
   </main>;
 }

@@ -26,9 +26,10 @@ assert.ok(v2Cities.some(c=>c.slug==="manchester" && c.status==="research" && /no
 const home=fs.readFileSync("app/v2/V2Home.tsx","utf8");
 const workspace=fs.readFileSync("app/v2/explore/[city]/V2Research.tsx","utf8");
 const layout=fs.readFileSync("app/v2/layout.tsx","utf8");
-assert.ok(home.includes("setPurpose") && home.includes("lookUpAddress") && home.includes("setCandidate(match)"));
+assert.ok(home.includes("setPurpose") && home.includes("searchAddress") && home.includes("setCandidate(match)"));
 assert.ok(home.includes("candidate.matchedPlace"), "Explicitly confirm the matching address");
-assert.ok(home.includes('id="ciudades"'));
+const citiesPage=fs.readFileSync("app/v2/cities/page.tsx","utf8");
+assert.ok(citiesPage.includes("v2Cities") && home.includes("/v2/cities"),"Coverage has its own directory");
 assert.ok(workspace.includes("createPlaceEvidenceContext"), "Shared canonical observed indicators");
 assert.ok(workspace.includes('setTab("map")') && workspace.includes('setTab("compare")'));
 assert.ok(workspace.includes("toggleSaved"), "Meaningful saved workflow");

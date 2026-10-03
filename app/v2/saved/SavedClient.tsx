@@ -14,7 +14,7 @@ export default function SavedClient() {
   return <main className="dv2-container dv2-saved-page">
     <p className="dv2-eyebrow">TU INVESTIGACIÓN</p><h1>Lugares guardados<span className="dv2-period">.</span></h1>
     <p className="dv2-lede">Tus ubicaciones y barrios de interés, listos para volver a consultarlos. De momento se guardan únicamente en este navegador, sin crear una cuenta.</p>
-    {!saved.length ? <div className="dv2-empty-saved"><h2>Aún no has guardado ningún lugar.</h2><p>Explora una zona y pulsa Guardar. Aquí tendrás tus alternativas.</p><Link className="dv2-button" href="/v2#ciudades">Explorar ciudades →</Link></div> : null}
+    {!saved.length ? <div className="dv2-empty-saved"><h2>Aún no has guardado ningún lugar.</h2><p>Explora una zona y pulsa Guardar. Aquí tendrás tus alternativas.</p><Link className="dv2-button" href="/v2/cities">Explorar ciudades →</Link></div> : null}
     <div className="dv2-saved-list">{saved.map(p => <article key={p.id+p.purpose}>
       <div><small>{p.city === "madrid" ? "MADRID" : "LONDRES"} · {p.purpose === "visitor" ? "VIAJE" : "MUDANZA"}</small><h2>{p.name}</h2></div>
       <div><Link href={typeof p.latitude==="number"&&typeof p.longitude==="number" ? locationReportHref({latitude:p.latitude,longitude:p.longitude,label:p.name,view:p.purpose}) : "/v2/explore/"+p.city+"?view="+p.purpose+"&area="+encodeURIComponent(p.id)}>Volver a la ficha →</Link>
