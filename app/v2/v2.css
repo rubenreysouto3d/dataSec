@@ -60,7 +60,8 @@ body:has(.dv2){margin:0;background:#f4f3ee}
   font-size:14px;padding-right:14px;color:var(--ink)}
 .dv2-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
   clip:rect(0,0,0,0);white-space:nowrap;border:0}
-.dv2-home-results{position:absolute;z-index:10;left:23px;right:23px;top:calc(100% - 21px);
+.dv2-home-search-wrap{position:relative}
+.dv2-home-results{position:absolute;z-index:10;left:0;right:0;top:calc(100% + 6px);
   padding:7px;background:#fff;border:1px solid #bacfc0;border-radius:10px;
   box-shadow:0 20px 45px #1c3b3128;max-height:420px;overflow:auto}
 .dv2-home-results>a,.dv2-home-results>button{width:100%;display:flex;justify-content:space-between;gap:15px;
@@ -356,7 +357,7 @@ body:has(.dv2){margin:0;background:#f4f3ee}
   .dv2-purpose-picker button>span{font-size:22px}
   .dv2-purpose-picker strong{font-size:12px}
   .dv2-purpose-picker small{font-size:10px}
-  .dv2-home-results{left:15px;right:15px;top:calc(100% - 12px)}
+  .dv2-home-results{left:0;right:0;top:calc(100% + 6px)}
   .dv2-hero-aside{display:none}
   .dv2-mission-inner{grid-template-columns:1fr;padding-block:23px}
   .dv2-mission-inner>div{gap:4px}
