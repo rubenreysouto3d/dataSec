@@ -2,6 +2,16 @@
 
 dataSec is an experimental European urban-safety data explorer built around official public data, transparent methodology and city-local context.
 
+## CURRENT PRODUCT RESET — v2 decision-first prototype
+
+The original explorer/Atlas navigation is **not** the target product and must not receive more presentation-only redesign passes. The new direction is to help travellers and prospective residents understand *a place*, including future evidence-backed street context, city life, and historical change rather than only crime-density maps.
+
+- Product and sourcing contract: [docs/product-v2-decision-reset.md](docs/product-v2-decision-reset.md)
+- Independent noindex preview: `/v2`, `/v2/explore/madrid`, `/v2/explore/london`, `/v2/guide`, `/v2/saved`
+- Do **not** claim new cities have data because they appear in the candidate catalogue.
+- Promote v2 to production only after user acceptance, real-device visual review, functional navigation tests and geocoder licensing review.
+- All currently displayed figures continue to use the shared source-specific `place-evidence` indicator contract.
+
 ## Product direction (3 October 2026)
 
 **DataSec is one place-research product, not separate maps, apps and plugins.** The strategic contract for the shared place dossier, unified web/PWA/extension/widget journey, commercial experiments, launch gates and migration priorities lives in [the unified product strategy](docs/product-strategy-unified-2026-10-03.md). Existing screens and the independent Atlas lab remain prototypes to consolidate; the strategic document is not a claim that the unified product or monetisation is already implemented.
