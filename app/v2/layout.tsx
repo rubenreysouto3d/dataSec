@@ -17,6 +17,7 @@ export default function V2Layout({ children }: { children: React.ReactNode }) {
         </Link>
         <nav aria-label="Navegación principal" className="dv2-mainnav">
           <Link href="/v2">Inicio</Link>
+          <Link href="/v2/choose">Comparar direcciones</Link>
           <Link href="/v2#ciudades">Ciudades</Link>
           <Link href="/v2/saved">Guardados</Link>
         </nav>
