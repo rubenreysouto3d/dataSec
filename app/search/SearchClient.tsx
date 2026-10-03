@@ -70,7 +70,7 @@ export default function SearchClient({ areas, error }: Props) {
         return;
       }
       router.push(localeHref(locale,
-        `/city/${area.citySlug}?view=${view}&area=${encodeURIComponent(area.id)}`,
+        `/explore/${area.citySlug}?view=${view}&area=${encodeURIComponent(area.id)}`,
       ));
     } catch {
       setPlaceError(tr(locale, "Place lookup is temporarily unavailable.", "La búsqueda de lugares no está disponible temporalmente."));
@@ -163,7 +163,7 @@ export default function SearchClient({ areas, error }: Props) {
                   </div>
                   <div className="search-task-actions">
                     <Link href={localeHref(locale,
-                      `/city/${area.citySlug}?view=${view}&area=${encodeURIComponent(area.id)}`,
+                      `/explore/${area.citySlug}?view=${view}&area=${encodeURIComponent(area.id)}`,
                     )}>
                       {tr(locale, "View in map →", "Ver en el mapa →")}
                     </Link>

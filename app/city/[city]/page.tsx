@@ -49,7 +49,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   return {
     title: `${cityNames[city]} safety map`,
-    description: `Explore neighbourhood-level official safety data for ${cityNames[city]} with consistent resident and visitor views.`,
+    description: `Historical detailed view of official neighbourhood records for ${cityNames[city]}.`,
+    robots: { index: false, follow: true },
+    alternates: { canonical: "/explore/" + city },
   };
 }
 

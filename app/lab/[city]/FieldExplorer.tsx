@@ -151,7 +151,7 @@ export default function FieldExplorer({
   const explanation = placeEvidenceExplanation(city, mode, hasCityHarmSeries, locale);
 
   const langLink = localeHref(locale === "es" ? "en" : "es",
-    "/lab/" + city + "?view=" + mode + (selected ? "&area=" + encodeURIComponent(selected.id) : ""));
+    "/explore/" + city + "?view=" + mode + (selected ? "&area=" + encodeURIComponent(selected.id) : ""));
 
   return (
     <main className="field-explorer" id="main-content">
@@ -161,7 +161,7 @@ export default function FieldExplorer({
           {(["madrid", "london"] as const).map((slug) => (
             <Link key={slug} className={city === slug ? "active" : ""}
               aria-current={city === slug ? "page" : undefined}
-              href={localeHref(locale, "/lab/" + slug + "?view=" + mode)}>{cityNames[slug]}</Link>
+              href={localeHref(locale, "/explore/" + slug + "?view=" + mode)}>{cityNames[slug]}</Link>
           ))}
         </nav>
         <div className="fx-utility">
@@ -216,7 +216,7 @@ export default function FieldExplorer({
                         ? <button type="button" onClick={() => choose(geoCandidate.id)}>
                             {tr(locale, "Confirm and open this area →", "Confirmar y abrir esta zona →")}
                           </button>
-                        : <Link href={localeHref(locale, "/lab/" + geoCandidate.citySlug + "?view=" + mode + "&area=" + encodeURIComponent(geoCandidate.id))}>
+                        : <Link href={localeHref(locale, "/explore/" + geoCandidate.citySlug + "?view=" + mode + "&area=" + encodeURIComponent(geoCandidate.id))}>
                             {tr(locale, "Confirm and switch city →", "Confirmar y cambiar de ciudad →")}
                           </Link>}
                     </div> : null}
@@ -380,7 +380,7 @@ export default function FieldExplorer({
                 }}>{tr(locale, "Copy this place link ↗", "Copiar enlace de la zona ↗")}</button>
                 {shareStatus ? <span role="status">{shareStatus}</span> : null}
                 <Link href={localeHref(locale, areaHref(selected.id))}>{tr(locale, "Complete area profile ↗", "Ficha completa de la zona ↗")}</Link>
-                <Link href={localeHref(locale, "/lab/" + city + "?view=" + mode + "&area=" + encodeURIComponent(selected.id))}>
+                <Link href={localeHref(locale, "/explore/" + city + "?view=" + mode + "&area=" + encodeURIComponent(selected.id))}>
                   {tr(locale, "Link to this view ↗", "Enlace a esta vista ↗")}</Link>
               </div>
             </div>

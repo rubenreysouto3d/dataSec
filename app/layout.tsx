@@ -11,11 +11,11 @@ const indexSite = process.env.NEXT_PUBLIC_INDEX_SITE === "true";
 
 export const metadata: Metadata = {
   title: {
-    default: "dataSec — Urban safety, from official data",
+    default: "dataSec — Understand a place with official data",
     template: "%s — dataSec",
   },
   description:
-    "Explore neighbourhood-level urban safety data from official public sources, with transparent methodology and source quality.",
+    "Explore recorded neighbourhood context for visiting or living in a city, with official sources and clear limitations.",
   robots: {
     index: indexSite,
     follow: indexSite,

@@ -60,8 +60,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const staticPaths: Array<[string, Frequency, number]> = [
     ["/", "weekly", 1],
-    ["/city/london", "monthly", 0.9],
-    ["/city/madrid", "monthly", 0.9],
+    ["/explore/london", "monthly", 0.9],
+    ["/explore/madrid", "monthly", 0.9],
     ["/city/london/resident", "monthly", 0.82],
     ["/city/london/visitor", "monthly", 0.82],
     ["/city/madrid/resident", "monthly", 0.82],
