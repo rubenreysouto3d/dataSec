@@ -32,6 +32,12 @@ assert.ok(home.includes('id="ciudades"'));
 assert.ok(workspace.includes("createPlaceEvidenceContext"), "Shared canonical observed indicators");
 assert.ok(workspace.includes('setTab("map")') && workspace.includes('setTab("compare")'));
 assert.ok(workspace.includes("toggleSaved"), "Meaningful saved workflow");
+const serverPage = fs.readFileSync("app/v2/explore/[city]/page.tsx","utf8");
+const boundaryRoute = fs.readFileSync("app/v2/api/boundaries/[city]/route.ts","utf8");
+assert.ok(!serverPage.includes("getCityBoundaries"), "Initial dossier must not serialise expensive city maps");
+assert.ok(workspace.includes('fetch("/v2/api/boundaries/" + city)'), "Load geometry only when opening map tab");
+assert.ok(boundaryRoute.includes("getCityBoundaries"), "Dedicated optional geometry endpoint");
+
 assert.ok(workspace.includes("evidence.period"), "Observation period required for any evidence card");
 assert.ok(layout.includes("index: false"), "Do not index concept/test cities");
-console.log("DataSec v2 product contract: 14 assertions passed.");
+console.log("DataSec v2 product contract: 17 assertions passed.");
