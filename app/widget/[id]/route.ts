@@ -63,7 +63,7 @@ export async function GET(request: Request, { params }: Props) {
       : new Intl.NumberFormat(localeTag(locale), { maximumFractionDigits: 1 }).format(evidence.value);
 
     const origin = url.origin;
-    const fullUrl = new URL("/lab/" + area.citySlug, origin);
+    const fullUrl = new URL("/explore/" + area.citySlug, origin);
     fullUrl.searchParams.set("view", view);
     fullUrl.searchParams.set("area", area.id);
     fullUrl.searchParams.set("lang", locale);
