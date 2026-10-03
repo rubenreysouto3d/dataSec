@@ -3,6 +3,7 @@ import type { AreaProfile } from "@/lib/data";
 import type { PlaceEvidence } from "@/lib/place-evidence";
 import type { ReportPoint } from "@/lib/location-report";
 import { locationReportHref } from "@/lib/location-report";
+import { choiceHref } from "@/lib/address-choice";
 import { bandNumber } from "@/lib/map-view";
 import { NearbyServices, ReportMap, ReportSave, ReportShare } from "./ReportActions";
 import "./report.css";
