@@ -46,4 +46,4 @@ assert.ok(client.includes("No convertir")||client.includes("no acreditan qué ca
 assert.ok(page.includes("locateAreaByCoordinates"));
 assert.ok(page.includes("createPlaceEvidenceContext"));
 assert.ok(nearby.includes("school|kindergarten")&&nearby.includes("park|playground"));
-console.log("Address-choice contract: 22 checks passed.");
+console.log("Address-choice contract: 21 checks passed.");
