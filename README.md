@@ -2,6 +2,10 @@
 
 dataSec is an experimental European urban-safety data explorer built around official public data, transparent methodology and city-local context.
 
+## Product direction (3 October 2026)
+
+**DataSec is one place-research product, not separate maps, apps and plugins.** The strategic contract for the shared place dossier, unified web/PWA/extension/widget journey, commercial experiments, launch gates and migration priorities lives in [the unified product strategy](docs/product-strategy-unified-2026-10-03.md). Existing screens and the independent Atlas lab remain prototypes to consolidate; the strategic document is not a claim that the unified product or monetisation is already implemented.
+
 ## Current prototype
 
 Two structurally different official sources are live in the data model:
