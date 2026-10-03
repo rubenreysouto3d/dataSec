@@ -118,7 +118,7 @@
   .drep-quick-actions{justify-content:start}
   .drep-layout{display:flex;flex-direction:column}
   .drep-content{width:100%}
-  .drep-aside{width:100%;position:static;order:-1}
+  .drep-aside{width:100%;position:static;order:0}
   .drep-aside-card{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
   .drep-aside-card>.drep-eyebrow{grid-column:1/-1}
   .drep-aside-card dl{margin:0}
