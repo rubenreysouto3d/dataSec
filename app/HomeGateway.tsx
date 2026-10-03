@@ -94,8 +94,8 @@ export default function HomeGateway({ locale, areas, cities, checkedLabel, avail
             <h1>{tr(locale, "A city is not", "Una ciudad no es")}<br/>
               <em>{tr(locale, "one colour.", "un solo color.")}</em></h1>
             <p>{tr(locale,
-              "Find a neighbourhood. See the actual records, the geographic context and what the data cannot tell you.",
-              "Encuentra un barrio. Consulta los registros reales, su contexto geográfico y lo que los datos no permiten saber.")}</p>
+              "Explore a neighbourhood or address before visiting or moving. Check what official records actually show and what they cannot tell you.",
+              "Investiga un barrio o dirección antes de viajar o mudarte. Consulta qué muestran los registros oficiales y qué no permiten saber.")}</p>
           </div>
           <div className="hg-orbit" aria-hidden="true">
             <div className="hg-orbit-circle one"/><div className="hg-orbit-circle two"/>
@@ -180,8 +180,8 @@ export default function HomeGateway({ locale, areas, cities, checkedLabel, avail
             ) : null}
           </div>
           <div className="hg-search-foot">{tr(locale,
-            "Official neighbourhood names. For a broad view, choose a city below.",
-            "Nombres oficiales de barrios. Para explorar sin buscar, elige una ciudad.")}</div>
+            "Neighbourhoods appear as you type. For a specific address, choose the explicit place lookup above.",
+            "Los barrios aparecen al escribir. Para una dirección concreta, elige la búsqueda de lugares que aparece arriba.")}</div>
         </section>
         <section id="areas" className="hg-cities" aria-labelledby="hg-cities-title">
           <div className="hg-section-heading"><h2 id="hg-cities-title">{tr(locale, "Or start on a map", "O empieza por el mapa")}</h2>
