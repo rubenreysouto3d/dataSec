@@ -135,3 +135,18 @@ body:has(.home-gateway){margin:0;background:#eef2ee}
   .hg-city>strong{font-size:43px}
   .hg-footer{padding:23px 19px}
 }
+
+/* Intentional, opt-in address matching. The user confirms the resolved place. */
+.hg-address-lookup{padding:10px 12px 12px;border-top:1px solid #e1eae5;display:flex;flex-direction:column;gap:7px}
+.hg-results .hg-lookup-btn{font-size:12px;font-weight:750;text-align:left;cursor:pointer;
+  color:#fff;background:#173b3e;border:1px solid #214e49;padding:12px 13px;border-radius:8px}
+.hg-results .hg-lookup-btn:disabled{opacity:.6;cursor:wait}
+.hg-address-lookup>small{font-size:10px;line-height:1.5;color:#637c74}
+.hg-address-lookup>small a{text-decoration:underline}
+.hg-match{display:flex;flex-direction:column;gap:4px;background:#edf5ef;border:1px solid #cee0d2;
+  border-radius:8px;padding:12px;overflow-wrap:anywhere}
+.hg-match>span{font-size:10px;font-weight:700;color:#536e64}
+.hg-match strong{font-size:12px}
+.hg-match a{background:#163e39;color:#fff;border-radius:6px;font-weight:720;font-size:11px;
+  text-align:center;padding:9px;margin-top:6px}
+.hg-address-lookup>p{padding:7px 0!important;color:#914e32!important}
