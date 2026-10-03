@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AtlasMap from "./AtlasMap";
+import { resolvePlaceToArea } from "@/lib/public-data-client";
 import SourceLocationCaveat, { isMadridDispatchLocationCaveat } from "@/components/SourceLocationCaveat";
 import { areaDisplayName, cityNames, type CityBoundary, type CityMapMetric, type CitySafetySignal, type CitySlug, type Neighbourhood } from "@/lib/data";
 import { areaHref } from "@/lib/area-route";
-import { buildVisitorPercentileMap, MAP_COLOR_BANDS } from "@/lib/map-filters";
-import { bandNumber, metricForLayer } from "@/lib/map-view";
+import { MAP_COLOR_BANDS } from "@/lib/map-filters";
+import { bandNumber } from "@/lib/map-view";
+import { createPlaceEvidenceContext, placeEvidenceExplanation, placeEvidenceLabel, placeEvidenceSource } from "@/lib/place-evidence";
 import { localeHref, localeTag, tr, type Locale } from "@/lib/i18n";
 
 type Mode = "resident" | "visitor";
@@ -50,6 +52,9 @@ export default function FieldExplorer({
   const [selectedId, setSelectedId] = useState<string | null>(initialAreaId);
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [geoError, setGeoError] = useState("");
+  const [geoCandidate, setGeoCandidate] = useState<Awaited<ReturnType<typeof resolvePlaceToArea>>>(null);
   const [comparing, setComparing] = useState(false);
   const [compareQuery, setCompareQuery] = useState("");
   const [comparisonId, setComparisonId] = useState<string | null>(null);
@@ -57,24 +62,16 @@ export default function FieldExplorer({
   const areaById = useMemo(() => new Map(areas.map((area) => [area.id, area])), [areas]);
   const metricById = useMemo(() => new Map(metrics.map((metric) => [metric.areaId, metric])), [metrics]);
   const signalById = useMemo(() => new Map(safetySignals.map((signal) => [signal.areaId, signal])), [safetySignals]);
-  const visitorById = useMemo(() => buildVisitorPercentileMap(metrics), [metrics]);
-  const hasCityHarmSeries = city === "madrid" && safetySignals.some(
-    (signal) => signal.months >= 3 && signal.residentPercentile !== null && signal.personalHarmPer10k !== null,
+  const evidenceContext = useMemo(
+    () => createPlaceEvidenceContext(city, metrics, safetySignals),
+    [city, metrics, safetySignals],
   );
-  const residentLayer = hasCityHarmSeries ? "residential-harm" : "contextual-overview";
-  const getEvidence = (id: string, currentMode: Mode) =>
-    metricForLayer(
-      metricById.get(id),
-      currentMode === "visitor" ? "visitor-context" : residentLayer,
-      signalById.get(id),
-      visitorById.get(id) ?? null,
-    );
+  const hasCityHarmSeries = evidenceContext.hasCityHarmSeries;
+  const getEvidence = evidenceContext.read;
 
   const values = useMemo(() => new Map(areas.map((area) => [
     area.id, getEvidence(area.id, mode).percentile,
-    // getEvidence uses immutable source maps; mode is the only changing filter.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  ])), [areas, metricById, signalById, visitorById, mode, residentLayer]);
+  ])), [areas, evidenceContext, mode]);
   const eligible = Array.from(values.values()).filter((value) => value !== null && Number.isFinite(value)).length;
 
   const selected = selectedId ? areaById.get(selectedId) ?? null : null;
@@ -86,8 +83,18 @@ export default function FieldExplorer({
   const compared = comparedArea ? getEvidence(comparedArea.id, mode) : null;
   const comparedLevel = compared ? bandNumber(compared.percentile) : null;
   const comparisonMetric = comparedArea ? metricById.get(comparedArea.id) : undefined;
-  const comparisonSignal = comparedArea ? signalById.get(comparedArea.id) : undefined;
   const latest = metrics.reduce((current, metric) => metric.month > current ? metric.month : current, "");
+  const [shareStatus, setShareStatus] = useState("");
+  // Selection and purpose are URL state: the same link opens in web/mobile
+  // and can be consumed by the browser extension without duplicating a view.
+  useEffect(() => {
+    const next = new URL(window.location.href);
+    next.searchParams.set("view", mode);
+    if (selectedId) next.searchParams.set("area", selectedId);
+    else next.searchParams.delete("area");
+    window.history.replaceState(window.history.state, "", next.pathname + next.search + next.hash);
+    setShareStatus("");
+  }, [mode, selectedId]);
 
   const suggestions = useMemo(() => {
     const term = normalise(query);
@@ -111,54 +118,37 @@ export default function FieldExplorer({
     setSelectedId(id);
     setQuery("");
     setSearchOpen(false);
+    setGeoCandidate(null);
+    setGeoError("");
     setComparing(false);
     setCompareQuery("");
     setComparisonId(null);
   }
 
-  const metricLabel = mode === "visitor"
-    ? tr(locale, "Recorded theft/robbery-related incidents per km²", "Hurtos y robos registrados por km²")
-    : city === "madrid" && hasCityHarmSeries
-      ? tr(locale, "Selected personal-harm dispatches / 10,000 registered residents / month", "Incidencias seleccionadas de daño personal / 10.000 residentes / mes")
-      : city === "madrid"
-        ? tr(locale, "Selected violence/property dispatches / 10,000 registered residents", "Incidencias seleccionadas de violencia/propiedad / 10.000 residentes")
-        : tr(locale, "Recorded violence + property / 10,000 Census residents", "Violencia y propiedad registradas / 10.000 habitantes del censo");
+  async function lookupTypedAddress() {
+    const typed = query.trim();
+    if (typed.length < 4 || geoLoading) return;
+    setGeoLoading(true);
+    setGeoError("");
+    setGeoCandidate(null);
+    try {
+      const matched = await resolvePlaceToArea(typed);
+      if (matched) setGeoCandidate(matched);
+      else setGeoError(tr(locale,
+        "No precise area match in Madrid/London. Include a full address and city.",
+        "No se encontró una zona precisa en Madrid/Londres. Incluye dirección completa y ciudad."));
+    } catch {
+      setGeoError(tr(locale, "Address service temporarily unavailable.", "Servicio de direcciones no disponible temporalmente."));
+    } finally {
+      setGeoLoading(false);
+    }
+  }
 
-  const period = mode === "resident" && hasCityHarmSeries &&
-    selectedSignal && selectedSignal.months >= 3 && primary?.value !== null
-    ? selectedSignal.monthStart + " – " + selectedSignal.monthEnd
-    : selectedMetric?.month ?? latest;
-
-  const comparisonPeriod = mode === "resident" && hasCityHarmSeries &&
-    comparisonSignal && comparisonSignal.months >= 3 && compared?.value !== null
-    ? comparisonSignal.monthStart + " – " + comparisonSignal.monthEnd
-    : comparisonMetric?.month ?? latest;
-
-  const source = city === "madrid" ? {
-    label: tr(locale, "Madrid Municipal Police dispatches", "Incidencias de Policía Municipal de Madrid"),
-    url: "https://datos.madrid.es/dataset/837676-0-incidencias-recibidas-en-la-emisora-central-de-policia-municipal/information",
-    note: tr(locale, "Dispatch calls are not a certified count of crimes.", "Las incidencias policiales no equivalen a delitos acreditados."),
-  } : {
-    label: tr(locale, "Metropolitan Police / UK Police open data", "Metropolitan Police / datos abiertos británicos"),
-    url: "https://data.police.uk/about/",
-    note: tr(locale, "Recorded offences; geographic points are approximate.", "Delitos registrados; ubicaciones geográficas aproximadas."),
-  };
-
-  const explanation = mode === "visitor"
-    ? tr(locale,
-        "This is the concentration of selected recorded theft and robbery categories per km². It is not a visitor risk rate: comparable visitor counts are unavailable.",
-        "Es la concentración de categorías seleccionadas de hurtos y robos registrados por km². No es una tasa de riesgo para visitantes: no disponemos de afluencia comparable.")
-    : city === "madrid" && hasCityHarmSeries
-      ? tr(locale,
-          "Selected municipal police dispatches concerning personal harm per registered resident, averaged across available recent months. District-level perception surveys remain separate.",
-          "Incidencias seleccionadas de Policía Municipal relacionadas con daños personales por residente empadronado, promediadas entre los meses recientes disponibles. Las encuestas distritales se mantienen aparte.")
-      : city === "madrid"
-        ? tr(locale,
-            "The recent personal-harm series lacks enough city coverage, so the same selected violence/property dispatch indicator is used for all measured neighbourhoods.",
-            "La serie reciente de daño personal no tiene cobertura suficiente, por lo que se aplica el mismo indicador seleccionado de incidencias de violencia/propiedad a todos los barrios con datos.")
-        : tr(locale,
-            "Selected recorded violence and property offences relative to 2021 Census residents; these categories differ from Madrid's municipal dispatches.",
-            "Delitos seleccionados de violencia y propiedad registrados respecto a residentes del censo de 2021; no son equivalentes a las incidencias municipales de Madrid.");
+  const metricLabel = placeEvidenceLabel(city, mode, hasCityHarmSeries, locale);
+  const period = primary?.period ?? null;
+  const comparisonPeriod = compared?.period ?? null;
+  const source = placeEvidenceSource(city, locale);
+  const explanation = placeEvidenceExplanation(city, mode, hasCityHarmSeries, locale);
 
   const langLink = localeHref(locale === "es" ? "en" : "es",
     "/lab/" + city + "?view=" + mode + (selected ? "&area=" + encodeURIComponent(selected.id) : ""));
@@ -191,24 +181,48 @@ export default function FieldExplorer({
             <div className="fx-search-box">
               <span aria-hidden="true">⌕</span>
               <input id="fx-search" type="search" autoComplete="off" value={query}
-                placeholder={tr(locale, "Search by neighbourhood or district", "Busca por barrio o distrito")}
-                onChange={(event) => { setQuery(event.target.value); setSearchOpen(true); }}
+                placeholder={tr(locale, "Neighbourhood or full address", "Barrio o dirección completa")}
+                onChange={(event) => { setQuery(event.target.value); setSearchOpen(true); setGeoCandidate(null); setGeoError(""); }}
                 onFocus={() => setSearchOpen(true)}
                 onKeyDown={(event) => {
                   if (event.key === "Escape") setSearchOpen(false);
                   if (event.key === "Enter" && suggestions[0]) { event.preventDefault(); choose(suggestions[0].id); }
                 }}/>
               {query ? <button type="button" aria-label={tr(locale, "Clear search", "Borrar búsqueda")}
-                onClick={() => { setQuery(""); setSearchOpen(false); }}>×</button> : null}
+                onClick={() => { setQuery(""); setSearchOpen(false); setGeoCandidate(null); setGeoError(""); }}>×</button> : null}
             </div>
             {searchOpen && query.trim() ? (
-              <div className="fx-suggestions" role="listbox" aria-label={tr(locale, "Matching places", "Zonas coincidentes")}>
+              <div className="fx-suggestions" role="group" aria-label={tr(locale, "Matching places", "Zonas coincidentes")}>
                 {suggestions.length ? suggestions.map((area) => (
-                  <button role="option" aria-selected={selectedId === area.id} key={area.id}
+                  <button aria-pressed={selectedId === area.id} key={area.id}
                     type="button" onClick={() => choose(area.id)}>
                     <strong>{area.name}</strong><span>{area.parentName || cityNames[city]}</span>
                   </button>
-                )) : <p>{tr(locale, "No matching area. Try a different name.", "Sin coincidencias. Prueba otro nombre.")}</p>}
+                )) : <p>{tr(locale, "No official area matches. A full address may be resolved below.", "No coincide ningún barrio oficial. Puedes consultar una dirección completa abajo.")}</p>}
+                {query.trim().length >= 4 ? (
+                  <div className="fx-geo-lookup">
+                    <button type="button" disabled={geoLoading} onClick={lookupTypedAddress}>
+                      {geoLoading
+                        ? tr(locale, "Finding address…", "Buscando dirección…")
+                        : tr(locale, "Look up this address ↗", "Consultar esta dirección ↗")}
+                    </button>
+                    <small>{tr(locale,
+                      "Explicit lookup via OpenStreetMap. Confirm the matched address before opening.",
+                      "Búsqueda explícita mediante OpenStreetMap. Comprueba la dirección encontrada antes de abrirla.")}</small>
+                    {geoCandidate ? <div className="fx-geo-match" role="status">
+                      <strong>{geoCandidate.matchedPlace}</strong>
+                      <span>{geoCandidate.name} · {geoCandidate.citySlug === "madrid" ? "Madrid" : "London"}</span>
+                      {geoCandidate.citySlug === city
+                        ? <button type="button" onClick={() => choose(geoCandidate.id)}>
+                            {tr(locale, "Confirm and open this area →", "Confirmar y abrir esta zona →")}
+                          </button>
+                        : <Link href={localeHref(locale, "/lab/" + geoCandidate.citySlug + "?view=" + mode + "&area=" + encodeURIComponent(geoCandidate.id))}>
+                            {tr(locale, "Confirm and switch city →", "Confirmar y cambiar de ciudad →")}
+                          </Link>}
+                    </div> : null}
+                    {geoError ? <p role="alert">{geoError}</p> : null}
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -353,6 +367,18 @@ export default function FieldExplorer({
                 <p>{source.note}</p>
               </details>
               <div className="fx-deep-links">
+                <button type="button" onClick={async () => {
+                  const share = new URL(window.location.href);
+                  share.searchParams.set("view", mode);
+                  share.searchParams.set("area", selected.id);
+                  try {
+                    await navigator.clipboard.writeText(share.toString());
+                    setShareStatus(tr(locale, "Link copied", "Enlace copiado"));
+                  } catch {
+                    setShareStatus(tr(locale, "Use the link below to share this place.", "Utiliza el enlace de abajo para compartir esta zona."));
+                  }
+                }}>{tr(locale, "Copy this place link ↗", "Copiar enlace de la zona ↗")}</button>
+                {shareStatus ? <span role="status">{shareStatus}</span> : null}
                 <Link href={localeHref(locale, areaHref(selected.id))}>{tr(locale, "Complete area profile ↗", "Ficha completa de la zona ↗")}</Link>
                 <Link href={localeHref(locale, "/lab/" + city + "?view=" + mode + "&area=" + encodeURIComponent(selected.id))}>
                   {tr(locale, "Link to this view ↗", "Enlace a esta vista ↗")}</Link>

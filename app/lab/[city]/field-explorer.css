@@ -218,3 +218,18 @@ body:has(.field-explorer) { margin:0; background:#f1f3f1; }
   .fx-map-caption{display:none}
   .fx-legend{width:204px}
 }
+
+/* Opt-in address search never guesses when only a vague place is supplied. */
+.fx-geo-lookup{border-top:1px solid #dce8e1;padding:11px;display:flex;flex-direction:column;gap:7px}
+.fx-suggestions .fx-geo-lookup>button{background:#173d3e;color:white;justify-content:center;
+  font-weight:750;border-radius:6px;padding:11px}
+.fx-geo-lookup>small{font-size:10px;color:#647971;line-height:1.45}
+.fx-geo-match{display:flex;flex-direction:column;gap:6px;padding:11px;background:#edf5ed;
+  border:1px solid #c7e0cd;border-radius:7px;overflow-wrap:anywhere}
+.fx-geo-match>strong{font-size:12px}.fx-geo-match>span{font-size:11px;color:#58716a}
+.fx-suggestions .fx-geo-match button,.fx-geo-match a{padding:10px;color:#134b43;
+  background:white;border:1px solid #b0d0c1;border-radius:5px;font-size:11px;font-weight:750}
+.fx-geo-lookup>p{padding:5px 0!important;color:#984c31!important}
+.fx-deep-links button{padding:0;margin:0;border:0;background:transparent;color:#19695d;
+  font-size:11px;font-weight:750;text-decoration:underline;text-underline-offset:3px}
+.fx-deep-links span[role="status"]{font-size:11px;color:#38665a}

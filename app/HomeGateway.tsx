@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { localeHref, localeTag, tr, type Locale } from "@/lib/i18n";
 import type { CitySlug } from "@/lib/data";
+import { resolvePlaceToArea } from "@/lib/public-data-client";
 
 type AreaOption = {
   id: string;
@@ -28,6 +29,9 @@ export default function HomeGateway({ locale, areas, cities, checkedLabel, avail
   const [mode, setMode] = useState<"resident" | "visitor">("resident");
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
+  const [addressLoading, setAddressLoading] = useState(false);
+  const [addressError, setAddressError] = useState("");
+  const [addressMatch, setAddressMatch] = useState<Awaited<ReturnType<typeof resolvePlaceToArea>>>(null);
   const matches = useMemo(() => {
     const term = normalise(search);
     if (!term) return [];
@@ -49,6 +53,26 @@ export default function HomeGateway({ locale, areas, cities, checkedLabel, avail
   const goArea = (area: AreaOption) => localeHref(locale,
     "/lab/" + area.citySlug + "?view=" + mode + "&area=" + encodeURIComponent(area.id));
   const goCity = (slug: CitySlug) => localeHref(locale, "/lab/" + slug + "?view=" + mode);
+
+  async function lookupAddress() {
+    const exactQuery = search.trim();
+    if (exactQuery.length < 4 || addressLoading) return;
+    setAddressLoading(true);
+    setAddressError("");
+    setAddressMatch(null);
+    try {
+      // Only an explicit click sends this text to the prototype geocoder.
+      const result = await resolvePlaceToArea(exactQuery);
+      if (result) setAddressMatch(result);
+      else setAddressError(tr(locale,
+        "No location matched the current Madrid/London coverage. Add the city and full address.",
+        "No encontramos ese lugar en la cobertura actual de Madrid o Londres. Añade ciudad y dirección completa."));
+    } catch {
+      setAddressError(tr(locale, "Address lookup is temporarily unavailable.", "La búsqueda por dirección no está disponible temporalmente."));
+    } finally {
+      setAddressLoading(false);
+    }
+  }
 
   return (
     <main className="home-gateway" id="main-content">
@@ -97,10 +121,10 @@ export default function HomeGateway({ locale, areas, cities, checkedLabel, avail
               <span aria-hidden="true">⌕</span>
               <label className="hg-sr-only" htmlFor="hg-area">{tr(locale, "Search a neighbourhood", "Buscar un barrio")}</label>
               <input id="hg-area" type="search" autoComplete="off"
-                placeholder={tr(locale, "Search a neighbourhood, district or city…", "Busca un barrio, distrito o ciudad…")}
+                placeholder={tr(locale, "Neighbourhood, city or address…", "Barrio, ciudad o dirección…")}
                 value={search} disabled={!available}
                 onFocus={() => setSearchOpen(true)}
-                onChange={(event) => { setSearch(event.target.value); setSearchOpen(true); }}
+                onChange={(event) => { setSearch(event.target.value); setSearchOpen(true); setAddressMatch(null); setAddressError(""); }}
                 onKeyDown={(event) => {
                   if (event.key === "Escape") setSearchOpen(false);
                   if (event.key === "Enter" && (matchingCity || matches[0])) {
@@ -109,7 +133,7 @@ export default function HomeGateway({ locale, areas, cities, checkedLabel, avail
                   }
                 }}/>
               {search ? <button type="button" aria-label={tr(locale, "Clear search", "Borrar búsqueda")}
-                onClick={() => { setSearch(""); setSearchOpen(false); }}>×</button> : null}
+                onClick={() => { setSearch(""); setSearchOpen(false); setAddressMatch(null); setAddressError(""); }}>×</button> : null}
             </div>
             {searchOpen && search.trim() ? (
               <div className="hg-results" aria-label={tr(locale, "Matching areas", "Zonas coincidentes")}>
@@ -126,7 +150,32 @@ export default function HomeGateway({ locale, areas, cities, checkedLabel, avail
                     <span className="hg-result-city">{area.citySlug === "madrid" ? "Madrid" : "London"} ↗</span>
                   </Link>
                 ))}
-                {!matches.length && !matchingCity ? <p>{tr(locale, "No official neighbourhood matches. Try a shorter name.", "No aparece ningún barrio oficial. Prueba con menos letras.")}</p> : null}
+                {!matches.length && !matchingCity ?
+                  <p>{tr(locale, "No official neighbourhood matches. For a precise address, use the lookup below.", "No coincide ningún barrio oficial. Para una dirección concreta, utiliza la búsqueda siguiente.")}</p> : null}
+                {search.trim().length >= 4 ? (
+                  <div className="hg-address-lookup">
+                    <button type="button" className="hg-lookup-btn" onClick={lookupAddress}
+                      disabled={addressLoading}>
+                      {addressLoading
+                        ? tr(locale, "Matching address…", "Buscando dirección…")
+                        : tr(locale, "Look up this address or place ↗", "Buscar esta dirección o lugar ↗")}
+                    </button>
+                    <small>{tr(locale,
+                      "Only when you click, the query is sent to OpenStreetMap's prototype geocoder. Verify the location before opening.",
+                      "Solo al pulsar, la consulta se envía al geocodificador de prueba de OpenStreetMap. Comprueba el lugar antes de abrirlo.")}{" "}
+                      <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap</a>
+                    </small>
+                    {addressMatch ? <div className="hg-match" role="status">
+                      <span>{tr(locale, "Check this matched place", "Comprueba el lugar encontrado")}</span>
+                      <strong>{addressMatch.matchedPlace}</strong>
+                      <small>{addressMatch.name} · {addressMatch.citySlug === "madrid" ? "Madrid" : "London"}</small>
+                      <Link href={goArea(addressMatch)}>
+                        {tr(locale, "Open this area on the map →", "Abrir esta zona en el mapa →")}
+                      </Link>
+                    </div> : null}
+                    {addressError ? <p role="alert">{addressError}</p> : null}
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </div>
