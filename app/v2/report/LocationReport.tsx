@@ -56,6 +56,7 @@ export default function LocationReport({point,area,evidence,indicator,explanatio
         <div className="drep-quick-actions">
           <ReportSave point={point} areaId={area.id} city={area.citySlug}/>
           <ReportShare point={point}/>
+          <Link className="drep-compare-link" href={choiceHref(point,null,point.view)}>Comparar con otra dirección ↗</Link>
         </div>
       </div>
     </div>
