@@ -112,6 +112,7 @@ export default function V2Home({ areas, available }: { areas: Area[]; available:
           </div> : null}
           </div>
           <div className="dv2-quick">
+            <Link className="dv2-try-report" href={"/v2/choose?view="+purpose}>Comparar directamente dos direcciones ↗</Link>
             <span>Empieza explorando:</span>
             <Link href={"/v2/explore/madrid?view="+purpose}>Madrid ↗</Link>
             <Link href={"/v2/explore/london?view="+purpose}>Londres ↗</Link>
