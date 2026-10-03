@@ -43,16 +43,17 @@ export function createPlaceEvidenceContext(
       ? "visitor-context"
       : hasCityHarmSeries ? "residential-harm" : "contextual-overview";
     const observed = metricForLayer(metric, layer, signal, visitor.get(areaId) ?? null);
+    // A city-wide harm series does not imply sufficient history for each area.
+    // Under-covered areas are unavailable, never silently assigned another indicator.
+    const validHarm = Boolean(signal && signal.months >= 3 &&
+      signal.personalHarmPer10k !== null && signal.residentPercentile !== null);
     const available = observed.value !== null &&
       observed.percentile !== null &&
-      Number.isFinite(observed.value) && Number.isFinite(observed.percentile);
-    // A city-wide harm series does not imply that every neighbourhood has
-    // enough data. Never borrow the city's latest month for a missing area.
-    const validHarm = signal && signal.months >= 3 &&
-      signal.personalHarmPer10k !== null && signal.residentPercentile !== null;
+      Number.isFinite(observed.value) && Number.isFinite(observed.percentile) &&
+      (indicator !== "personal-harm" || validHarm);
     const period = !available ? null
       : indicator === "personal-harm"
-        ? validHarm ? signal.monthStart + " – " + signal.monthEnd : null
+        ? validHarm && signal ? signal.monthStart + " – " + signal.monthEnd : null
         : metric?.month ?? null;
     return {
       ...observed,
