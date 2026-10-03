@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { resolvePlaceToArea } from "@/lib/public-data-client";
 import { v2Cities } from "@/lib/v2-city-catalog";
+import { locationReportHref } from "@/lib/location-report";
 
 type Area = { id: string; name: string; parentName: string | null; citySlug: "madrid" | "london" };
 type Purpose = "visitor" | "resident";
@@ -80,6 +81,8 @@ export default function V2Home({ areas, available }: { areas: Area[]; available:
                 else if(e.key==="Enter" && cityMatch[0])router.push("/v2/explore/"+cityMatch[0].slug+"?view="+purpose);
               }}/>
           </div>
+          <button type="button" className="dv2-report-start" disabled={!available||loading||query.trim().length<4}
+            onClick={lookUpAddress}>{loading?"Localizando el lugar…":"Analizar esta dirección →"}</button>
           {!available ? <p role="alert" className="dv2-error">Datos temporalmente inaccesibles. No mostramos resultados de prueba.</p> : null}
           {focused && query.trim().length >= 2 ? <div className="dv2-home-results">
             {cityMatch.map(city=><Link key={city.slug} href={"/v2/explore/"+city.slug+"?view="+purpose} onClick={()=>setFocused(false)}>
@@ -89,15 +92,20 @@ export default function V2Home({ areas, available }: { areas: Area[]; available:
               <span><strong>{area.name}</strong><small>{area.parentName||""} · {area.citySlug==="madrid"?"Madrid":"Londres"}</small></span>→
             </button>)}
             <div className="dv2-address">
-              <button type="button" disabled={loading||query.trim().length<4} onClick={lookUpAddress}>
-                {loading ? "Buscando coincidencias…" : "Consultar esta dirección concreta ↗"}
-              </button>
               <small>La consulta se envía a OpenStreetMap solo si pulsas este botón. Comprueba el resultado antes de abrirlo.</small>
               {candidate ? <div role="status" className="dv2-verified">
                 <small>COINCIDENCIA QUE DEBES CONFIRMAR</small>
                 <strong>{candidate.matchedPlace}</strong>
                 <span>{candidate.name} · {candidate.citySlug==="madrid"?"Madrid":"Londres"}</span>
-                <button type="button" onClick={()=>goArea(candidate)}>Sí, investigar esta zona →</button>
+                {candidate.locationKind==="broad"
+                  ? <Link className="dv2-report-candidate" href={explorer(candidate,purpose)}>
+                      Explorar este barrio o ciudad →
+                    </Link>
+                  : <Link className="dv2-report-candidate" href={locationReportHref({
+                      latitude:candidate.latitude,longitude:candidate.longitude,
+                      label:candidate.matchedPlace,view:purpose,
+                    })}>Confirmar y generar informe de esta ubicación →</Link>}
+                <small>Solo se atribuirán datos del barrio oficial, nunca de la calle exacta.</small>
               </div> : null}
               {lookupError ? <p role="alert" className="dv2-error">{lookupError}</p> : null}
             </div>
