@@ -15,7 +15,6 @@ type Tab = "overview" | "map" | "compare";
 type Props = {
   city: CitySlug;
   areas: Neighbourhood[];
-  boundaries: CityBoundary[];
   metrics: CityMapMetric[];
   signals: CitySafetySignal[];
   initialId: string | null;
@@ -37,7 +36,7 @@ const relativeLabels = [
   "Entre los valores registrados más altos",
 ];
 
-export default function V2Research({city,areas,boundaries,metrics,signals,initialId,initialPurpose}:Props) {
+export default function V2Research({city,areas,metrics,signals,initialId,initialPurpose}:Props) {
   const [purpose,setPurpose]=useState<PlacePurpose>(initialPurpose);
   const [selectedId,setSelectedId]=useState<string|null>(initialId);
   const [tab,setTab]=useState<Tab>("overview");
@@ -50,6 +49,9 @@ export default function V2Research({city,areas,boundaries,metrics,signals,initia
   const [compareQuery,setCompareQuery]=useState("");
   const [saved,setSaved]=useState(false);
   const [shareStatus,setShareStatus]=useState("");
+  const [mapBoundaries,setMapBoundaries]=useState<CityBoundary[]|null>(null);
+  const [mapLoading,setMapLoading]=useState(false);
+  const [mapError,setMapError]=useState(false);
 
   const evidenceContext=useMemo(()=>createPlaceEvidenceContext(city,metrics,signals),[city,metrics,signals]);
   const areaById=useMemo(()=>new Map(areas.map(a=>[a.id,a])),[areas]);
@@ -77,6 +79,20 @@ export default function V2Research({city,areas,boundaries,metrics,signals,initia
     if(text.length<2)return [];
     return areas.filter(a=>a.id!==selectedId && normalize(areaDisplayName(a)).includes(text)).slice(0,7);
   },[areas,selectedId,compareQuery]);
+  useEffect(()=>{
+    if(tab!=="map" || mapBoundaries || mapLoading || mapError) return;
+    setMapLoading(true);
+    // A deliberate map action is required before downloading city geometries.
+    fetch("/v2/api/boundaries/" + city)
+      .then(async response => {
+        if(!response.ok) throw new Error("Map service unavailable");
+        const result: unknown = await response.json();
+        if(!Array.isArray(result)) throw new Error("Invalid geometry response");
+        setMapBoundaries(result as CityBoundary[]);
+      })
+      .catch(() => setMapError(true))
+      .finally(() => setMapLoading(false));
+  },[tab,city,mapBoundaries,mapLoading,mapError]);
   useEffect(()=>{
     const next=new URL(window.location.href);
     next.searchParams.set("view",purpose);
@@ -251,8 +267,14 @@ export default function V2Research({city,areas,boundaries,metrics,signals,initia
             <div className="dv2-mini-legend"><div>{MAP_COLOR_BANDS.map((band,i)=><i key={band.max} style={{background:band.color}}/>)}</div><small>Menos registros ← → Más registros</small><small>Gris: sin datos comparables</small></div>
           </div>
           <div className="dv2-map-frame">
-            <AtlasMap city={city} boundaries={boundaries} areas={areas} values={mapValues}
-              selectedId={selectedId} onSelect={selectArea} locale="es"/>
+            {mapBoundaries ? <AtlasMap city={city} boundaries={mapBoundaries} areas={areas} values={mapValues}
+              selectedId={selectedId} onSelect={selectArea} locale="es"/> : <div className="dv2-map-placeholder" role="status">
+                {mapError ? <><strong>El mapa no se ha podido cargar.</strong>
+                  <p>Puedes seguir investigando mediante el buscador y la ficha, sin perder la selección.</p>
+                  <button type="button" onClick={()=>setMapError(false)}>Volver a intentar</button></>
+                  : <><strong>Preparando el mapa de {label(city)}…</strong>
+                    <p>Descargamos la cartografía solo cuando decides abrirla.</p></>}
+              </div>}
           </div>
           <p className="dv2-map-warning">La comparación se realiza dentro de la misma ciudad. Este mapa no indica por dónde es seguro caminar ni identifica calles peligrosas.</p>
         </div>:null}
