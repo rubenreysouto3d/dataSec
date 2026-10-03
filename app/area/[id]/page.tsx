@@ -252,7 +252,7 @@ export default async function AreaPage({ params, searchParams }: Props) {
     <main className="area-page">
       <Link
         className="back"
-        href={localeHref(locale, `/city/${area.citySlug}`)}
+        href={localeHref(locale, `/explore/${area.citySlug}`)}
       >
         ← {area.cityName}
       </Link>
@@ -267,7 +267,7 @@ export default async function AreaPage({ params, searchParams }: Props) {
           <span>{monthLabel(latest.month, locale)}</span>
           <Link
             className="area-map-link"
-            href={localeHref(locale, `/city/${area.citySlug}?area=${encodeURIComponent(area.id)}`)}
+            href={localeHref(locale, `/explore/${area.citySlug}?area=${encodeURIComponent(area.id)}`)}
           >
             {tr(locale, "View on map →", "Ver en el mapa →")}
           </Link>
