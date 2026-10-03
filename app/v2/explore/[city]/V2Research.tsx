@@ -135,7 +135,7 @@ export default function V2Research({city,areas,metrics,signals,initialId,initial
   return <main className="dv2-workspace dv2-container">
     <div className="dv2-crumbs">
       <Link href="/v2">Inicio</Link><span>/</span>
-      <Link href="/v2#ciudades">Ciudades</Link><span>/</span><strong>{label(city)}</strong>
+      <Link href="/v2/cities">Ciudades</Link><span>/</span><strong>{label(city)}</strong>
       <span className="dv2-crumbs-status">FUENTES OFICIALES · {latest || "FECHA NO DISPONIBLE"}</span>
     </div>
     <div className="dv2-workspace-header">
@@ -197,7 +197,7 @@ export default function V2Research({city,areas,metrics,signals,initialId,initial
           <Link href={"/v2/explore/"+(city==="madrid"?"london":"madrid")+"?view="+purpose}>
             {city==="madrid"?"Londres":"Madrid"} <span aria-hidden="true">↗</span>
           </Link>
-          <Link href="/v2#ciudades">Ver todas las ciudades</Link>
+          <Link href="/v2/cities">Ver todas las ciudades</Link>
         </div>
       </aside>
 
