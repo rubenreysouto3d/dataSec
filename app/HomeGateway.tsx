@@ -39,6 +39,13 @@ export default function HomeGateway({ locale, areas, cities, checkedLabel, avail
       }).slice(0, 7);
   }, [areas, search, locale]);
 
+  const cityTerm = normalise(search);
+  const matchingCity = cityTerm.length >= 2
+    ? (["madrid", "london"] as const).find((city) =>
+      (city === "madrid" ? "madrid" : "london").startsWith(cityTerm) ||
+      (city === "london" && "londres".startsWith(cityTerm)))
+    : undefined;
+
   const goArea = (area: AreaOption) => localeHref(locale,
     "/lab/" + area.citySlug + "?view=" + mode + "&area=" + encodeURIComponent(area.id));
   const goCity = (slug: CitySlug) => localeHref(locale, "/lab/" + slug + "?view=" + mode);
@@ -96,9 +103,9 @@ export default function HomeGateway({ locale, areas, cities, checkedLabel, avail
                 onChange={(event) => { setSearch(event.target.value); setSearchOpen(true); }}
                 onKeyDown={(event) => {
                   if (event.key === "Escape") setSearchOpen(false);
-                  if (event.key === "Enter" && matches[0]) {
+                  if (event.key === "Enter" && (matchingCity || matches[0])) {
                     event.preventDefault();
-                    window.location.assign(goArea(matches[0]));
+                    window.location.assign(matchingCity ? goCity(matchingCity) : goArea(matches[0]));
                   }
                 }}/>
               {search ? <button type="button" aria-label={tr(locale, "Clear search", "Borrar búsqueda")}
@@ -106,12 +113,20 @@ export default function HomeGateway({ locale, areas, cities, checkedLabel, avail
             </div>
             {searchOpen && search.trim() ? (
               <div className="hg-results" aria-label={tr(locale, "Matching areas", "Zonas coincidentes")}>
-                {matches.length ? matches.map((area) => (
+                {matchingCity ? (
+                  <Link className="hg-city-result" href={goCity(matchingCity)}>
+                    <span><strong>{tr(locale, "Explore the city map", "Explorar el mapa de la ciudad")}</strong>
+                      <small>{matchingCity === "madrid" ? "Madrid" : "London"}</small></span>
+                    <span className="hg-result-city">↗</span>
+                  </Link>
+                ) : null}
+                {matches.map((area) => (
                   <Link href={goArea(area)} key={area.id}>
                     <span><strong>{area.name}</strong><small>{area.parentName || (area.citySlug === "madrid" ? "Madrid" : "London")}</small></span>
                     <span className="hg-result-city">{area.citySlug === "madrid" ? "Madrid" : "London"} ↗</span>
                   </Link>
-                )) : <p>{tr(locale, "No official neighbourhood matches. Try a shorter name.", "No aparece ningún barrio oficial. Prueba con menos letras.")}</p>}
+                ))}
+                {!matches.length && !matchingCity ? <p>{tr(locale, "No official neighbourhood matches. Try a shorter name.", "No aparece ningún barrio oficial. Prueba con menos letras.")}</p> : null}
               </div>
             ) : null}
           </div>
