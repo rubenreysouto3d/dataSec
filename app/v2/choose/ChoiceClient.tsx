@@ -142,7 +142,7 @@ export default function ChoiceClient({initialFirst,initialSecond,purpose,sites,c
         <p><b>3. Lo que ignoramos</b><small>Sin garantías sobre calles ni reputaciones convertidas en estadísticas.</small></p></div>
       <Link href={choiceHref(
         {latitude:40.4169,longitude:-3.7034,label:"Puerta del Sol, Madrid",view},
-        {latitude:40.4270,longitude:-3.7019,label:"Glorieta de Bilbao, Madrid",view},view
+        {latitude:40.42897,longitude:-3.70272,label:"Glorieta de Bilbao, Madrid",view},view
       )}>Probar con dos puntos de Madrid →</Link>
     </div>}
     {sites&&<div className="choice-results" aria-live="polite">
