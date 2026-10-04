@@ -146,3 +146,50 @@
   .drep-alt-right>span{font-size:14px}
   .drep-alt-right a{font-size:10px}
 }
+
+/* VISUAL UX DECISION PASS */
+.drep{padding-top:22px;--rp-green:#18352b;--rp-line:#ccd4ca}
+.drep-breadcrumbs{margin-bottom:27px}
+.drep-head{align-items:start;padding-bottom:25px}
+.drep-head h1{
+  font-size:clamp(34px,4.6vw,62px);line-height:1.02;max-width:860px;
+  overflow-wrap:anywhere;word-break:break-word;margin:10px 0 13px
+}
+.drep-location-label{font-size:13px;font-weight:500;color:#617068}
+.drep-controls{padding-top:20px}
+.drep-audience{border-radius:2px}
+.drep-audience a{border-radius:1px}
+.drep-audience a[aria-current="page"]{background:#18352b}
+
+.drep-verdict{
+  display:grid;grid-template-columns:120px minmax(0,1fr) auto;gap:24px;align-items:center;
+  margin-top:18px;background:#18352b;color:#eef2e8;border-left:5px solid #d29a5e;padding:22px 25px
+}
+.drep-verdict>span{font:760 10px ui-monospace,Consolas,monospace;letter-spacing:.11em;color:#e4b476}
+.drep-verdict h2{font-size:clamp(22px,2.5vw,34px);letter-spacing:-.05em;line-height:1.1;margin:0 0 7px}
+.drep-verdict p{font-size:11px;line-height:1.6;color:#bfd0c3;max-width:690px}
+.drep-verdict>a{
+  white-space:nowrap;border:1px solid #6e8c7b;padding:11px 13px;font-size:11px;font-weight:760;color:#f1f3ea
+}
+.drep-verdict>a:hover{background:#254a39}
+.drep-layout{margin-top:26px}
+.drep-question{margin-bottom:17px}
+.drep-question h2{font-size:clamp(24px,2.6vw,34px);margin-top:7px}
+.drep-reading,.drep-amenities,.drep-aside-card,.drep-next{border-radius:2px;box-shadow:none}
+.drep-reading{background:#fbfcf7;border-color:#cbd5ca}
+.drep-relative{border-radius:0;background:#e7ebe1}
+.drep-primary-action,.drep-map-gate button,.drep-switch-intent{border-radius:2px}
+.drep-aside-card{background:#e9eee5}
+.drep-map{border-radius:1px}
+.drep-nearby-group{border-radius:1px}
+.drep-caution{margin-top:25px}
+
+@media(max-width:900px){
+  .drep-verdict{grid-template-columns:95px minmax(0,1fr)}
+  .drep-verdict>a{grid-column:2;justify-self:start}
+}
+@media(max-width:760px){
+  .drep-verdict{grid-template-columns:1fr;gap:9px;padding:19px 17px}
+  .drep-verdict>a{grid-column:1}
+  .drep-controls{padding-top:0}
+}

@@ -16,12 +16,12 @@ export default function V2Layout({ children }: { children: React.ReactNode }) {
           <span className="dv2-symbol" aria-hidden="true">◈</span>data<span>Sec</span><sup> BETA</sup>
         </Link>
         <nav aria-label="Navegación principal" className="dv2-mainnav">
-          <Link href="/v2">Comprobar</Link>
-          <Link href="/v2/choose">Comparar direcciones</Link>
-          <Link href="/v2/cities">Ciudades</Link>
+          <Link href="/v2#buscar">Buscar</Link>
+          <Link href="/v2/choose">Comparar</Link>
+          <Link href="/v2/cities">Explorar</Link>
           <Link href="/v2/saved">Guardados</Link>
         </nav>
-        <Link className="dv2-top-help" href="/v2/guide">Cómo funciona <span aria-hidden="true">↗</span></Link>
+        <Link className="dv2-top-help" href="/v2/guide">Datos <span aria-hidden="true">↗</span></Link>
       </header>
       {children}
       <footer className="dv2-footer">

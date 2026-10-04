@@ -40,7 +40,7 @@ const relativeLabels = [
 export default function V2Research({city,areas,metrics,signals,initialId,initialPurpose}:Props) {
   const [purpose,setPurpose]=useState<PlacePurpose>(initialPurpose);
   const [selectedId,setSelectedId]=useState<string|null>(initialId);
-  const [tab,setTab]=useState<Tab>("overview");
+  const [tab,setTab]=useState<Tab>(initialId?"overview":"map");
   const [query,setQuery]=useState("");
   const [focused,setFocused]=useState(false);
   const [candidate,setCandidate]=useState<Awaited<ReturnType<typeof resolvePlaceToArea>>>(null);
@@ -140,10 +140,10 @@ export default function V2Research({city,areas,metrics,signals,initialId,initial
     </div>
     <div className="dv2-workspace-header">
       <div><p className="dv2-eyebrow">INVESTIGACIÓN / {label(city).toUpperCase()}</p>
-        <h1>{selected?selected.name:"Conoce "+label(city)}<span className="dv2-period">.</span></h1>
+        <h1>{selected?selected.name:label(city)}<span className="dv2-period">.</span></h1>
         <p>{selected
-          ? (selected.parentName||label(city))+" · Investiga la zona desde varias perspectivas."
-          : "Empieza por una dirección, un barrio o selecciona directamente un lugar en el mapa."}</p></div>
+          ? (selected.parentName||label(city))+" · Lee primero la señal disponible y después contrasta el entorno."
+          : "Mapa primero. Elige una zona o busca una dirección concreta cuando ya la tengas."}</p></div>
       <div className="dv2-workspace-tools">
         <span>ESTOY INVESTIGANDO PARA…</span>
         <div className="dv2-switch" role="group" aria-label="Tipo de investigación">

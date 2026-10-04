@@ -24,6 +24,37 @@ function fmt(value:number|null){return value===null?"Sin dato":new Intl.NumberFo
 function placeLink(p:NearbyPlace) {
   return "https://www.openstreetmap.org/?mlat="+p.latitude+"&mlon="+p.longitude+"#map=17/"+p.latitude+"/"+p.longitude;
 }
+function comparisonSummary(sites:[ChoiceSite,ChoiceSite]|null, comparison:ChoiceComparison|null) {
+  if(!sites||!comparison)return null;
+  if(comparison==="same-area")return {
+    title:"Los dos puntos comparten la misma zona oficial.",
+    detail:"Los registros agregados no distinguen A de B. Aquí la decisión depende sobre todo del entorno inmediato y de tus recorridos."
+  };
+  if(comparison==="different-city")return {
+    title:"No hay un ganador numérico entre estas dos ciudades.",
+    detail:"Las fuentes y escalas son distintas. Lee cada ubicación por separado y compara servicios, transporte y contexto."
+  };
+  if(comparison==="different-period")return {
+    title:"Los períodos no coinciden: no forzamos una comparación.",
+    detail:"Puedes consultar ambos valores, pero no tratarlos como una diferencia directa entre A y B."
+  };
+  if(comparison==="unavailable")return {
+    title:"Faltan datos compatibles para comparar las dos zonas.",
+    detail:"La comparación sigue siendo útil para el entorno inmediato, pero no para afirmar una diferencia en los registros agregados."
+  };
+  const av=sites[0].evidence.value,bv=sites[1].evidence.value;
+  if(av===null||bv===null)return null;
+  const spread=Math.abs(av-bv)/Math.max(Math.abs(av),Math.abs(bv),1);
+  if(spread<0.08)return {
+    title:"Los registros observados son muy parecidos.",
+    detail:"No aparece una diferencia clara en el indicador comparable. Mira ahora qué cambia alrededor de cada dirección."
+  };
+  const lower=av<bv?"A":"B",higher=av<bv?"B":"A";
+  return {
+    title:`La ubicación ${lower} registra menos observaciones que ${higher}.`,
+    detail:"Es una diferencia del mismo indicador y período, no una nota global de seguridad ni una recomendación automática."
+  };
+}
 function LocationInput({which,value,onPick}:{which:Slot;value:ChoicePoint|null;onPick:(p:ChoicePoint|null)=>void}) {
   const [query,setQuery]=useState(value?.label??"");
   const [candidate,setCandidate]=useState<Candidate>(null);
@@ -83,6 +114,19 @@ export default function ChoiceClient({initialFirst,initialSecond,purpose,sites,c
   const [nearbyState,setNearbyState]=useState<"idle"|"loading"|"ready"|"error">("idle");
   const [focus,setFocus]=useState<NearbyCategory>(purpose==="visitor"?"transport":"groceries");
   const sections=view==="visitor"?visitorCategories:residentCategories;
+  const summary=comparisonSummary(sites,comparison);
+  const nearbySummary=nearbyState==="ready"?(()=>{
+    const nearest=nearby.map(site=>{
+      const items=site?.places.filter(p=>p.category===focus)??[];
+      return items.length?Math.min(...items.map(p=>p.distanceMeters)):null;
+    });
+    const label=sections.find(s=>s.key===focus)?.label??"este servicio";
+    if(nearest[0]===null&&nearest[1]===null)return `No hay ${label.toLowerCase()} identificado cerca de ninguno de los dos puntos.`;
+    if(nearest[0]===null)return `Solo B tiene ${label.toLowerCase()} identificado en la consulta actual.`;
+    if(nearest[1]===null)return `Solo A tiene ${label.toLowerCase()} identificado en la consulta actual.`;
+    if(Math.abs(nearest[0]-nearest[1])<80)return `${label}: ambos puntos quedan a una distancia parecida.`;
+    return `${label}: ${nearest[0]<nearest[1]?"A":"B"} tiene la opción identificada más cercana.`;
+  })():null;
   function change(slot:Slot, point:ChoicePoint|null) {
     const next:[ChoicePoint|null,ChoicePoint|null]=[...points];
     next[slot]=point?{...point,view}:null;
@@ -153,8 +197,13 @@ export default function ChoiceClient({initialFirst,initialSecond,purpose,sites,c
       )}>Probar con dos puntos de Madrid →</Link>
     </div>}
     {sites&&<div className="choice-results" aria-live="polite">
-      <div className="choice-result-intro"><span>RESULTADOS / {view==="visitor"?"TU VIAJE":"TU MUDANZA"}</span>
-        <h2>Lo que sabemos de cada ubicación.</h2></div>
+      {summary&&<section className="choice-verdict" aria-label="Resumen de la comparación">
+        <span>EN 5 SEGUNDOS</span>
+        <h2>{summary.title}</h2>
+        <p>{summary.detail}</p>
+      </section>}
+      <div className="choice-result-intro"><span>EVIDENCIA / {view==="visitor"?"TU VIAJE":"TU MUDANZA"}</span>
+        <h2>Comprueba por qué.</h2></div>
       <section className="choice-evidence" aria-labelledby="choice-evidence-title">
         <header><h3 id="choice-evidence-title">Registros disponibles</h3>
           <p>{comparison==="same-area"?"Los dos puntos pertenecen a la misma zona oficial. Las cifras no permiten distinguirlos.":
@@ -191,6 +240,7 @@ export default function ChoiceClient({initialFirst,initialSecond,purpose,sites,c
             {sections.map(s=><button key={s.key} type="button" aria-pressed={focus===s.key}
               className={focus===s.key?"selected":""} onClick={()=>setFocus(s.key)}>{s.label}</button>)}
           </div>
+          {nearbySummary&&<p className="choice-live-signal"><strong>Lectura rápida:</strong> {nearbySummary}</p>}
           <div className="choice-nearby-grid">{nearby.map((site,i)=>{
             const items=site?.places.filter(p=>p.category===focus)??[];
             return <article key={i}><h4>UBICACIÓN {i===0?"A":"B"}</h4>

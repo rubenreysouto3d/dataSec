@@ -114,3 +114,44 @@
  .choice-nearby-grid article>span{font-size:10px}
  .choice-context header button{width:100%;white-space:normal}
 }
+
+/* VISUAL UX DECISION PASS */
+.choice-page{max-width:1180px;padding-top:22px}
+.choice-breadcrumb{margin-bottom:28px}
+.choice-header{margin-bottom:22px;border-bottom:1px solid #cdd4ca;padding-bottom:24px}
+.choice-header h1{max-width:760px;font-size:clamp(38px,5vw,66px)}
+.choice-locator{border-radius:2px;border-color:#c9d2c8;box-shadow:none}
+.choice-slot-head>span{border-radius:2px;background:#18352b}
+.choice-entry input,.choice-entry button,.choice-possible,.choice-confirmed{border-radius:2px}
+.choice-compare-action{padding:12px 0 18px}
+.choice-compare-action button,.choice-context header button{border-radius:2px;background:#18352b}
+
+.choice-verdict{
+  display:grid;grid-template-columns:125px minmax(0,1fr);gap:24px;align-items:start;
+  background:#18352b;color:#eef2e8;padding:26px 28px;margin:26px 0 18px;border-left:5px solid #d29a5e
+}
+.choice-verdict>span{font:760 10px ui-monospace,Consolas,monospace;letter-spacing:.12em;color:#e5b77c;padding-top:5px}
+.choice-verdict h2{font-size:clamp(25px,3vw,39px);line-height:1.08;letter-spacing:-.055em;margin:0 0 8px}
+.choice-verdict p{grid-column:2;font-size:12px;line-height:1.65;color:#bfd0c3;max-width:720px}
+.choice-result-intro{padding:18px 0 15px}
+.choice-result-intro h2{font-size:26px;margin:7px 0 0}
+.choice-evidence,.choice-context{border-radius:2px;border-color:#cbd4c9;box-shadow:none}
+.choice-evidence-grid>article,.choice-nearby-grid>article{
+  border-radius:0;background:#f3f4ed;border:0;border-top:2px solid #839b86
+}
+.choice-evidence-grid>article:nth-child(2),.choice-nearby-grid>article:nth-child(2){border-top-color:#b08668}
+.choice-evidence-grid article>strong{color:#183f2f}
+.choice-filters button{border-radius:1px}
+.choice-filters button.selected{background:#18352b;border-color:#18352b}
+.choice-live-signal{
+  margin:0 0 13px!important;border-left:3px solid #b6814e;background:#eee9dd;
+  padding:10px 12px;font-size:11px;line-height:1.55;color:#526157
+}
+.choice-live-signal strong{color:#243c30}
+.choice-no-guesses{margin-top:22px}
+
+@media(max-width:590px){
+  .choice-verdict{grid-template-columns:1fr;gap:9px;padding:20px 18px}
+  .choice-verdict p{grid-column:1}
+  .choice-result-intro h2{font-size:23px}
+}
