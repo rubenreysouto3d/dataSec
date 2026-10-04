@@ -517,3 +517,84 @@ a.d3-city-source{color:#4f7657;text-decoration:underline}
   .d3-citygrid{grid-template-columns:1fr}
   .d3-cities{padding-top:34px}
 }
+
+/* VISUAL UX DECISION PASS
+   Sharper hierarchy, fewer floating cards, one obvious action per surface. */
+body:has(.dv2){background:#f1f0e9}
+.dv2{
+  --paper:#f1f0e9;--ink:#17231d;--muted:#657168;--line:#cfd4ca;--dark:#18352b;
+  --accent:#bd6546;--soft:#e7e9df;background:var(--paper);color:var(--ink)
+}
+.dv2-container{width:min(1260px,calc(100% - 64px))}
+.dv2-top{
+  min-height:64px;position:sticky;top:0;z-index:40;padding:0 max(32px,calc((100% - 1260px)/2));
+  background:#f1f0e9;border-bottom:1px solid #cbd0c7
+}
+.dv2-logo{font-size:21px;letter-spacing:-.055em}
+.dv2-symbol{width:25px;height:25px;border-radius:2px;background:#18352b;color:#efc37d;margin-right:8px;font-size:15px}
+.dv2-logo sup{font-size:8px}
+.dv2-mainnav{gap:22px;font-size:12px;color:#46574d}
+.dv2-mainnav a{padding:22px 0 18px;border-bottom:2px solid transparent}
+.dv2-mainnav a:hover{border-bottom-color:#355a48;text-decoration:none}
+.dv2-top-help{font-size:11px;padding-left:20px}
+.dv2-footer{padding-inline:max(32px,calc((100% - 1260px)/2))}
+
+.d3-home{width:min(1180px,calc(100% - 64px));padding-top:44px;padding-bottom:70px}
+.d3-hero{max-width:850px}
+.d3-hero>h1{font-size:clamp(48px,6vw,78px);line-height:.98;letter-spacing:-.075em;margin:13px 0 14px}
+.d3-hero>p{max-width:620px;font-size:14px;line-height:1.55;color:#617068}
+.d3-purpose{margin:21px 0 26px}
+.d3-purpose button{border-radius:2px;padding:9px 15px;background:transparent;border-color:#bfc8bd}
+.d3-purpose button.active{background:#18352b;border-color:#18352b}
+.d3-actions{
+  display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1.08fr) minmax(220px,.72fr);
+  gap:0;border:1px solid #bdc6ba;align-items:stretch;background:#fff
+}
+.d3-primary-card,.d3-search-card,.d3-explore-card{
+  border:0;border-right:1px solid #bdc6ba;border-radius:0;padding:28px;min-height:335px;
+  display:flex;flex-direction:column;min-width:0;box-shadow:none
+}
+.d3-primary-card{background:#18352b;color:#f1f2e8!important}
+.d3-search-card{background:#fbfbf7}
+.d3-explore-card{background:#e9e4d8;color:#27342d!important;border-right:0}
+.d3-actions h2{font-size:clamp(25px,2.4vw,34px);line-height:1.06;letter-spacing:-.055em;margin:36px 0 14px}
+.d3-primary-card p,.d3-explore-card p{font-size:12px;line-height:1.65;max-width:340px}
+.d3-explore-card p{color:#697068}
+.d3-primary-card>strong,.d3-explore-card>strong{margin-top:auto;padding-top:32px;display:flex;justify-content:space-between;gap:12px;font-size:12px}
+.d3-explore-card>strong{color:#365d4a}
+.d3-explore-card>strong span,.d3-primary-card>strong span{font-size:20px}
+.d3-primary-card:hover{background:#214737;transform:none}
+.d3-explore-card:hover{background:#e1dccf}
+.d3-search-card label{margin-top:auto}
+.d3-search-line input{border-radius:2px;height:46px;background:#fff}
+.d3-search-line button{border-radius:2px;background:#18352b}
+.d3-provider{margin-top:10px!important}
+.d3-live-example{
+  margin-top:12px;padding:15px 0;border:0;border-block:1px solid #cbd2c7;border-radius:0;background:transparent
+}
+.d3-live-example>div{gap:2px}
+.d3-live-example p{font-size:10px}
+.d3-live-example a{border-radius:2px;background:#18352b;padding:10px 14px}
+.d3-next{display:none}
+
+@media(max-width:900px){
+  .dv2-container{width:calc(100% - 42px)}
+  .d3-home{width:calc(100% - 42px)}
+  .d3-actions{grid-template-columns:1fr 1fr}
+  .d3-explore-card{grid-column:1/-1;min-height:190px;border-top:1px solid #bdc6ba}
+  .d3-search-card{border-right:0}
+}
+@media(max-width:680px){
+  .dv2-top{padding-inline:18px;gap:14px}
+  .dv2-mainnav{gap:14px;overflow-x:auto;white-space:nowrap}
+  .dv2-top-help{display:none}
+  .dv2-logo sup{display:none}
+  .d3-home{width:calc(100% - 28px);padding-top:29px}
+  .d3-hero>h1{font-size:clamp(43px,13vw,60px)}
+  .d3-actions{grid-template-columns:1fr}
+  .d3-primary-card,.d3-search-card,.d3-explore-card{min-height:auto;border-right:0;border-bottom:1px solid #bdc6ba;padding:22px}
+  .d3-explore-card{grid-column:auto;border-bottom:0;border-top:0}
+  .d3-actions h2{margin-top:24px}
+  .d3-search-card label{margin-top:24px}
+  .d3-live-example{align-items:stretch}
+}
