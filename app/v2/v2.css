@@ -598,3 +598,64 @@ body:has(.dv2){background:#f1f0e9}
   .d3-search-card label{margin-top:24px}
   .d3-live-example{align-items:stretch}
 }
+
+/* EXPLORER UX PASS
+   Unknown-place journeys enter on the map; search becomes a compact command bar. */
+.dv2-workspace{padding-top:19px;padding-bottom:72px}
+.dv2-workspace-header{padding:25px 0 20px;align-items:start}
+.dv2-workspace-header h1{font-size:clamp(39px,4.9vw,65px);margin:6px 0 8px}
+.dv2-workspace-header>div:first-child>p:last-child{font-size:12px}
+.dv2-workspace-tools{min-width:230px}
+.dv2-workspace-layout{display:flex;flex-direction:column;gap:12px}
+.dv2-rail{
+  display:grid;grid-template-columns:minmax(300px,1.4fr) minmax(230px,.75fr) minmax(180px,.55fr);
+  gap:0;padding:0;border-radius:0;background:#f8f8f3;border-color:#c8d0c6;overflow:visible
+}
+.dv2-rail-head{display:none}
+.dv2-rail-search,.dv2-rail-directory,.dv2-rail-city{padding:15px 17px;min-width:0}
+.dv2-rail-directory,.dv2-rail-city{border-left:1px solid #d2d8cf}
+.dv2-rail-search label,.dv2-rail-directory>span,.dv2-rail-city>span{
+  font:740 9px ui-monospace,Consolas,monospace;letter-spacing:.08em;color:#66796c
+}
+.dv2-rail-search input{margin-top:6px;border-radius:1px;height:42px}
+.dv2-rail-results{z-index:30}
+.dv2-rail-directory{gap:8px}
+.dv2-rail-directory button{border-radius:1px;padding:9px 0}
+.dv2-rail-directory>small{display:none}
+.dv2-rail-city a{padding:6px 0}
+.dv2-main{min-width:0}
+.dv2-viewnav{
+  position:sticky;top:64px;z-index:20;background:#f1f0e9;border:1px solid #cbd2c8;
+  border-radius:0;padding:5px;margin-bottom:0
+}
+.dv2-viewnav button{border-radius:1px}
+.dv2-map-view{padding-top:17px}
+.dv2-map-intro{margin-bottom:13px;align-items:end}
+.dv2-map-intro h2{font-size:clamp(27px,3vw,40px);margin:5px 0}
+.dv2-map-intro p{max-width:660px;font-size:11px}
+.dv2-map-frame{
+  height:min(68vh,760px);min-height:510px;border:1px solid #bdc8bd;border-radius:0;overflow:hidden;background:#e4e7df
+}
+.dv2-map-frame>div{height:100%}
+.dv2-map-warning{margin-top:9px!important;font-size:10px}
+.dv2-overview{margin-top:16px}
+.dv2-observation,.dv2-next-panel{border-radius:1px}
+.dv2-compare-view{margin-top:18px}
+
+@media(max-width:900px){
+  .dv2-rail{grid-template-columns:1fr 1fr}
+  .dv2-rail-search{grid-column:1/-1;border-bottom:1px solid #d2d8cf}
+  .dv2-rail-directory{border-left:0}
+  .dv2-map-frame{min-height:450px;height:62vh}
+}
+@media(max-width:620px){
+  .dv2-workspace{padding-top:13px}
+  .dv2-workspace-header{padding-top:18px}
+  .dv2-workspace-header{flex-direction:column;gap:14px}
+  .dv2-workspace-tools{width:100%;min-width:0}
+  .dv2-rail{grid-template-columns:1fr}
+  .dv2-rail-search,.dv2-rail-directory,.dv2-rail-city{border:0;border-bottom:1px solid #d2d8cf;padding:13px}
+  .dv2-rail-city{border-bottom:0}
+  .dv2-viewnav{top:64px;overflow-x:auto}
+  .dv2-map-frame{min-height:420px;height:58vh}
+}
