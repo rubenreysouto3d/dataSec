@@ -55,8 +55,8 @@ export default function LocationReport({point,area,evidence,indicator,explanatio
     <div className="drep-head">
       <div>
         <p className="drep-eyebrow">DATASEC / INFORME DE UBICACIÓN</p>
-        <h1>Antes de decidir,<br/><em>conoce este lugar.</em></h1>
-        <p className="drep-location-label">{point.label}</p>
+        <h1>{point.label}</h1>
+        <p className="drep-location-label">{point.view==="visitor"?"Lectura práctica antes de reservar o moverte por aquí.":"Lectura práctica antes de decidir si vivir aquí."}</p>
         <p className="drep-actual-zone">Ubicación geocodificada en <strong>{area.name}</strong>
           {area.parentName?" · "+area.parentName:""} · {cityName(area.citySlug)}</p>
       </div>
