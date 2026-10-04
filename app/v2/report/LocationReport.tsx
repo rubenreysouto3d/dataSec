@@ -35,6 +35,20 @@ export default function LocationReport({point,area,evidence,indicator,explanatio
   const relative=bandNumber(evidence.percentile);
   const hasEvidence=evidence.available&&evidence.value!==null;
   const nextView=point.view==="visitor"?"resident":"visitor";
+  const lead=!hasEvidence
+    ?"Tenemos la ubicación y su zona, pero no suficientes observaciones para leer este indicador con rigor."
+    : relative===1
+      ?"Los registros disponibles están entre los más bajos de la ciudad para este indicador."
+      : relative===2
+        ?"Los registros disponibles están por debajo del tramo central de la ciudad."
+        : relative===3
+          ?"Los registros disponibles están en el tramo central de la ciudad."
+          : relative===4
+            ?"Los registros disponibles están por encima del tramo central de la ciudad."
+            :"Los registros disponibles están entre los más altos de la ciudad para este indicador.";
+  const nextStep=point.view==="visitor"
+    ?"Úsalo como contexto y comprueba ahora transporte, servicios y la ruta real hasta tu alojamiento."
+    :"Úsalo como una señal más y contrástala con servicios, transporte y otras direcciones que estés valorando.";
   return <main className="drep dv2-container" id="location-report">
     <div className="drep-breadcrumbs"><Link href="/v2">Inicio</Link><span>/</span>
       <span>Informe de ubicación</span><span className="drep-beta">VERSIÓN DE PRUEBA</span></div>
@@ -61,12 +75,18 @@ export default function LocationReport({point,area,evidence,indicator,explanatio
       </div>
     </div>
 
+    <section className="drep-verdict" aria-label="Resumen de la ubicación">
+      <span>EN 5 SEGUNDOS</span>
+      <div><h2>{lead}</h2><p>{nextStep}</p></div>
+      <Link href={choiceHref(point,null,point.view)}>Comparar con otra dirección <span aria-hidden="true">↗</span></Link>
+    </section>
+
     <div className="drep-layout">
       <div className="drep-content">
         <div className="drep-question">
-          <span>LO PRIMERO QUE NECESITAS SABER</span>
-          <h2>{point.view==="visitor"?"¿Qué sabemos del entorno de tu alojamiento?":"¿Qué podemos comprobar antes de mudarte?"}</h2>
-          <p>Hemos localizado tu punto en una zona oficial. Los datos disponibles describen esa zona,
+          <span>QUÉ RESPALDA ESA LECTURA</span>
+          <h2>{point.view==="visitor"?"Datos de la zona, después el entorno real.":"Datos de la zona, después tu vida diaria."}</h2>
+          <p>El punto está localizado dentro de una zona oficial. Sus registros describen esa zona,
             <strong> no tu calle ni el edificio concreto.</strong></p>
         </div>
         <section className="drep-reading" aria-labelledby="drep-evidence-title">
