@@ -355,6 +355,9 @@ export default function V2Research({
     }));
   },[nearby,purpose]);
 
+  const streetContext=placeContext?.evidence.street??null;
+  const streetState=contextState;
+
   const visibleStreetHotspots=useMemo(()=>{
     const source=streetContext?.hotspots??[];
     if(streetFilter==="all")return source;
