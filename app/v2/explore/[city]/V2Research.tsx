@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import AtlasMap from "@/app/lab/[city]/AtlasMap";
 import type {
@@ -45,6 +45,7 @@ type Props = {
   initialPurpose: PlacePurpose;
   initialLens: PlaceLens;
   initialPoint?: PointSelection | null;
+  initialPlaceContext?: PlaceContext | null;
 };
 type MapLayer = "context" | "incidents" | "trend" | "activity" | "night";
 type StreetSignal="theft"|"drugs"|"disorder"|"violence";
@@ -106,7 +107,8 @@ function percentileByArea(items:Array<{areaId:string;value:number|null}>){
 }
 
 export default function V2Research({
-  city,areas,metrics,signals,activityContexts,harmTrends,initialId,initialPurpose,initialLens,initialPoint=null,
+  city,areas,metrics,signals,activityContexts,harmTrends,initialId,initialPurpose,initialLens,
+  initialPoint=null,initialPlaceContext=null,
 }:Props){
   const router=useRouter();
   const [lens,setLens]=useState<PlaceLens>(initialLens);
@@ -123,8 +125,13 @@ export default function V2Research({
   const [mapError,setMapError]=useState(false);
   const [nearby,setNearby]=useState<NearbyResponse|null>(null);
   const [nearbyState,setNearbyState]=useState<"idle"|"loading"|"ready"|"error">("idle");
-  const [placeContext,setPlaceContext]=useState<PlaceContext|null>(null);
-  const [contextState,setContextState]=useState<"idle"|"loading"|"ready"|"error">("idle");
+  const [placeContext,setPlaceContext]=useState<PlaceContext|null>(initialPlaceContext);
+  const [contextState,setContextState]=useState<"idle"|"loading"|"ready"|"error">(
+    initialPlaceContext?"ready":"idle"
+  );
+  const initialContextKey=useRef(initialPlaceContext&&initialPoint
+    ?initialPoint.latitude.toFixed(6)+"|"+initialPoint.longitude.toFixed(6)+"|"+initialLens
+    :null);
   const [showStreet,setShowStreet]=useState(true);
   const [streetFilter,setStreetFilter]=useState<"all"|StreetSignal>("all");
   const [locating,setLocating]=useState(false);
@@ -214,8 +221,16 @@ export default function V2Research({
 
   useEffect(()=>{
     if(!selectedPoint){setPlaceContext(null);setContextState("idle");return;}
+    const requestKey=selectedPoint.latitude.toFixed(6)+"|"+selectedPoint.longitude.toFixed(6)+"|"+lens;
+    if(initialContextKey.current===requestKey){
+      initialContextKey.current=null;
+      return;
+    }
     let cancelled=false;
-    setContextState("loading");setPlaceContext(null);
+    setContextState("loading");setPlaceContext(current=>
+      current?.place.coordinate.latitude===selectedPoint.latitude&&
+      current?.place.coordinate.longitude===selectedPoint.longitude?current:null
+    );
     const params=new URLSearchParams({
       lat:String(selectedPoint.latitude),
       lng:String(selectedPoint.longitude),
