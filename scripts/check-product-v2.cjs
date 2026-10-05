@@ -46,10 +46,10 @@ assert.ok(!serverPage.includes("getCityBoundaries"), "Initial dossier must not s
 assert.ok(workspace.includes('fetch("/v2/api/boundaries/"+city)'), "Persistent map loads geometry through the optional boundary endpoint");
 assert.ok(boundaryRoute.includes("getCityBoundaries"), "Dedicated optional geometry endpoint");
 
-assert.ok(workspace.includes("evidence?.period") || workspace.includes("evidence.period"),
-  "Observation period required for any evidence reading");
-assert.ok(workspace.includes('type MapLayer = "incidents" | "trend" | "activity" | "night"'),
-  "The map must expose independent urban-context layers");
+assert.ok(workspace.includes("observedPeriod"),
+  "Observation period required for any evidence finding");
+assert.ok(workspace.includes('type MapLayer = "context" | "incidents" | "trend" | "activity" | "night"'),
+  "The map must start neutral while keeping independent analytical layers available");
 assert.ok(workspace.includes("harmTrends") && workspace.includes("activityContexts"),
   "The workspace must use recent change and urban activity, not only incident percentiles");
 assert.ok(workspace.includes("street-layer-menu"),
@@ -58,14 +58,14 @@ assert.ok(workspace.includes("street-sheet") && workspace.includes("street-idle"
   "The empty state must remain inside the single contextual map sheet");
 assert.ok(workspace.includes("navigator.geolocation") && workspace.includes("Estoy aquí"),
   "The spatial app must support explicit on-site location use");
-assert.ok(workspace.includes("/v2/api/street-context") && workspace.includes("streetFilter"),
-  "Exact points must expose filterable street context where the source supports it");
-const streetRoute=fs.readFileSync("app/v2/api/street-context/route.ts","utf8");
-assert.ok(streetRoute.includes("data.police.uk/api/crimes-street/all-crime"),
-  "London street context must come from the official Police.UK API");
-assert.ok(streetRoute.includes('endpoint.searchParams.set("poly",poly)') && streetRoute.includes("Promise.allSettled"),
-  "Street context must use a walking-scale polygon and survive a partial month failure");
-assert.ok(streetRoute.includes('availability:"area-only"'),
+assert.ok(workspace.includes("/v2/api/place-context") && workspace.includes("streetFilter"),
+  "Exact points must consume the canonical Place Context while keeping source-grain street inspection");
+const streetModule=fs.readFileSync("lib/street-context.ts","utf8");
+assert.ok(streetModule.includes("data.police.uk/api/crimes-street/all-crime"),
+  "London street evidence must come from the official Police.UK API");
+assert.ok(streetModule.includes('endpoint.searchParams.set("poly",poly)') && streetModule.includes("Promise.allSettled"),
+  "Street evidence must use a walking-scale polygon and survive a partial month failure");
+assert.ok(streetModule.includes('availability:"area-only"'),
   "Cities without street-grain source data must not fabricate street hotspots");
 assert.ok(layout.includes("index: false"), "Do not index concept/test cities");
 console.log("DataSec v2 product contract: spatial-app assertions passed.");
