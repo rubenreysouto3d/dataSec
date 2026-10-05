@@ -6,6 +6,32 @@ const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_C5PkZoLjbXCuItBfzftrkw_KMLJB8E3
 
 export type CitySlug = "london" | "madrid";
 
+export type CityCapabilityStatus = "live" | "pipeline_ready" | "research" | "unavailable";
+export type CityCapability = {
+  citySlug: CitySlug;
+  domain: string;
+  operation: string;
+  available: boolean;
+  status: CityCapabilityStatus;
+  geography: string[];
+  freshness: string | null;
+  sourceSlugs: string[];
+  notes: string | null;
+  updatedAt: string;
+};
+
+export type TemporalObservation = {
+  areaId: string;
+  sourceSlug: string;
+  metricSlug: string;
+  periodStart: string;
+  periodEnd: string;
+  hourStart: number;
+  value: number;
+  unit: string;
+  provenance: Record<string, unknown>;
+};
+
 export type Neighbourhood = {
   // Stable dataSec identity. Use this in routes and cross-feature references.
   id: string;
@@ -48,6 +74,29 @@ type AreaRow = {
 };
 
 type CityRow = { slug: CitySlug; name: string };
+type CityCapabilityRow = {
+  city_slug: CitySlug;
+  domain: string;
+  operation: string;
+  available: boolean;
+  status: CityCapabilityStatus;
+  geography: string[];
+  freshness: string | null;
+  source_slugs: string[];
+  notes: string | null;
+  updated_at: string;
+};
+type TemporalObservationRow = {
+  area_id: string;
+  source_slug: string;
+  metric_slug: string;
+  period_start: string;
+  period_end: string;
+  hour_start: number | string;
+  value: number | string;
+  unit: string;
+  provenance: Record<string, unknown>;
+};
 type SourceRow = {
   slug: string;
   authority: string;
@@ -291,6 +340,57 @@ function getCityMap() {
     (rows) => new Map(rows.map((row) => [row.slug, row.name])),
   );
   return cityPromise;
+}
+
+export async function getCityCapabilities(citySlug: CitySlug): Promise<CityCapability[]> {
+  const rows = await rest<CityCapabilityRow[]>("city_capabilities", {
+    select: "city_slug,domain,operation,available,status,geography,freshness,source_slugs,notes,updated_at",
+    city_slug: `eq.${citySlug}`,
+    order: "domain.asc,operation.asc",
+    limit: "200",
+  });
+  return rows.map(row=>({
+    citySlug:row.city_slug,
+    domain:row.domain,
+    operation:row.operation,
+    available:Boolean(row.available),
+    status:row.status,
+    geography:Array.isArray(row.geography)?row.geography:[],
+    freshness:row.freshness,
+    sourceSlugs:Array.isArray(row.source_slugs)?row.source_slugs:[],
+    notes:row.notes,
+    updatedAt:row.updated_at,
+  }));
+}
+
+export async function getTemporalObservations(
+  areaId: string,
+  options: { months?: number; metricSlugs?: string[] } = {},
+): Promise<TemporalObservation[]> {
+  const months=Math.max(1,Math.min(12,options.months??1));
+  const params:Record<string,string>={
+    select:"area_id,source_slug,metric_slug,period_start,period_end,hour_start,value,unit,provenance",
+    area_id:`eq.${areaId}`,
+    order:"period_start.desc,hour_start.asc",
+    limit:String(Math.min(10000,months*24*100)),
+  };
+  if(options.metricSlugs?.length){
+    params.metric_slug=`in.(${options.metricSlugs.map(value=>`"${value.replaceAll('"','\\"')}"`).join(",")})`;
+  }
+  const rows=await rest<TemporalObservationRow[]>("temporal_observations",params,{noStore:true});
+  const distinctMonths=[...new Set(rows.map(row=>row.period_start.slice(0,7)))].slice(0,months);
+  const keep=new Set(distinctMonths);
+  return rows.filter(row=>keep.has(row.period_start.slice(0,7))).map(row=>({
+    areaId:row.area_id,
+    sourceSlug:row.source_slug,
+    metricSlug:row.metric_slug,
+    periodStart:row.period_start,
+    periodEnd:row.period_end,
+    hourStart:Number(row.hour_start),
+    value:Number(row.value),
+    unit:row.unit,
+    provenance:row.provenance??{},
+  }));
 }
 
 export async function getNeighbourhoods(citySlug?: CitySlug): Promise<Neighbourhood[]> {
