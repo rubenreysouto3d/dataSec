@@ -356,8 +356,6 @@ export default function V2Research({
   },[nearby,purpose]);
 
   const streetContext=placeContext?.evidence.street??null;
-  const streetState=contextState;
-
   const visibleStreetHotspots=useMemo(()=>{
     const source=streetContext?.hotspots??[];
     if(streetFilter==="all")return source;
@@ -369,20 +367,6 @@ export default function V2Research({
       const level={high:0,medium:1,low:2};
       return level[a.concentration]-level[b.concentration]||a.distanceMeters-b.distanceMeters||b.total-a.total;
     }),[visibleStreetHotspots]);
-
-  const streetAdvice=useMemo(()=>{
-    const source=(streetContext?.hotspots??[]).filter(item=>item.repeated&&item.distanceMeters<=700);
-    const totals:Record<StreetSignal,number>={theft:0,drugs:0,disorder:0,violence:0};
-    for(const item of source){
-      for(const key of Object.keys(totals) as StreetSignal[])totals[key]+=item.signals[key];
-    }
-    const notes:string[]=[];
-    if(totals.theft>=15)notes.push("Presta especial atención a móvil, cartera y bolso.");
-    if(totals.violence>=15)notes.push("Hay concentración repetida de violencia registrada en el entorno.");
-    if(totals.disorder>=15)notes.push("Hay focos repetidos de desorden o conducta antisocial.");
-    if(totals.drugs>=8)notes.push("Aparece actividad de drogas registrada de forma repetida.");
-    return notes.slice(0,3);
-  },[streetContext]);
 
   const layerCopy = layer==="trend"
     ? {title:"Cambio reciente",detail:"bajando → subiendo en los últimos 6 meses"}
@@ -405,57 +389,12 @@ export default function V2Research({
     }
     return counts;
   },[localStreetHotspots]);
-  const streetHeadline=streetState==="loading"
-    ?"Buscando señales cercanas…"
-    :streetState==="error"
-      ?"No puedo leer la calle ahora."
-      :streetContext?.availability==="area-only"
-        ?"Aquí solo puedo leer el barrio."
-        :streetAdvice[0]
-          ?streetAdvice[0]
-          :localStreetHotspots.length
-            ?"Hay señales cercanas en los datos recientes."
-            :"No aparecen focos repetidos claros cerca.";
   const streetSignalMeta:Array<{key:StreetSignal;label:string}>=[
     {key:"theft",label:"Hurtos"},
     {key:"drugs",label:"Drogas"},
     {key:"disorder",label:"Desorden"},
     {key:"violence",label:"Violencia"},
   ];
-
-  const zoneProfile = selected ? [
-    {
-      label:"REGISTROS",
-      value:evidence?.available&&relative?relativeLabels[relative-1]:"Sin lectura comparable",
-      detail:evidence?.period||"sin período",
-    },
-    {
-      label:"TENDENCIA 6M",
-      value:selectedTrend?.percentChange===null||selectedTrend?.percentChange===undefined
-        ?"Sin tendencia"
-        : selectedTrend.percentChange>20
-          ?"Subiendo"
-          : selectedTrend.percentChange<-20
-            ?"Bajando"
-            :"Estable",
-      detail:selectedTrend?.percentChange===null||selectedTrend?.percentChange===undefined
-        ?"sin serie suficiente"
-        :(selectedTrend.percentChange>0?"+":"")+fmt(selectedTrend.percentChange)+"%",
-    },
-    {
-      label:"ACTIVIDAD",
-      value:selectedActivityBand===null?"Sin lectura"
-        :selectedActivityBand>=4?"Alta"
-        :selectedActivityBand<=2?"Baja":"Intermedia",
-      detail:selectedActivityDensity===null?"sin contexto de hostelería":fmt(selectedActivityDensity)+" locales/km²",
-    },
-    ...(selectedSignal?.districtNightSafety!==null&&selectedSignal?.districtNightSafety!==undefined?[{
-      label:"NOCHE · DISTRITO",
-      value:selectedSignal.districtNightSafety>=7?"Percepción favorable"
-        :selectedSignal.districtNightSafety<=5.5?"Percepción baja":"Percepción intermedia",
-      detail:fmt(selectedSignal.districtNightSafety)+"/10 · "+(selectedSignal.districtName||"distrito"),
-    }]:[]),
-  ] : [];
 
   return <main className="atlas-app street-app">
     <section className="atlas-app-map street-map" aria-label={"Mapa de "+cityLabel(city)}>
