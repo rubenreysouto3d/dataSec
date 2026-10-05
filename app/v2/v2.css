@@ -1154,3 +1154,29 @@ body:has(.atlas-app){overflow:hidden;background:#e8e9e3}
   .atlas-city-switch{display:none}
   .atlas-locate{margin-left:auto}
 }
+
+.atlas-street-advice{
+  border-left:3px solid #a55c3d;background:#f8f2e8;padding:10px 11px;margin-bottom:11px
+}
+.atlas-street-advice>span{
+  display:block;font:760 8px ui-monospace,Consolas,monospace;letter-spacing:.09em;color:#875d47;margin-bottom:6px
+}
+.atlas-street-advice>strong{
+  display:block;font-size:10px;line-height:1.4;color:#4b4038;margin-top:3px
+}
+.atlas-street-filters{
+  display:flex;flex-wrap:wrap;gap:4px;margin-bottom:11px
+}
+.atlas-street-filters button{
+  display:flex;align-items:center;gap:5px;border:1px solid #bbc4bb;background:#f8f7f1;
+  color:#58665e;padding:6px 8px;font-size:8px;font-weight:760
+}
+.atlas-street-filters button.active{background:#223c31;color:#fff;border-color:#223c31}
+.atlas-street-filters i{
+  display:inline-block;width:7px;height:7px;border-radius:50%
+}
+.atlas-street-filters i[data-kind="theft"]{background:#c47a32}
+.atlas-street-filters i[data-kind="drugs"]{background:#795b7c}
+.atlas-street-filters i[data-kind="disorder"]{background:#a55538}
+.atlas-street-filters i[data-kind="violence"]{background:#8f2f2f}
+.atlas-hotspot>b{font-size:8px!important;min-width:52px!important}
