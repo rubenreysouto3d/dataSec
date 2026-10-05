@@ -11,6 +11,7 @@ type Props = {
   areas: Neighbourhood[];
   values: Map<string, number | null>;
   selectedId: string | null;
+  selectedPoint?: { latitude:number; longitude:number; label:string } | null;
   onSelect: (id: string) => void;
   locale: Locale;
 };
@@ -34,10 +35,12 @@ function getBounds(items: CityBoundary[]): Bounds | null {
 }
 
 export default function AtlasMap({
-  city, boundaries, areas, values, selectedId, onSelect, locale,
+  city, boundaries, areas, values, selectedId, selectedPoint = null, onSelect, locale,
 }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
+  const libRef = useRef<any>(null);
   const onSelectRef = useRef(onSelect);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -89,6 +92,7 @@ export default function AtlasMap({
         }
         const dynamicImport = new Function("url", "return import(url)") as (url: string) => Promise<any>;
         const lib = await dynamicImport(MAP_MODULE);
+        libRef.current = lib;
         if (cancelled || !container.current) return;
         map = new lib.Map({
           container: container.current,
@@ -148,8 +152,11 @@ export default function AtlasMap({
     initialise();
     return () => {
       cancelled = true;
+      markerRef.current?.remove?.();
+      markerRef.current = null;
       if (map) map.remove();
       mapRef.current = null;
+      libRef.current = null;
       setReady(false);
     };
   }, [city, wholeCityBounds]);
@@ -158,6 +165,25 @@ export default function AtlasMap({
     if (!ready) return;
     mapRef.current?.getSource?.("atlas-areas")?.setData?.(geojson);
   }, [geojson, ready]);
+
+
+  useEffect(() => {
+    if (!ready || !mapRef.current) return;
+    markerRef.current?.remove?.();
+    markerRef.current = null;
+    if (!selectedPoint) return;
+    const lib = libRef.current;
+    if (!lib?.Marker) return;
+    markerRef.current = new lib.Marker({ color: "#172b31" })
+      .setLngLat([selectedPoint.longitude, selectedPoint.latitude])
+      .setPopup(new lib.Popup({ offset: 22 }).setText(selectedPoint.label))
+      .addTo(mapRef.current);
+    mapRef.current.easeTo({
+      center: [selectedPoint.longitude, selectedPoint.latitude],
+      zoom: Math.max(mapRef.current.getZoom?.() ?? 12, 14),
+      duration: 420,
+    });
+  }, [selectedPoint, ready]);
 
   useEffect(() => {
     if (!ready) return;
