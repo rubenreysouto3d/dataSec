@@ -13,7 +13,7 @@ type StreetHotspot = {
   total:number;
   primary:"theft"|"drugs"|"disorder"|"violence";
   primaryLabel:string;
-  intensity:"low"|"medium"|"high";
+  concentration:"low"|"medium"|"high";
   months:number;
   repeated:boolean;
 };
@@ -94,7 +94,7 @@ export default function AtlasMap({
       type:"Feature" as const,
       properties:{
         id:item.id,street:item.street,total:item.total,primary:item.primary,
-        primaryLabel:item.primaryLabel,intensity:item.intensity,months:item.months,
+        primaryLabel:item.primaryLabel,concentration:item.concentration,months:item.months,
         repeated:item.repeated?"sí":"no",
       },
       geometry:{type:"Point" as const,coordinates:[item.longitude,item.latitude]},
@@ -158,7 +158,7 @@ export default function AtlasMap({
           map.addLayer({
             id:"atlas-hotspots",type:"circle",source:"atlas-hotspots",
             paint:{
-              "circle-radius":["match",["get","intensity"],"high",11,"medium",8,6],
+              "circle-radius":["match",["get","concentration"],"high",11,"medium",8,6],
               "circle-color":["match",["get","primary"],
                 "theft","#c47a32","drugs","#795b7c","disorder","#a55538","violence","#8f2f2f","#6d716d"],
               "circle-opacity":.86,
