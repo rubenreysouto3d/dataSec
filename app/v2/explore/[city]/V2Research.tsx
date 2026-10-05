@@ -574,17 +574,48 @@ export default function V2Research({
         </header>
         {shareStatus?<small className="street-share-status">{shareStatus}</small>:null}
 
-        <div className="street-context-switch" role="group" aria-label="Contexto de uso">
-          <button type="button" className={purpose==="visitor"?"active":""} onClick={()=>setPurpose("visitor")}>Estoy de viaje</button>
-          <button type="button" className={purpose==="resident"?"active":""} onClick={()=>setPurpose("resident")}>Quiero vivir aquí</button>
+        <div className="place-lenses" role="group" aria-label="Situación">
+          {(Object.keys(placeLensLabels) as PlaceLens[]).map(item=><button
+            type="button"
+            key={item}
+            className={lens===item?"active":""}
+            onClick={()=>setLens(item)}>
+            {placeLensLabels[item]}
+          </button>)}
         </div>
 
-        {selectedPoint?<section className="street-now">
-          <span className="street-eyebrow">AHORA, A TU ALREDEDOR</span>
-          <h2>{streetHeadline}</h2>
-          {streetAdvice.slice(1,3).map(note=><p key={note}>{note}</p>)}
+        {selectedPoint?<section className="place-context-read">
+          <div className="place-context-read-head">
+            <div>
+              <span className="street-eyebrow">QUÉ IMPORTA · {placeLensLabels[lens].toUpperCase()}</span>
+              <h2>{contextState==="loading"?"Leyendo este lugar…":contextState==="error"?"No puedo completar la lectura ahora":placeContext?.findings[0]?.statement||"Todavía no hay una conclusión principal defendible."}</h2>
+            </div>
+            {placeContext?<small>{placeContext.coverage.street==="available"?"calle + zona":"zona"} · {placeContext.place.area.name}</small>:null}
+          </div>
 
-          {streetContext?.availability==="street"?<>
+          {contextState==="error"?<p className="street-inline-error">El lugar sigue seleccionado, pero una de las fuentes necesarias no ha respondido.</p>:null}
+
+          {contextState==="ready"&&placeContext?<div className="place-findings">
+            {placeContext.findings.map((finding,index)=><article className={"place-finding "+finding.importance} key={finding.id}>
+              <div className="place-finding-index">{String(index+1).padStart(2,"0")}</div>
+              <div className="place-finding-body">
+                {index>0?<h3>{finding.statement}</h3>:null}
+                {finding.implication?<p>{finding.implication}</p>:null}
+                <footer>
+                  <span>{finding.geography.label}</span>
+                  <span>{finding.observedPeriod.start&&finding.observedPeriod.end
+                    ?finding.observedPeriod.start===finding.observedPeriod.end
+                      ?finding.observedPeriod.end
+                      :finding.observedPeriod.start+" → "+finding.observedPeriod.end
+                    :"sin período comparable"}</span>
+                  <span>{finding.confidence.level==="strong"?"evidencia sólida":finding.confidence.level==="limited"?"evidencia limitada":"contexto"}</span>
+                </footer>
+              </div>
+            </article>)}
+          </div>:null}
+
+          {streetContext?.availability==="street"?<details className="place-evidence-detail">
+            <summary>Ver focos cercanos publicados</summary>
             <div className="street-signal-row" role="group" aria-label="Filtrar señales cercanas">
               {streetSignalMeta.map(item=><button type="button" key={item.key}
                 className={streetFilter===item.key?"active":""}
@@ -594,9 +625,8 @@ export default function V2Research({
                 <b>{streetSignalCounts[item.key]||"—"}</b>
               </button>)}
             </div>
-
             <div className="street-hotspots">
-              {nearbyHotspots.slice(0,4).map(item=><div key={item.id} className={"street-hotspot "+item.concentration}>
+              {nearbyHotspots.slice(0,5).map(item=><div key={item.id} className={"street-hotspot "+item.concentration}>
                 <i data-kind={item.primary}/>
                 <div>
                   <strong>{item.locationKind==="anonymised-reference"?"Ubicación aproximada":item.street}</strong>
@@ -604,37 +634,33 @@ export default function V2Research({
                 </div>
                 <b>~{item.distanceMeters} m</b>
               </div>)}
-              {!nearbyHotspots.length&&streetState==="ready"?<p className="street-muted">No aparecen focos de esta categoría en la consulta cercana.</p>:null}
             </div>
-
             <button type="button" className="street-map-toggle" onClick={()=>setShowStreet(value=>!value)}>
               {showStreet?"Ocultar puntos del mapa":"Mostrar puntos en el mapa"}
             </button>
-
             <small className="street-data-note">
-              Ubicaciones policiales aproximadas y anonimizadas; no son alertas en tiempo real ni direcciones exactas.
-              {streetContext.latestMonth?" Datos hasta "+streetContext.latestMonth+".":""}
+              Puntos policiales aproximados y anonimizados; no son sucesos en tiempo real ni direcciones exactas.
             </small>
-          </>:streetState==="ready"&&streetContext?.availability==="area-only"?<div className="street-area-only">
-            <strong>Sin precisión fiable de calle.</strong>
-            <p>{streetContext.note||"La fuente disponible llega al barrio, no a una calle concreta."}</p>
-          </div>:streetState==="error"?<p className="street-inline-error">La capa de calle no está disponible ahora.</p>:null}
+          </details>:null}
+
+          {contextState==="ready"&&placeContext?<details className="place-evidence-detail">
+            <summary>Qué sabemos y qué falta</summary>
+            <div className="place-domain-list">
+              {placeContext.domains.map(domain=><div key={domain.id}>
+                <span className={"place-domain-status "+domain.status}>{domain.status==="observed"?"disponible":domain.status==="research"?"en integración":domain.status==="context"?"contexto":"no disponible"}</span>
+                <strong>{domain.label}</strong>
+                <p>{domain.summary}</p>
+              </div>)}
+            </div>
+            {placeContext.coverage.limitations.length?<div className="place-limitations">
+              {placeContext.coverage.limitations.map(item=><span key={item}>{item}</span>)}
+            </div>:null}
+          </details>:null}
         </section>:<section className="street-area-prompt">
-          <strong>{zoneProfile[0]?.value||"Zona localizada"}</strong>
-          <p>Has seleccionado un barrio. Para bajar a la calle, busca una dirección concreta o usa tu ubicación.</p>
+          <strong>{selected.name}</strong>
+          <p>Esto es una zona administrativa. Para obtener un contexto de lugar completo, busca una dirección o usa tu ubicación.</p>
           <button type="button" onClick={useCurrentLocation} disabled={locating}>⌖ Usar mi ubicación</button>
         </section>}
-
-        <details className="street-more">
-          <summary>Contexto de la zona</summary>
-          <div className="street-zone-grid">
-            {zoneProfile.map(item=><div key={item.label}>
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
-              <small>{item.detail}</small>
-            </div>)}
-          </div>
-        </details>
 
         {selectedPoint?<details className="street-more">
           <summary>Servicios cerca</summary>
@@ -660,7 +686,7 @@ export default function V2Research({
 
         <footer className="street-sheet-footer">
           <button type="button" onClick={()=>{
-            setSelectedId(null);setSelectedPoint(null);setQuery("");setNearby(null);setStreetContext(null);
+            setSelectedId(null);setSelectedPoint(null);setQuery("");setNearby(null);setPlaceContext(null);
           }}>Volver al mapa</button>
           <Link href="/v2/guide">Datos y límites</Link>
         </footer>
