@@ -8,6 +8,7 @@ import {
   getMonthlySummaries,
   getNeighbourhoods,
   getTemporalObservations,
+  madridPersonalHarmMetricSlugs,
   type CityCapability,
   type CityMapMetric,
   type CitySlug,
@@ -283,7 +284,10 @@ export async function buildPlaceContext(args:{
   const timeCapability=capabilityStatus(capabilities,"incidents","time-of-day");
   let temporalRows:TemporalObservation[]=[];
   if(city==="madrid"&&(timeCapability?.available||timeCapability?.status==="pipeline_ready")){
-    temporalRows=await getTemporalObservations(covered.id,{months:3}).catch(()=>[]);
+    temporalRows=await getTemporalObservations(covered.id,{
+      months:3,
+      metricSlugs:madridPersonalHarmMetricSlugs(),
+    }).catch(()=>[]);
   }
   const temporal=temporalSummary(temporalRows);
 
