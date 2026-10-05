@@ -34,9 +34,10 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <Link className="brand" href={localeHref(locale, "/")}>data<span>Sec</span></Link>
           <div className="site-header-actions">
             <nav aria-label={locale === "es" ? "Navegación principal" : "Primary navigation"}>
-              <Link href={localeHref(locale, "/#areas")}>{copy.cities}</Link>
-              <Link href={localeHref(locale, "/search")}>{locale === "es" ? "Buscar" : "Search"}</Link>
-              <Link href={localeHref(locale, "/methodology")}>{copy.methodology}</Link>
+              <Link href={localeHref(locale, "/city/madrid")}>Madrid</Link>
+              <Link href={localeHref(locale, "/city/london")}>London</Link>
+              <Link href="/v2">{locale === "es" ? "Abrir app" : "Open app"}</Link>
+              <Link href={localeHref(locale, "/methodology")}>{locale === "es" ? "Datos" : "Data"}</Link>
             </nav>
             <LanguageSwitcher locale={locale} />
           </div>
