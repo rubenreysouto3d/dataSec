@@ -24,8 +24,8 @@ assert.ok(context.includes("madridPersonalHarmMetricSlugs"),
 
 assert.ok(madrid.includes("parse_creation_hour"),"Madrid ingestion must preserve the source creation hour");
 assert.ok(madrid.includes('"temporal_observation"'),"Madrid ingestion must stage temporal evidence atomically");
-assert.ok(madrid.includes("hourly aggregation mismatch"),
-  "Madrid ingestion must verify temporal totals against monthly totals");
+assert.ok(madrid.includes("reviewed-hour aggregation mismatch") && madrid.includes("PERSONAL_HARM_METRIC_SLUGS"),
+  "Madrid ingestion must verify reviewed temporal totals against the corresponding monthly metrics");
 
 assert.ok(streetRoute.includes("getStreetContext"),
   "Street route must reuse the canonical street evidence module");
