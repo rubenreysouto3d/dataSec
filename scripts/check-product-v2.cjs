@@ -63,6 +63,8 @@ assert.ok(workspace.includes("/v2/api/street-context") && workspace.includes("st
 const streetRoute=fs.readFileSync("app/v2/api/street-context/route.ts","utf8");
 assert.ok(streetRoute.includes("data.police.uk/api/crimes-street/all-crime"),
   "London street context must come from the official Police.UK API");
+assert.ok(streetRoute.includes('endpoint.searchParams.set("poly",poly)') && streetRoute.includes("Promise.allSettled"),
+  "Street context must use a walking-scale polygon and survive a partial month failure");
 assert.ok(streetRoute.includes('availability:"area-only"'),
   "Cities without street-grain source data must not fabricate street hotspots");
 assert.ok(layout.includes("index: false"), "Do not index concept/test cities");
