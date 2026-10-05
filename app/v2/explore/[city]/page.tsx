@@ -57,7 +57,7 @@ export default async function V2Explore({params,searchParams}:{
         initialPoint={latitude,longitude,label:query.place.trim().slice(0,170)};
         const initialLens=query.lens
           ?parsePlaceLens(query.lens)
-          :query.view==="resident"?"living_here":"around_me";
+          :query.view==="resident"?"living_here":"overview";
         initialPlaceContext=await buildPlaceContext({
           latitude,
           longitude,
@@ -86,6 +86,6 @@ export default async function V2Explore({params,searchParams}:{
     initialPurpose={query.view==="resident"?"resident":"visitor"}
     initialLens={query.lens
       ?parsePlaceLens(query.lens)
-      :query.view==="resident"?"living_here":"around_me"}
+      :query.view==="resident"?"living_here":"overview"}
   />;
 }

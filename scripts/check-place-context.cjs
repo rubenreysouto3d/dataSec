@@ -7,7 +7,7 @@ const madrid=fs.readFileSync("scripts/ingest_madrid.py","utf8");
 const streetRoute=fs.readFileSync("app/v2/api/street-context/route.ts","utf8");
 
 for(const lens of [
-  "choosing_stay","arriving_late","around_me","tonight","living_here","living_with_family"
+  "overview","choosing_stay","arriving_late","around_me","tonight","living_here","living_with_family"
 ]){
   assert.ok(context.includes('"'+lens+'"'),"Missing place-context lens: "+lens);
 }

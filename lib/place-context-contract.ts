@@ -2,6 +2,7 @@ import type { CityCapability, CityMapMetric, CitySlug, MonthlySummary } from "@/
 import type { StreetContext } from "@/lib/street-context";
 
 export type PlaceLens =
+  | "overview"
   | "choosing_stay"
   | "arriving_late"
   | "around_me"
@@ -81,6 +82,7 @@ export type PlaceContext = {
 };
 
 export const placeLensLabels:Record<PlaceLens,string>={
+  overview:"Entender este lugar",
   choosing_stay:"Elegir alojamiento",
   arriving_late:"Llegar tarde",
   around_me:"Ahora, aquí",
@@ -90,6 +92,7 @@ export const placeLensLabels:Record<PlaceLens,string>={
 };
 
 export const placeLensPurpose:Record<PlaceLens,"visitor"|"resident">={
+  overview:"visitor",
   choosing_stay:"visitor",
   arriving_late:"visitor",
   around_me:"visitor",

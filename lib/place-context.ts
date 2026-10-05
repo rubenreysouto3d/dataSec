@@ -27,11 +27,11 @@ import type {
 } from "@/lib/place-context-contract";
 
 const validLenses = new Set<PlaceLens>([
-  "choosing_stay","arriving_late","around_me","tonight","living_here","living_with_family",
+  "overview","choosing_stay","arriving_late","around_me","tonight","living_here","living_with_family",
 ]);
 
 export function parsePlaceLens(value:string|null|undefined):PlaceLens{
-  return validLenses.has(value as PlaceLens)?value as PlaceLens:"around_me";
+  return validLenses.has(value as PlaceLens)?value as PlaceLens:"overview";
 }
 
 function sumSignal(context:StreetContext,signal:StreetSignal){
@@ -261,7 +261,7 @@ export async function buildPlaceContext(args:{
   label?:string;
   lens?:PlaceLens;
 }):Promise<PlaceContext|null>{
-  const lens=args.lens??"around_me";
+  const lens=args.lens??"overview";
   const covered=await locateAreaByCoordinates(args.latitude,args.longitude);
   if(!covered)return null;
 
@@ -318,6 +318,7 @@ export async function buildPlaceContext(args:{
   }
 
   const lensOrder:Record<PlaceLens,PlaceFinding["domain"][]> = {
+    overview:["incidents","after_dark","mobility","daily_life","coverage"],
     choosing_stay:["incidents","after_dark","mobility","daily_life","coverage"],
     arriving_late:["after_dark","mobility","incidents","coverage","daily_life"],
     around_me:["incidents","mobility","daily_life","coverage","after_dark"],

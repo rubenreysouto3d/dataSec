@@ -26,7 +26,11 @@ assert.ok(v2Cities.some(c=>c.slug==="manchester" && c.status==="research" && /no
 const workspace=fs.readFileSync("app/v2/explore/[city]/V2Research.tsx","utf8");
 const layout=fs.readFileSync("app/v2/layout.tsx","utf8");
 const productPage=fs.readFileSync("app/v2/page.tsx","utf8");
-assert.ok(productPage.includes('redirect("/v2/explore/madrid?view=visitor")'), "The product enters the spatial workspace directly");
+assert.ok(productPage.includes("<V2Start"), "The product must enter through an operational place/search surface, not assume a city");
+const startPage=fs.readFileSync("app/v2/V2Start.tsx","utf8");
+assert.ok(startPage.includes("resolvePlaceToArea") && startPage.includes("Usar mi ubicación"),
+  "The app entry must support exact-place search and explicit geolocation");
+assert.ok(!productPage.includes("redirect("), "The app entry must not silently choose Madrid or any other city");
 const citiesPage=fs.readFileSync("app/v2/cities/page.tsx","utf8");
 assert.ok(citiesPage.includes("v2Cities"),"Coverage has its own directory");
 assert.ok(workspace.includes("resolvePlaceToArea") && workspace.includes("candidate.matchedPlace"),
