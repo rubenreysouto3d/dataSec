@@ -34,6 +34,24 @@ function signalLabel(signal:HotspotSignal){
   if(signal==="disorder")return "Desorden / conducta antisocial";
   return "Violencia";
 }
+function distanceMeters(aLat:number,aLng:number,bLat:number,bLng:number){
+  const r=Math.PI/180;
+  const dLat=(bLat-aLat)*r,dLng=(bLng-aLng)*r;
+  const q=Math.sin(dLat/2)**2+Math.cos(aLat*r)*Math.cos(bLat*r)*Math.sin(dLng/2)**2;
+  return Math.round(12742000*Math.asin(Math.min(1,Math.sqrt(q))));
+}
+function publicLocationLabel(value:string){
+  const raw=value.trim()||"Ubicación aproximada";
+  const cleaned=raw.replace(/^On or near\s+/i,"").trim();
+  const generic=new Set([
+    "Police Station","Hospital","Nightclub","Further/higher Educational Building",
+    "Conference/exhibition Centre","Theatre/concert Hall","Parking Area","Shopping Area",
+  ]);
+  return {
+    label:cleaned,
+    generic:generic.has(cleaned),
+  };
+}
 
 export async function GET(request:Request){
   const url=new URL(request.url);
@@ -106,11 +124,11 @@ export async function GET(request:Request){
         const hLat=Number(row.location.latitude);
         const hLng=Number(row.location.longitude);
         const streetId=row.location.street?.id;
-        const street=(row.location.street?.name||"Ubicación aproximada").replace(/^On or near\s+/i,"");
+        const publicLabel=publicLocationLabel(row.location.street?.name||"Ubicación aproximada");
         if(!Number.isFinite(hLat)||!Number.isFinite(hLng)||streetId===undefined)continue;
         const key=String(streetId);
         const current=grouped.get(key)??{
-          id:key,latitude:hLat,longitude:hLng,street,
+          id:key,latitude:hLat,longitude:hLng,street:publicLabel.label,generic:publicLabel.generic,
           signals:{theft:0,drugs:0,disorder:0,violence:0},
           months:new Set<string>(),
         };
@@ -135,13 +153,15 @@ export async function GET(request:Request){
         signals:item.signals,
         months:item.months.size,
         repeated:item.months.size>=2,
+        distanceMeters:distanceMeters(latitude,longitude,item.latitude,item.longitude),
+        locationKind:item.generic?"anonymised-reference":"street-reference",
       };
     }).filter(item=>item.total>=2).sort((a,b)=>b.total-a.total);
 
     const max=Math.max(1,...ranked.map(item=>item.total));
     const hotspots=ranked.slice(0,45).map((item,index)=>({
       ...item,
-      intensity:item.total>=Math.max(6,max*.55)?"high":item.total>=Math.max(3,max*.25)?"medium":"low",
+      concentration:item.total>=Math.max(6,max*.55)?"high":item.total>=Math.max(3,max*.25)?"medium":"low",
       localRank:index+1,
     }));
 
@@ -156,7 +176,7 @@ export async function GET(request:Request){
       locationPrecision:"Police.UK publishes anonymised approximate street locations, not exact incident addresses.",
       hotspots,
       categories:{
-        theft:"Hurto a personas + robo",
+        theft:"Hurto a personas + robo (incluye carterismo, pero la fuente no lo separa)",
         drugs:"Drogas",
         disorder:"Conducta antisocial + orden público",
         violence:"Violencia",
