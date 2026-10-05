@@ -1,4 +1,4 @@
-# dataSec architecture
+> **Product-model note (2026-10-05):** This document describes the current technical ingestion architecture. It is not the target product/evidence model. The canonical product direction and migration target are defined in [Product foundation reset](product-foundation-2026-10-05.md).\n\n# dataSec architecture
 
 ## Product rule
 
