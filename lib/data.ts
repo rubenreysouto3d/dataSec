@@ -727,6 +727,10 @@ function isMadridPersonalHarmMetric(metric: MetricRow) {
   return MADRID_PERSONAL_HARM_SLUGS.has(metric.slug);
 }
 
+export function madridPersonalHarmMetricSlugs(): string[] {
+  return [...MADRID_PERSONAL_HARM_SLUGS];
+}
+
 function monthOffset(month: string, delta: number) {
   const [year, monthNumber] = month.split("-").map(Number);
   const date = new Date(Date.UTC(year, monthNumber - 1 + delta, 1));
