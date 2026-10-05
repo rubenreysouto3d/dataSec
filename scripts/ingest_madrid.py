@@ -30,6 +30,7 @@ try:
 except ModuleNotFoundError:
     from ingest_london import SupabaseRest, multipolygon_wkt, slugify
 
+# Keep this importer as the single path for both monthly publication and historical backfill.
 USER_AGENT = "dataSec-madrid-ingest/0.1 (+https://github.com/rubenreysouto3d/dataSec)"
 CKAN_API = "https://datos.madrid.es/api/3/action"
 DATASET_ID = "837676-0-incidencias-recibidas-en-la-emisora-central-de-policia-municipal"
