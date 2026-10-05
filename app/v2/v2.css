@@ -1483,3 +1483,108 @@ body:has(.atlas-app){overflow:hidden;background:#e8e9e3}
   .street-nearby-grid,.street-zone-grid{grid-template-columns:1fr}
   .street-nearby-grid>section,.street-zone-grid>div{border-right:0}
 }
+
+/* PLACE CONTEXT FOUNDATION
+   Situation changes recompose one place; findings are rows, not dashboard cards. */
+.place-lenses{
+  display:flex;gap:0;overflow-x:auto;border-bottom:1px solid #c7cec6;
+  scrollbar-width:none;background:#ebe9df
+}
+.place-lenses::-webkit-scrollbar{display:none}
+.place-lenses button{
+  flex:0 0 auto;border:0;border-right:1px solid #cbd1c9;background:transparent;
+  color:#657269;padding:9px 11px;font-size:8px;font-weight:760;white-space:nowrap
+}
+.place-lenses button.active{
+  background:#17382b;color:#fff
+}
+.place-context-read{
+  border-bottom:1px solid #cbd1c8;background:#f4f1e8
+}
+.place-context-read-head{
+  display:flex;justify-content:space-between;gap:18px;align-items:flex-start;padding:17px 18px 13px
+}
+.place-context-read-head>div{min-width:0}
+.place-context-read-head h2{
+  max-width:620px;margin-top:7px;font-size:23px;line-height:1.06;letter-spacing:-.055em;color:#21372c
+}
+.place-context-read-head>small{
+  flex:0 0 auto;font:720 7px ui-monospace,Consolas,monospace;color:#7b867f;padding-top:2px
+}
+.place-findings{
+  border-top:1px solid #d2d7d0
+}
+.place-finding{
+  display:grid;grid-template-columns:34px minmax(0,1fr);gap:10px;
+  padding:11px 18px;border-bottom:1px solid #d7dcd5
+}
+.place-finding:last-child{border-bottom:0}
+.place-finding.attention{background:#f4e9de}
+.place-finding.notice{background:#f4f0e6}
+.place-finding-index{
+  font:760 8px ui-monospace,Consolas,monospace;color:#8a958d;padding-top:2px
+}
+.place-finding.attention .place-finding-index{color:#9a583e}
+.place-finding-body h3{
+  font-size:11px;line-height:1.32;letter-spacing:-.018em;color:#293d32
+}
+.place-finding-body p{
+  margin-top:4px;font-size:8px;line-height:1.5;color:#6f7a73
+}
+.place-finding-body footer{
+  display:flex;gap:7px 11px;flex-wrap:wrap;margin-top:8px
+}
+.place-finding-body footer span{
+  font:710 7px ui-monospace,Consolas,monospace;color:#879088
+}
+.place-evidence-detail{
+  border-top:1px solid #d1d6cf
+}
+.place-evidence-detail>summary{
+  list-style:none;cursor:pointer;padding:10px 18px;
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:8px;font-weight:780;color:#455c4f
+}
+.place-evidence-detail>summary::-webkit-details-marker{display:none}
+.place-evidence-detail>summary:after{content:"+";font-size:13px}
+.place-evidence-detail[open]>summary:after{content:"–"}
+.place-evidence-detail>.street-signal-row,
+.place-evidence-detail>.street-hotspots,
+.place-evidence-detail>.street-map-toggle,
+.place-evidence-detail>.street-data-note{
+  margin-left:18px;margin-right:18px
+}
+.place-evidence-detail>.street-data-note{margin-bottom:12px}
+.place-domain-list{
+  border-top:1px solid #d4d9d2
+}
+.place-domain-list>div{
+  display:grid;grid-template-columns:92px minmax(0,1fr);
+  column-gap:10px;padding:9px 18px;border-bottom:1px solid #dde1dc
+}
+.place-domain-status{
+  grid-row:1/3;align-self:start;font:720 7px ui-monospace,Consolas,monospace;
+  letter-spacing:.05em;text-transform:uppercase;color:#7a857e
+}
+.place-domain-status.observed{color:#38624b}
+.place-domain-status.research{color:#7b6847}
+.place-domain-status.not_available{color:#8b7770}
+.place-domain-list strong{font-size:9px}
+.place-domain-list p{margin-top:3px;font-size:7px;line-height:1.45;color:#7a857e}
+.place-limitations{
+  display:flex;flex-direction:column;gap:4px;padding:9px 18px 12px
+}
+.place-limitations span{
+  font-size:7px;line-height:1.4;color:#847d74
+}
+@media(max-width:700px){
+  .place-lenses button{padding:8px 9px;font-size:7.5px}
+  .place-context-read-head{padding:11px 14px 9px}
+  .place-context-read-head h2{font-size:19px;margin-top:5px}
+  .place-context-read-head>small{display:none}
+  .place-finding{grid-template-columns:26px minmax(0,1fr);padding:9px 14px;gap:7px}
+  .place-finding-body h3{font-size:10px}
+  .place-evidence-detail>summary{padding:9px 14px}
+  .place-domain-list>div{padding:8px 14px;grid-template-columns:82px minmax(0,1fr)}
+  .place-limitations{padding:8px 14px 10px}
+}
