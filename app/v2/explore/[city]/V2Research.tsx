@@ -4,7 +4,15 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import AtlasMap from "@/app/lab/[city]/AtlasMap";
-import type { CityBoundary, CityMapMetric, CitySafetySignal, CitySlug, Neighbourhood } from "@/lib/data";
+import type {
+  CityActivityContext,
+  CityBoundary,
+  CityHarmTrendSummary,
+  CityMapMetric,
+  CitySafetySignal,
+  CitySlug,
+  Neighbourhood,
+} from "@/lib/data";
 import { areaDisplayName } from "@/lib/data";
 import {
   createPlaceEvidenceContext,
@@ -25,10 +33,13 @@ type Props = {
   areas: Neighbourhood[];
   metrics: CityMapMetric[];
   signals: CitySafetySignal[];
+  activityContexts: CityActivityContext[];
+  harmTrends: CityHarmTrendSummary | null;
   initialId: string | null;
   initialPurpose: PlacePurpose;
   initialPoint?: PointSelection | null;
 };
+type MapLayer = "incidents" | "trend" | "activity" | "night";
 type NearbyResponse = {
   places: NearbyPlace[];
   attribution: string;
@@ -59,12 +70,19 @@ function normalize(value:string){
 function fmt(value:number|null){
   return value===null||!Number.isFinite(value)?"—":new Intl.NumberFormat("es-ES",{maximumFractionDigits:1}).format(value);
 }
+function percentileByArea(items:Array<{areaId:string;value:number|null}>){
+  const valid=items.filter((item):item is {areaId:string;value:number}=>item.value!==null&&Number.isFinite(item.value))
+    .sort((a,b)=>a.value-b.value);
+  const denominator=Math.max(valid.length-1,1);
+  return new Map(valid.map((item,index)=>[item.areaId,index/denominator]));
+}
 
 export default function V2Research({
-  city,areas,metrics,signals,initialId,initialPurpose,initialPoint=null,
+  city,areas,metrics,signals,activityContexts,harmTrends,initialId,initialPurpose,initialPoint=null,
 }:Props){
   const router=useRouter();
   const [purpose,setPurpose]=useState<PlacePurpose>(initialPurpose);
+  const [layer,setLayer]=useState<MapLayer>("incidents");
   const [selectedId,setSelectedId]=useState<string|null>(initialId);
   const [selectedPoint,setSelectedPoint]=useState<PointSelection|null>(initialPoint);
   const [query,setQuery]=useState("");
@@ -84,12 +102,35 @@ export default function V2Research({
   const selected=selectedId?areaById.get(selectedId)||null:null;
   const evidence=selected?evidenceContext.read(selected.id,purpose):null;
   const relative=evidence?bandNumber(evidence.percentile):null;
+  const selectedMetric=selected?metricByArea.get(selected.id)||null:null;
+  const selectedActivity=selected?activityByArea.get(selected.id)||null:null;
+  const selectedTrend=selected?trendByArea.get(selected.id)||null:null;
+  const selectedSignal=selected?signalByArea.get(selected.id)||null:null;
+  const selectedActivityDensity=selectedActivity&&selectedMetric&&selectedMetric.areaKm2>0
+    ?selectedActivity.openHostelry/selectedMetric.areaKm2:null;
+  const selectedActivityBand=selected?bandNumber(activityPercentiles.get(selected.id)??null):null;
   const indicator=placeEvidenceLabel(city,purpose,evidenceContext.hasCityHarmSeries,"es");
   const source=placeEvidenceSource(city,"es");
-  const mapValues=useMemo(
-    ()=>new Map(areas.map(a=>[a.id,evidenceContext.read(a.id,purpose).percentile])),
-    [areas,evidenceContext,purpose],
-  );
+  const metricByArea=useMemo(()=>new Map(metrics.map(metric=>[metric.areaId,metric])),[metrics]);
+  const activityByArea=useMemo(()=>new Map(activityContexts.map(item=>[item.areaId,item])),[activityContexts]);
+  const trendByArea=useMemo(()=>new Map((harmTrends?.areas??[]).map(item=>[item.areaId,item])),[harmTrends]);
+  const signalByArea=useMemo(()=>new Map(signals.map(item=>[item.areaId,item])),[signals]);
+  const activityPercentiles=useMemo(()=>percentileByArea(areas.map(area=>{
+    const activity=activityByArea.get(area.id);
+    const metric=metricByArea.get(area.id);
+    const density=activity&&metric&&metric.areaKm2>0?activity.openHostelry/metric.areaKm2:null;
+    return {areaId:area.id,value:density};
+  })),[areas,activityByArea,metricByArea]);
+  const mapValues=useMemo(()=>{
+    if(layer==="activity")return new Map(areas.map(area=>[area.id,activityPercentiles.get(area.id)??null]));
+    if(layer==="trend")return new Map(areas.map(area=>{
+      const delta=trendByArea.get(area.id)?.percentChange;
+      const normalized=delta===null||delta===undefined||!Number.isFinite(delta)?null:Math.max(0,Math.min(1,(delta+50)/100));
+      return [area.id,normalized] as const;
+    }));
+    if(layer==="night")return new Map(areas.map(area=>[area.id,signalByArea.get(area.id)?.districtConcernPercentile??null]));
+    return new Map(areas.map(area=>[area.id,evidenceContext.read(area.id,purpose).percentile]));
+  },[areas,evidenceContext,purpose,layer,activityPercentiles,trendByArea,signalByArea]);
 
   const suggestions=useMemo(()=>{
     const text=normalize(query);
@@ -219,6 +260,48 @@ export default function V2Research({
     }));
   },[nearby,purpose]);
 
+  const layerCopy = layer==="trend"
+    ? {title:"Cambio reciente",detail:"bajando → subiendo en los últimos 6 meses"}
+    : layer==="activity"
+      ? {title:"Actividad urbana",detail:"menos → más hostelería por km²"}
+      : layer==="night"
+        ? {title:"Percepción nocturna",detail:"mejor → peor percepción del distrito"}
+        : {title:indicator,detail:"menos → más registros relativos dentro de "+cityLabel(city)};
+
+  const zoneProfile = selected ? [
+    {
+      label:"REGISTROS",
+      value:evidence?.available&&relative?relativeLabels[relative-1]:"Sin lectura comparable",
+      detail:evidence?.period||"sin período",
+    },
+    {
+      label:"TENDENCIA 6M",
+      value:selectedTrend?.percentChange===null||selectedTrend?.percentChange===undefined
+        ?"Sin tendencia"
+        : selectedTrend.percentChange>20
+          ?"Subiendo"
+          : selectedTrend.percentChange<-20
+            ?"Bajando"
+            :"Estable",
+      detail:selectedTrend?.percentChange===null||selectedTrend?.percentChange===undefined
+        ?"sin serie suficiente"
+        :(selectedTrend.percentChange>0?"+":"")+fmt(selectedTrend.percentChange)+"%",
+    },
+    {
+      label:"ACTIVIDAD",
+      value:selectedActivityBand===null?"Sin lectura"
+        :selectedActivityBand>=4?"Alta"
+        :selectedActivityBand<=2?"Baja":"Intermedia",
+      detail:selectedActivityDensity===null?"sin contexto de hostelería":fmt(selectedActivityDensity)+" locales/km²",
+    },
+    ...(selectedSignal?.districtNightSafety!==null&&selectedSignal?.districtNightSafety!==undefined?[{
+      label:"NOCHE · DISTRITO",
+      value:selectedSignal.districtNightSafety>=7?"Percepción favorable"
+        :selectedSignal.districtNightSafety<=5.5?"Percepción baja":"Percepción intermedia",
+      detail:fmt(selectedSignal.districtNightSafety)+"/10 · "+(selectedSignal.districtName||"distrito"),
+    }]:[]),
+  ] : [];
+
   return <main className="atlas-app">
     <section className="atlas-app-map" aria-label={"Mapa de "+cityLabel(city)}>
       {mapBoundaries?<AtlasMap
@@ -284,12 +367,18 @@ export default function V2Research({
       </div>
 
       <div className="atlas-layer">
-        <span>{purpose==="visitor"?"CAPA · VIAJE":"CAPA · VIVIR"}</span>
-        <strong>{indicator}</strong>
+        <span>CAPAS DEL MAPA</span>
+        <div className="atlas-layer-buttons" role="group" aria-label="Capas de información">
+          <button type="button" className={layer==="incidents"?"active":""} onClick={()=>setLayer("incidents")}>Registros</button>
+          <button type="button" className={layer==="trend"?"active":""} onClick={()=>setLayer("trend")}>Cambio</button>
+          <button type="button" className={layer==="activity"?"active":""} onClick={()=>setLayer("activity")}>Actividad</button>
+          {city==="madrid"?<button type="button" className={layer==="night"?"active":""} onClick={()=>setLayer("night")}>Noche</button>:null}
+        </div>
+        <strong>{layerCopy.title}</strong>
         <div className="atlas-layer-scale" aria-label="Escala relativa">
           {MAP_COLOR_BANDS.map(band=><i key={band.max} style={{background:band.color}}/>)}
         </div>
-        <small>Menos registros → más registros · comparación solo dentro de {cityLabel(city)}</small>
+        <small>{layerCopy.detail}</small>
       </div>
     </section>
 
@@ -322,27 +411,25 @@ export default function V2Research({
         </header>
         {shareStatus?<small className="atlas-share-status">{shareStatus}</small>:null}
 
-        {evidence?<section className="atlas-signal">
-          <div className="atlas-signal-top">
-            <span>{purpose==="visitor"?"SEÑAL PARA VIAJE":"SEÑAL PARA VIVIR"}</span>
-            <span>{evidence.period||"Sin período comparable"}</span>
+        <section className="atlas-reality">
+          <div className="atlas-section-title">
+            <div><span>LECTURA DE ZONA</span><h2>Qué define este sitio ahora</h2></div>
           </div>
-          <div className="atlas-signal-reading">
-            <div>
-              <strong>{evidence.available?fmt(evidence.value):"—"}</strong>
-              <small>{evidence.unit}</small>
-            </div>
-            <div>
-              <b>{evidence.available&&relative?relativeLabels[relative-1]:"Sin lectura comparable"}</b>
-              <p>{placeEvidenceExplanation(city,purpose,evidenceContext.hasCityHarmSeries,"es")}</p>
-            </div>
+          <div className="atlas-reality-grid">
+            {zoneProfile.map(item=><div key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </div>)}
           </div>
           <details>
-            <summary>Fuente y límites</summary>
+            <summary>Fuentes y límites</summary>
             <p>{source.note}</p>
             <a href={source.url} target="_blank" rel="noreferrer">{source.label} ↗</a>
+            {harmTrends?<p>La tendencia compara los tres meses más recientes con los tres anteriores usando la misma selección de categorías.</p>:null}
+            {selectedActivity?<p>La actividad usa establecimientos abiertos/hostelería del contexto municipal disponible; no describe comportamiento de personas.</p>:null}
           </details>
-        </section>:null}
+        </section>
 
         {selectedPoint?<section className="atlas-nearby">
           <div className="atlas-section-title">
