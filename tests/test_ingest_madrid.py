@@ -10,6 +10,7 @@ from scripts.ingest_madrid import (
     match_incident_area,
     metric_slug,
     normalize_name,
+    parse_creation_hour,
     parse_resource_month,
 )
 
@@ -72,6 +73,18 @@ class MadridSourceTests(unittest.TestCase):
             metric_slug("RUIDOS MOLESTOS"),
             "madrid-dispatch-ruidos-molestos",
         )
+
+    def test_creation_hour_is_preserved_as_local_hour(self):
+        self.assertEqual(parse_creation_hour("00:15:00"), 0)
+        self.assertEqual(parse_creation_hour("7:03"), 7)
+        self.assertEqual(parse_creation_hour("23.59"), 23)
+
+    def test_creation_hour_fails_closed(self):
+        with self.assertRaises(RuntimeError):
+            parse_creation_hour("24:00")
+        with self.assertRaises(RuntimeError):
+            parse_creation_hour("")
+
 
 
 class MadridHttpTests(unittest.TestCase):
