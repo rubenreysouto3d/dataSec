@@ -212,38 +212,42 @@ export default function V2Research({
   },[selectedPoint]);
 
   useEffect(()=>{
-    if(!selectedPoint){setStreetContext(null);setStreetState("idle");return;}
+    if(!selectedPoint){setPlaceContext(null);setContextState("idle");return;}
     let cancelled=false;
-    setStreetState("loading");setStreetContext(null);
+    setContextState("loading");setPlaceContext(null);
     const params=new URLSearchParams({
       lat:String(selectedPoint.latitude),
       lng:String(selectedPoint.longitude),
+      label:selectedPoint.label,
+      lens,
     });
-    fetch("/v2/api/street-context?"+params.toString())
+    fetch("/v2/api/place-context?"+params.toString())
       .then(async response=>{
-        if(!response.ok&&response.status!==404)throw new Error("street context unavailable");
-        const value=(await response.json()) as StreetContextResponse;
+        if(!response.ok)throw new Error("place context unavailable");
+        const value=(await response.json()) as PlaceContext;
         if(cancelled)return;
-        if(value.city&&value.city!==city){
+        if(value.place.city!==city){
           const nextParams=new URLSearchParams({
-            view:purpose,
+            view:placeLensPurpose[lens],
+            lens,
             lat:String(selectedPoint.latitude),
             lng:String(selectedPoint.longitude),
             place:selectedPoint.label,
           });
-          router.push("/v2/explore/"+value.city+"?"+nextParams.toString());
+          router.push("/v2/explore/"+value.place.city+"?"+nextParams.toString());
           return;
         }
-        if(value.areaId&&areaById.has(value.areaId))setSelectedId(value.areaId);
-        setStreetContext(value);setStreetState("ready");
+        if(areaById.has(value.place.area.id))setSelectedId(value.place.area.id);
+        setPlaceContext(value);setContextState("ready");
       })
-      .catch(()=>{if(!cancelled)setStreetState("error");});
+      .catch(()=>{if(!cancelled)setContextState("error");});
     return()=>{cancelled=true;};
-  },[selectedPoint,city,purpose,router,areaById]);
+  },[selectedPoint,city,lens,router,areaById]);
 
   useEffect(()=>{
     const next=new URL(window.location.href);
     next.searchParams.set("view",purpose);
+    next.searchParams.set("lens",lens);
     if(selectedId)next.searchParams.set("area",selectedId);else next.searchParams.delete("area");
     if(selectedPoint){
       next.searchParams.set("lat",selectedPoint.latitude.toFixed(6));
@@ -258,7 +262,7 @@ export default function V2Research({
       :selectedId;
     setSaved(Boolean(key&&readSaved().some(x=>x.id===key&&x.purpose===purpose)));
     setShareStatus("");
-  },[purpose,selectedId,selectedPoint]);
+  },[purpose,lens,selectedId,selectedPoint]);
 
   function useCurrentLocation(){
     if(locating)return;
