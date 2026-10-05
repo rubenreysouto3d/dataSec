@@ -26,6 +26,12 @@ import { MAP_COLOR_BANDS } from "@/lib/map-filters";
 import { bandNumber } from "@/lib/map-view";
 import { readSaved, toggleSaved } from "@/lib/v2-saved";
 import type { NearbyCategory, NearbyPlace } from "@/lib/nearby-places";
+import {
+  placeLensLabels,
+  placeLensPurpose,
+  type PlaceContext,
+  type PlaceLens,
+} from "@/lib/place-context-contract";
 
 type PointSelection = { latitude:number; longitude:number; label:string };
 type Props = {
@@ -37,6 +43,7 @@ type Props = {
   harmTrends: CityHarmTrendSummary | null;
   initialId: string | null;
   initialPurpose: PlacePurpose;
+  initialLens: PlaceLens;
   initialPoint?: PointSelection | null;
 };
 type MapLayer = "incidents" | "trend" | "activity" | "night";
@@ -99,10 +106,11 @@ function percentileByArea(items:Array<{areaId:string;value:number|null}>){
 }
 
 export default function V2Research({
-  city,areas,metrics,signals,activityContexts,harmTrends,initialId,initialPurpose,initialPoint=null,
+  city,areas,metrics,signals,activityContexts,harmTrends,initialId,initialPurpose,initialLens,initialPoint=null,
 }:Props){
   const router=useRouter();
-  const [purpose,setPurpose]=useState<PlacePurpose>(initialPurpose);
+  const [lens,setLens]=useState<PlaceLens>(initialLens);
+  const purpose=placeLensPurpose[lens];
   const [layer,setLayer]=useState<MapLayer>("incidents");
   const [selectedId,setSelectedId]=useState<string|null>(initialId);
   const [selectedPoint,setSelectedPoint]=useState<PointSelection|null>(initialPoint);
@@ -115,13 +123,14 @@ export default function V2Research({
   const [mapError,setMapError]=useState(false);
   const [nearby,setNearby]=useState<NearbyResponse|null>(null);
   const [nearbyState,setNearbyState]=useState<"idle"|"loading"|"ready"|"error">("idle");
-  const [streetContext,setStreetContext]=useState<StreetContextResponse|null>(null);
-  const [streetState,setStreetState]=useState<"idle"|"loading"|"ready"|"error">("idle");
+  const [placeContext,setPlaceContext]=useState<PlaceContext|null>(null);
+  const [contextState,setContextState]=useState<"idle"|"loading"|"ready"|"error">("idle");
   const [showStreet,setShowStreet]=useState(true);
   const [streetFilter,setStreetFilter]=useState<"all"|StreetSignal>("all");
   const [locating,setLocating]=useState(false);
   const [saved,setSaved]=useState(false);
   const [shareStatus,setShareStatus]=useState("");
+  void initialPurpose;
 
   const evidenceContext=useMemo(()=>createPlaceEvidenceContext(city,metrics,signals),[city,metrics,signals]);
   const areaById=useMemo(()=>new Map(areas.map(a=>[a.id,a])),[areas]);
