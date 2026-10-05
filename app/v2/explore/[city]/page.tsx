@@ -9,7 +9,8 @@ import {
   type CitySlug,
 } from "@/lib/data";
 import { locateAreaByCoordinates } from "@/lib/public-data-client";
-import { parsePlaceLens } from "@/lib/place-context";
+import { buildPlaceContext, parsePlaceLens } from "@/lib/place-context";
+import type { PlaceContext } from "@/lib/place-context-contract";
 import V2Research from "./V2Research";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,7 @@ export default async function V2Explore({params,searchParams}:{
   let harmTrends: Awaited<ReturnType<typeof getCityHarmTrends>>=null;
   let initialId:string|null=null;
   let initialPoint:{latitude:number;longitude:number;label:string}|null=null;
+  let initialPlaceContext:PlaceContext|null=null;
 
   try{
     areas=await getNeighbourhoods(slug);
@@ -53,6 +55,15 @@ export default async function V2Explore({params,searchParams}:{
       if(located&&located.citySlug===slug&&areas.some(a=>a.id===located.id)){
         initialId=located.id;
         initialPoint={latitude,longitude,label:query.place.trim().slice(0,170)};
+        const initialLens=query.lens
+          ?parsePlaceLens(query.lens)
+          :query.view==="resident"?"living_here":"around_me";
+        initialPlaceContext=await buildPlaceContext({
+          latitude,
+          longitude,
+          label:initialPoint.label,
+          lens:initialLens,
+        });
       }
     }
   } catch(error) {
@@ -71,6 +82,7 @@ export default async function V2Explore({params,searchParams}:{
     harmTrends={harmTrends}
     initialId={initialId}
     initialPoint={initialPoint}
+    initialPlaceContext={initialPlaceContext}
     initialPurpose={query.view==="resident"?"resident":"visitor"}
     initialLens={query.lens
       ?parsePlaceLens(query.lens)
