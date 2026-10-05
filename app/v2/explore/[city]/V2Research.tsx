@@ -376,19 +376,36 @@ export default function V2Research({
         ? {title:"Percepción nocturna",detail:"mejor → peor percepción del distrito"}
         : {title:indicator,detail:"menos → más registros relativos dentro de "+cityLabel(city)};
 
-  const risingAreas=useMemo(()=>[...(harmTrends?.areas??[])]
-    .filter(item=>item.percentChange!==null&&Number.isFinite(item.percentChange))
-    .sort((a,b)=>(b.percentChange??0)-(a.percentChange??0)).slice(0,3),[harmTrends]);
-  const fallingAreas=useMemo(()=>[...(harmTrends?.areas??[])]
-    .filter(item=>item.percentChange!==null&&Number.isFinite(item.percentChange))
-    .sort((a,b)=>(a.percentChange??0)-(b.percentChange??0)).slice(0,3),[harmTrends]);
-  const activeAreas=useMemo(()=>areas.map(area=>{
-    const activity=activityByArea.get(area.id);
-    const metric=metricByArea.get(area.id);
-    const density=activity&&metric&&metric.areaKm2>0?activity.openHostelry/metric.areaKm2:null;
-    return {areaId:area.id,density};
-  }).filter((item):item is {areaId:string;density:number}=>item.density!==null&&Number.isFinite(item.density))
-    .sort((a,b)=>b.density-a.density).slice(0,3),[areas,activityByArea,metricByArea]);
+  const localStreetHotspots=useMemo(
+    ()=>(streetContext?.hotspots??[]).filter(item=>item.distanceMeters<=700),
+    [streetContext]
+  );
+  const streetSignalCounts=useMemo(()=>{
+    const counts:Record<StreetSignal,number>={theft:0,drugs:0,disorder:0,violence:0};
+    for(const item of localStreetHotspots){
+      for(const key of Object.keys(counts) as StreetSignal[]){
+        if(item.signals[key]>0)counts[key]+=1;
+      }
+    }
+    return counts;
+  },[localStreetHotspots]);
+  const streetHeadline=streetState==="loading"
+    ?"Buscando señales cercanas…"
+    :streetState==="error"
+      ?"No puedo leer la calle ahora."
+      :streetContext?.availability==="area-only"
+        ?"Aquí solo puedo leer el barrio."
+        :streetAdvice[0]
+          ?streetAdvice[0]
+          :localStreetHotspots.length
+            ?"Hay señales cercanas en los datos recientes."
+            :"No aparecen focos repetidos claros cerca.";
+  const streetSignalMeta:Array<{key:StreetSignal;label:string}>=[
+    {key:"theft",label:"Hurtos"},
+    {key:"drugs",label:"Drogas"},
+    {key:"disorder",label:"Desorden"},
+    {key:"violence",label:"Violencia"},
+  ];
 
   const zoneProfile = selected ? [
     {
@@ -424,8 +441,8 @@ export default function V2Research({
     }]:[]),
   ] : [];
 
-  return <main className="atlas-app">
-    <section className="atlas-app-map" aria-label={"Mapa de "+cityLabel(city)}>
+  return <main className="atlas-app street-app">
+    <section className="atlas-app-map street-map" aria-label={"Mapa de "+cityLabel(city)}>
       {mapBoundaries?<AtlasMap
         city={city}
         boundaries={mapBoundaries}
@@ -438,196 +455,176 @@ export default function V2Research({
         locale="es"
       />:<div className="atlas-app-map-loading" role="status">
         <strong>{mapError?"El mapa no está disponible.":"Cargando "+cityLabel(city)+"…"}</strong>
-        {mapError?<p>La búsqueda y los datos siguen disponibles.</p>:null}
+        {mapError?<p>La búsqueda y la ficha siguen disponibles.</p>:null}
       </div>}
 
-      <div className="atlas-app-toolbar">
-        <Link className="atlas-app-brand" href="/v2" aria-label="DataSec">data<span>Sec</span></Link>
-        <div className="atlas-city-switch" aria-label="Ciudad">
-          <Link className={city==="madrid"?"active":""} href={"/v2/explore/madrid?view="+purpose}>Madrid</Link>
-          <Link className={city==="london"?"active":""} href={"/v2/explore/london?view="+purpose}>Londres</Link>
-        </div>
-        <div className="atlas-purpose-switch" role="group" aria-label="Contexto">
-          <button type="button" className={purpose==="visitor"?"active":""} onClick={()=>setPurpose("visitor")}>Viaje</button>
-          <button type="button" className={purpose==="resident"?"active":""} onClick={()=>setPurpose("resident")}>Vivir</button>
-        </div>
-        <button type="button" className="atlas-locate" onClick={useCurrentLocation} disabled={locating}>
-          {locating?"Localizando…":"◎ Mi ubicación"}
-        </button>
-        <Link className="atlas-saved-link" href="/v2/saved">Guardados</Link>
-      </div>
+      <div className="street-topbar">
+        <Link className="street-brand" href="/v2" aria-label="DataSec">data<span>Sec</span></Link>
 
-      <div className="atlas-search">
-        <div className="atlas-search-box">
-          <span aria-hidden="true">⌕</span>
-          <input type="search" value={query}
-            placeholder={"Buscar dirección, hotel o barrio en "+cityLabel(city)}
-            aria-label="Buscar lugar"
-            onFocus={()=>setFocused(true)}
-            onChange={e=>{setQuery(e.target.value);setFocused(true);setCandidate(null);setGeoError("");}}
-            onKeyDown={e=>{
-              if(e.key==="Escape")setFocused(false);
-              if(e.key==="Enter"){
-                if(suggestions[0]&&normalize(suggestions[0].name)===normalize(query))selectArea(suggestions[0].id);
-                else void lookupAddress();
-              }
-            }}/>
-          {query?<button type="button" aria-label="Limpiar búsqueda" onClick={()=>{
-            setQuery("");setCandidate(null);setGeoError("");setFocused(false);
-          }}>×</button>:null}
-        </div>
-        {focused&&query.trim().length>=2?<div className="atlas-search-results">
-          {suggestions.map(area=><button type="button" key={area.id} onClick={()=>selectArea(area.id)}>
-            <strong>{area.name}</strong><span>{area.parentName||cityLabel(city)}</span>
-          </button>)}
-          <button type="button" className="atlas-search-exact" disabled={geoLoading} onClick={()=>void lookupAddress()}>
-            <strong>{geoLoading?"Buscando…":"Buscar lugar exacto"}</strong>
-            <span>Dirección, hotel o punto concreto</span>
-          </button>
-          {candidate?<div className="atlas-search-candidate">
-            <small>LUGAR ENCONTRADO</small><strong>{candidate.matchedPlace}</strong>
-            <button type="button" onClick={openCandidate}>Ver este punto en el mapa →</button>
+        <div className="street-search">
+          <div className="street-search-field">
+            <span aria-hidden="true">⌕</span>
+            <input type="search" value={query}
+              placeholder="Buscar calle, hotel o barrio"
+              aria-label="Buscar calle, hotel o barrio"
+              onFocus={()=>setFocused(true)}
+              onChange={e=>{setQuery(e.target.value);setFocused(true);setCandidate(null);setGeoError("");}}
+              onKeyDown={e=>{
+                if(e.key==="Escape")setFocused(false);
+                if(e.key==="Enter"){
+                  if(suggestions[0]&&normalize(suggestions[0].name)===normalize(query))selectArea(suggestions[0].id);
+                  else void lookupAddress();
+                }
+              }}/>
+            {query?<button type="button" aria-label="Limpiar búsqueda" onClick={()=>{
+              setQuery("");setCandidate(null);setGeoError("");setFocused(false);
+            }}>×</button>:null}
+          </div>
+          {focused&&query.trim().length>=2?<div className="street-search-results">
+            {suggestions.map(area=><button type="button" key={area.id} onClick={()=>selectArea(area.id)}>
+              <strong>{area.name}</strong><span>{area.parentName||cityLabel(city)}</span>
+            </button>)}
+            <button type="button" className="street-search-exact" disabled={geoLoading} onClick={()=>void lookupAddress()}>
+              <strong>{geoLoading?"Buscando…":"Buscar este lugar exacto"}</strong>
+              <span>Dirección, hotel o punto concreto</span>
+            </button>
+            {candidate?<div className="street-search-candidate">
+              <small>LUGAR ENCONTRADO</small>
+              <strong>{candidate.matchedPlace}</strong>
+              <button type="button" onClick={openCandidate}>Abrir aquí →</button>
+            </div>:null}
+            {geoError?<p className="street-search-error" role="alert">{geoError}</p>:null}
           </div>:null}
-          {geoError?<p className="atlas-search-error" role="alert">{geoError}</p>:null}
-        </div>:null}
+        </div>
+
+        <button type="button" className="street-locate" onClick={useCurrentLocation} disabled={locating}>
+          <span aria-hidden="true">⌖</span><b>{locating?"Buscando…":"Estoy aquí"}</b>
+        </button>
+
+        <details className="street-city">
+          <summary>{cityLabel(city)}</summary>
+          <div>
+            <Link className={city==="madrid"?"active":""} href={"/v2/explore/madrid?view="+purpose}>Madrid</Link>
+            <Link className={city==="london"?"active":""} href={"/v2/explore/london?view="+purpose}>Londres</Link>
+          </div>
+        </details>
       </div>
 
-      <div className="atlas-layer">
-        <span>CAPAS DEL MAPA</span>
-        <div className="atlas-layer-buttons" role="group" aria-label="Capas de información">
-          <button type="button" className={layer==="incidents"?"active":""} onClick={()=>setLayer("incidents")}>Registros</button>
-          <button type="button" className={layer==="trend"?"active":""} onClick={()=>setLayer("trend")}>Cambio</button>
-          <button type="button" className={layer==="activity"?"active":""} onClick={()=>setLayer("activity")}>Actividad</button>
-          {city==="madrid"?<button type="button" className={layer==="night"?"active":""} onClick={()=>setLayer("night")}>Noche</button>:null}
+      <details className="street-layer-menu">
+        <summary>Mapa · {layer==="incidents"?"Registros":layer==="trend"?"Cambio":layer==="activity"?"Actividad":"Noche"}</summary>
+        <div className="street-layer-panel">
+          <span>QUÉ QUIERES VER</span>
+          <div>
+            <button type="button" className={layer==="incidents"?"active":""} onClick={()=>setLayer("incidents")}>Registros</button>
+            <button type="button" className={layer==="trend"?"active":""} onClick={()=>setLayer("trend")}>Cambio</button>
+            <button type="button" className={layer==="activity"?"active":""} onClick={()=>setLayer("activity")}>Actividad</button>
+            {city==="madrid"?<button type="button" className={layer==="night"?"active":""} onClick={()=>setLayer("night")}>Noche</button>:null}
+          </div>
+          <strong>{layerCopy.title}</strong>
+          <div className="street-layer-scale">
+            {MAP_COLOR_BANDS.map(band=><i key={band.max} style={{background:band.color}}/>)}
+          </div>
+          <small>{layerCopy.detail}</small>
         </div>
-        {streetContext?.availability==="street"?<button type="button" className={"atlas-street-toggle "+(showStreet?"active":"")} onClick={()=>setShowStreet(value=>!value)}>
-          {showStreet?"● Focos de calle visibles":"○ Mostrar focos de calle"}
-        </button>:null}
-        <strong>{layerCopy.title}</strong>
-        <div className="atlas-layer-scale" aria-label="Escala relativa">
-          {MAP_COLOR_BANDS.map(band=><i key={band.max} style={{background:band.color}}/>)}
-        </div>
-        <small>{layerCopy.detail}</small>
-      </div>
+      </details>
     </section>
 
-    <aside className={"atlas-drawer "+(selected?"has-selection":"")} aria-live="polite">
-      {!selected?<div className="atlas-empty atlas-city-pulse">
-        <span className="atlas-kicker">DATASEC / {cityLabel(city).toUpperCase()} / AHORA</span>
-        <h1>Qué está cambiando.</h1>
-        <p>Empieza por una señal de ciudad, busca un sitio concreto o abre el mapa desde donde estás. Ninguna lista equivale a “mejor” o “peor” barrio.</p>
-        <button type="button" className="atlas-here-cta" onClick={useCurrentLocation} disabled={locating}>
-          {locating?"Localizando…":"◎ Ver qué tengo alrededor ahora"}
+    <aside className={"street-sheet "+(selected?"has-selection":"idle")} aria-live="polite">
+      <div className="street-sheet-handle" aria-hidden="true"/>
+
+      {!selected?<div className="street-idle">
+        <span className="street-eyebrow">DATASEC · EN EL SITIO</span>
+        <h1>¿Dónde estás?</h1>
+        <p>Abre tu ubicación o busca arriba una calle, hotel o barrio. El mapa te enseña qué merece atención alrededor.</p>
+        <button type="button" className="street-primary" onClick={useCurrentLocation} disabled={locating}>
+          <span aria-hidden="true">⌖</span>{locating?"Buscando tu ubicación…":"Ver qué tengo alrededor"}
         </button>
-        {geoError?<p className="atlas-search-error" role="alert">{geoError}</p>:null}
-
-        {risingAreas.length?<section className="atlas-pulse-group">
-          <div><span>SUBIDAS RECIENTES</span><small>últimos 3 meses vs. 3 anteriores</small></div>
-          {risingAreas.map(item=><button type="button" key={item.areaId} onClick={()=>selectArea(item.areaId)}>
-            <strong>{areaById.get(item.areaId)?.name||item.areaId}</strong>
-            <b>{item.percentChange!==null?(item.percentChange>0?"+":"")+fmt(item.percentChange)+"%":"—"}</b>
-          </button>)}
-        </section>:null}
-
-        {fallingAreas.length?<section className="atlas-pulse-group">
-          <div><span>BAJADAS RECIENTES</span><small>misma señal y ventana</small></div>
-          {fallingAreas.map(item=><button type="button" key={item.areaId} onClick={()=>selectArea(item.areaId)}>
-            <strong>{areaById.get(item.areaId)?.name||item.areaId}</strong>
-            <b>{item.percentChange!==null?fmt(item.percentChange)+"%":"—"}</b>
-          </button>)}
-        </section>:null}
-
-        {activeAreas.length?<section className="atlas-pulse-group">
-          <div><span>MÁS ACTIVIDAD</span><small>hostelería abierta por km²</small></div>
-          {activeAreas.map(item=><button type="button" key={item.areaId} onClick={()=>selectArea(item.areaId)}>
-            <strong>{areaById.get(item.areaId)?.name||item.areaId}</strong>
-            <b>{fmt(item.density)}/km²</b>
-          </button>)}
-        </section>:null}
-
-        <div className="atlas-empty-bottom">
-          <Link href="/v2/guide">Datos y límites →</Link>
-          <Link href="/v2/cities">Cobertura →</Link>
+        {geoError?<p className="street-inline-error" role="alert">{geoError}</p>:null}
+        <div className="street-idle-foot">
+          <span>{cityLabel(city)}</span>
+          <Link href="/v2/guide">Cómo leer los datos</Link>
         </div>
-      </div>:<div className="atlas-place">
-        <header className="atlas-place-head">
+      </div>:<div className="street-place">
+        <header className="street-place-head">
           <div>
-            <span className="atlas-kicker">{selectedPoint?"PUNTO CONCRETO":"ZONA"} · {cityLabel(city).toUpperCase()}</span>
+            <span className="street-eyebrow">{selectedPoint?"CERCA DE ESTE PUNTO":"ZONA"} · {cityLabel(city).toUpperCase()}</span>
             <h1>{selectedPoint?.label||selected.name}</h1>
-            {selectedPoint?<p>{selected.name}{selected.parentName?" · "+selected.parentName:""}</p>
-              :selected.parentName?<p>{selected.parentName}</p>:null}
+            <p>{selectedPoint?selected.name+(selected.parentName?" · "+selected.parentName:""):selected.parentName||cityLabel(city)}</p>
           </div>
-          <div className="atlas-place-actions">
-            <button type="button" className={saved?"active":""} onClick={saveCurrent}>{saved?"✓":"＋"}</button>
-            <button type="button" onClick={()=>void shareCurrent()}>↗</button>
+          <div className="street-place-actions">
+            <button type="button" className={saved?"active":""} aria-label={saved?"Guardado":"Guardar"} onClick={saveCurrent}>{saved?"✓":"＋"}</button>
+            <button type="button" aria-label="Compartir" onClick={()=>void shareCurrent()}>↗</button>
           </div>
         </header>
-        {shareStatus?<small className="atlas-share-status">{shareStatus}</small>:null}
+        {shareStatus?<small className="street-share-status">{shareStatus}</small>:null}
 
-        <section className="atlas-reality">
-          <div className="atlas-section-title">
-            <div><span>LECTURA DE ZONA</span><h2>Qué define este sitio ahora</h2></div>
-          </div>
-          <div className="atlas-reality-grid">
+        <div className="street-context-switch" role="group" aria-label="Contexto de uso">
+          <button type="button" className={purpose==="visitor"?"active":""} onClick={()=>setPurpose("visitor")}>Estoy de viaje</button>
+          <button type="button" className={purpose==="resident"?"active":""} onClick={()=>setPurpose("resident")}>Quiero vivir aquí</button>
+        </div>
+
+        {selectedPoint?<section className="street-now">
+          <span className="street-eyebrow">AHORA, A TU ALREDEDOR</span>
+          <h2>{streetHeadline}</h2>
+          {streetAdvice.slice(1,3).map(note=><p key={note}>{note}</p>)}
+
+          {streetContext?.availability==="street"?<>
+            <div className="street-signal-row" role="group" aria-label="Filtrar señales cercanas">
+              {streetSignalMeta.map(item=><button type="button" key={item.key}
+                className={streetFilter===item.key?"active":""}
+                onClick={()=>setStreetFilter(streetFilter===item.key?"all":item.key)}>
+                <i data-kind={item.key}/>
+                <span>{item.label}</span>
+                <b>{streetSignalCounts[item.key]||"—"}</b>
+              </button>)}
+            </div>
+
+            <div className="street-hotspots">
+              {nearbyHotspots.slice(0,4).map(item=><div key={item.id} className={"street-hotspot "+item.concentration}>
+                <i data-kind={item.primary}/>
+                <div>
+                  <strong>{item.locationKind==="anonymised-reference"?"Ubicación aproximada":item.street}</strong>
+                  <span>{item.primaryLabel}{item.repeated?" · repetido":""}</span>
+                </div>
+                <b>~{item.distanceMeters} m</b>
+              </div>)}
+              {!nearbyHotspots.length&&streetState==="ready"?<p className="street-muted">No aparecen focos de esta categoría en la consulta cercana.</p>:null}
+            </div>
+
+            <button type="button" className="street-map-toggle" onClick={()=>setShowStreet(value=>!value)}>
+              {showStreet?"Ocultar puntos del mapa":"Mostrar puntos en el mapa"}
+            </button>
+
+            <small className="street-data-note">
+              Ubicaciones policiales aproximadas y anonimizadas; no son alertas en tiempo real ni direcciones exactas.
+              {streetContext.latestMonth?" Datos hasta "+streetContext.latestMonth+".":""}
+            </small>
+          </>:streetState==="ready"&&streetContext?.availability==="area-only"?<div className="street-area-only">
+            <strong>Sin precisión fiable de calle.</strong>
+            <p>{streetContext.note||"La fuente disponible llega al barrio, no a una calle concreta."}</p>
+          </div>:streetState==="error"?<p className="street-inline-error">La capa de calle no está disponible ahora.</p>:null}
+        </section>:<section className="street-area-prompt">
+          <strong>{zoneProfile[0]?.value||"Zona localizada"}</strong>
+          <p>Has seleccionado un barrio. Para bajar a la calle, busca una dirección concreta o usa tu ubicación.</p>
+          <button type="button" onClick={useCurrentLocation} disabled={locating}>⌖ Usar mi ubicación</button>
+        </section>}
+
+        <details className="street-more">
+          <summary>Contexto de la zona</summary>
+          <div className="street-zone-grid">
             {zoneProfile.map(item=><div key={item.label}>
               <span>{item.label}</span>
               <strong>{item.value}</strong>
               <small>{item.detail}</small>
             </div>)}
           </div>
-          <details>
-            <summary>Fuentes y límites</summary>
-            <p>{source.note}</p>
-            <a href={source.url} target="_blank" rel="noreferrer">{source.label} ↗</a>
-            {harmTrends?<p>La tendencia compara los tres meses más recientes con los tres anteriores usando la misma selección de categorías.</p>:null}
-            {selectedActivity?<p>La actividad usa establecimientos abiertos/hostelería del contexto municipal disponible; no describe comportamiento de personas.</p>:null}
-          </details>
-        </section>
+        </details>
 
-        {selectedPoint?<section className="atlas-street-context">
-          <div className="atlas-section-title">
-            <div><span>EN LA CALLE</span><h2>Focos cercanos</h2></div>
-            {streetState==="loading"?<small>Consultando…</small>:null}
-          </div>
-          {streetState==="error"?<p className="atlas-inline-error">No se ha podido consultar la capa de calle ahora.</p>:null}
-          {streetState==="ready"&&streetContext?.availability==="area-only"?<div className="atlas-street-unavailable">
-            <strong>Esta ciudad no publica precisión de calle suficiente.</strong>
-            <p>{streetContext.note||"La lectura disponible llega a la zona administrativa."}</p>
-          </div>:null}
-          {streetState==="ready"&&streetContext?.availability==="street"?<>
-            {streetAdvice.length?<div className="atlas-street-advice">
-              <span>QUÉ MERECE ATENCIÓN AQUÍ</span>
-              {streetAdvice.map(note=><strong key={note}>{note}</strong>)}
-            </div>:null}
-            <div className="atlas-street-filters" role="group" aria-label="Filtrar focos cercanos">
-              <button type="button" className={streetFilter==="all"?"active":""} onClick={()=>setStreetFilter("all")}>Todo</button>
-              <button type="button" className={streetFilter==="theft"?"active":""} onClick={()=>setStreetFilter("theft")}><i data-kind="theft"/>Hurtos</button>
-              <button type="button" className={streetFilter==="drugs"?"active":""} onClick={()=>setStreetFilter("drugs")}><i data-kind="drugs"/>Drogas</button>
-              <button type="button" className={streetFilter==="disorder"?"active":""} onClick={()=>setStreetFilter("disorder")}><i data-kind="disorder"/>Desorden</button>
-              <button type="button" className={streetFilter==="violence"?"active":""} onClick={()=>setStreetFilter("violence")}><i data-kind="violence"/>Violencia</button>
-            </div>
-            {nearbyHotspots.length?<div className="atlas-hotspot-list">
-              {nearbyHotspots.slice(0,10).map(item=><div key={item.id} className={"atlas-hotspot "+item.concentration}>
-                <i data-kind={item.primary}/>
-                <div><strong>{item.locationKind==="anonymised-reference"?"Referencia anonimizada: ":"En torno a "}{item.street}</strong>
-                  <span>{item.primaryLabel}{item.repeated?" · repetido en varios meses":""}</span></div>
-                <b>~{item.distanceMeters} m</b>
-              </div>)}
-            </div>:<p className="atlas-inline-note">No aparecen concentraciones de esta categoría en la consulta cercana.</p>}
-            <p className="atlas-street-note">
-              Son ubicaciones policiales anonimizadas y aproximadas, no sucesos en tiempo real ni direcciones exactas. “Hurtos” incluye hurto a personas y robo; la fuente no separa específicamente carterismo.
-              {streetContext.latestMonth?" Último mes: "+streetContext.latestMonth+".":""}
-            </p>
-          </>:null}
-        </section>:null}
-
-        {selectedPoint?<section className="atlas-nearby">
-          <div className="atlas-section-title">
-            <div><span>ALREDEDOR DEL PUNTO</span><h2>Lo que tienes cerca</h2></div>
-            {nearbyState==="loading"?<small>Consultando…</small>:null}
-          </div>
-          {nearbyState==="error"?<p className="atlas-inline-error">No se ha podido consultar el entorno ahora.</p>:null}
-          {nearbyState==="ready"?<div className="atlas-nearby-grid">
+        {selectedPoint?<details className="street-more">
+          <summary>Servicios cerca</summary>
+          {nearbyState==="loading"?<p className="street-muted">Consultando el entorno…</p>:null}
+          {nearbyState==="error"?<p className="street-inline-error">No se ha podido consultar el entorno ahora.</p>:null}
+          {nearbyState==="ready"?<div className="street-nearby-grid">
             {nearbyGroups.map(group=><section key={group.category}>
               <h3>{nearbyLabels[group.category]}</h3>
               {group.items.length?group.items.map(place=><a key={place.id}
@@ -637,18 +634,19 @@ export default function V2Research({
               </a>):<p>Sin lugares identificados.</p>}
             </section>)}
           </div>:null}
-          {nearby?.completeness?<small className="atlas-nearby-note">{nearby.completeness}</small>:null}
-        </section>:<section className="atlas-point-cta">
-          <span>¿TIENES UNA DIRECCIÓN AQUÍ?</span>
-          <h2>Baja del barrio al punto real.</h2>
-          <p>Busca arriba el hotel, portal o lugar concreto para añadir servicios cercanos y situarlo sobre el mapa.</p>
-        </section>}
+        </details>:null}
 
-        <footer className="atlas-drawer-footer">
+        <details className="street-more street-source">
+          <summary>Fuente y límites</summary>
+          <p>{source.note}</p>
+          <a href={source.url} target="_blank" rel="noreferrer">{source.label} ↗</a>
+        </details>
+
+        <footer className="street-sheet-footer">
           <button type="button" onClick={()=>{
-            setSelectedId(null);setSelectedPoint(null);setQuery("");setNearby(null);
-          }}>← Volver a toda la ciudad</button>
-          <Link href="/v2/guide">Cómo leer estos datos ↗</Link>
+            setSelectedId(null);setSelectedPoint(null);setQuery("");setNearby(null);setStreetContext(null);
+          }}>Volver al mapa</button>
+          <Link href="/v2/guide">Datos y límites</Link>
         </footer>
       </div>}
     </aside>
