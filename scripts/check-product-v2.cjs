@@ -44,6 +44,15 @@ assert.ok(!serverPage.includes("getCityBoundaries"), "Initial dossier must not s
 assert.ok(workspace.includes('fetch("/v2/api/boundaries/"+city)'), "Persistent map loads geometry through the optional boundary endpoint");
 assert.ok(boundaryRoute.includes("getCityBoundaries"), "Dedicated optional geometry endpoint");
 
-assert.ok(workspace.includes("evidence.period"), "Observation period required for any evidence card");
+assert.ok(workspace.includes("evidence?.period") || workspace.includes("evidence.period"),
+  "Observation period required for any evidence reading");
+assert.ok(workspace.includes('type MapLayer = "incidents" | "trend" | "activity" | "night"'),
+  "The map must expose independent urban-context layers");
+assert.ok(workspace.includes("harmTrends") && workspace.includes("activityContexts"),
+  "The workspace must use recent change and urban activity, not only incident percentiles");
+assert.ok(workspace.includes("atlas-layer-buttons"),
+  "Users must be able to switch the question the map is answering");
+assert.ok(workspace.includes("atlas-city-pulse"),
+  "The empty state must surface live city context instead of an instructional blank state");
 assert.ok(layout.includes("index: false"), "Do not index concept/test cities");
 console.log("DataSec v2 product contract: spatial-app assertions passed.");
