@@ -91,7 +91,7 @@ export default function LocationReport({point,area,evidence,indicator,explanatio
             <strong> no tu calle ni el edificio concreto.</strong></p>
         </div>
         <section className="drep-reading" aria-labelledby="drep-evidence-title">
-          <div className="drep-section-top"><span>01 / DATOS CONTRASTABLES</span>
+          <div className="drep-section-top"><span>02 / DATOS DE LA ZONA</span>
             <span>{evidence.period??"SIN PERÍODO DISPONIBLE"}</span></div>
           <h2 id="drep-evidence-title">{indicator}</h2>
           {hasEvidence?<>
