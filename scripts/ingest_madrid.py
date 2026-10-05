@@ -263,6 +263,17 @@ def metric_slug(category: str) -> str:
     return f"madrid-dispatch-{slugify(category)}"
 
 
+def parse_creation_hour(value: object) -> int:
+    text = str(value or "").strip()
+    match = re.match(r"^(\d{1,2})(?::|\.|\s|$)", text)
+    if not match:
+        raise RuntimeError(f"Invalid Madrid creation hour: {text!r}")
+    hour = int(match.group(1))
+    if not 0 <= hour <= 23:
+        raise RuntimeError(f"Madrid creation hour outside 0-23: {text!r}")
+    return hour
+
+
 def geojson_geometry_polygons(geometry: dict[str, Any]) -> list[dict[str, Any]]:
     geometry_type = geometry.get("type")
     coordinates = geometry.get("coordinates")
@@ -323,7 +334,13 @@ def validate_and_aggregate(
     incident_fields: list[str],
     area_rows: list[dict[str, Any]],
     area_fields: list[str],
-) -> tuple[Counter[tuple[str, str]], dict[str, str], int, Counter[str]]:
+) -> tuple[
+    Counter[tuple[str, str]],
+    Counter[tuple[str, str, int]],
+    dict[str, str],
+    int,
+    Counter[str],
+]:
     missing_incident_fields = REQUIRED_INCIDENT_FIELDS - set(incident_fields)
     if missing_incident_fields:
         raise RuntimeError(f"Missing Madrid incident fields: {sorted(missing_incident_fields)}")
@@ -337,6 +354,7 @@ def validate_and_aggregate(
 
     area_index, _ = build_area_index(area_rows)
     aggregates: Counter[tuple[str, str]] = Counter()
+    hourly_aggregates: Counter[tuple[str, str, int]] = Counter()
     categories: dict[str, str] = {}
     unmatched = 0
     unmatched_labels: Counter[str] = Counter()
@@ -371,7 +389,9 @@ def validate_and_aggregate(
             ] += 1
             continue
         code = str(area["COD_BAR"]).strip()
+        hour = parse_creation_hour(row.get("Hora de creacion"))
         aggregates[(code, slug)] += count
+        hourly_aggregates[(code, slug, hour)] += count
 
     if len(categories) < 5:
         raise RuntimeError(f"Implausibly low Madrid category count: {len(categories)}")
@@ -381,7 +401,7 @@ def validate_and_aggregate(
             f"Madrid unmatched-row ratio {unmatched_ratio:.2%} exceeds 1% quality gate; "
             f"top unmatched={unmatched_labels.most_common(10)}"
         )
-    return aggregates, categories, unmatched, unmatched_labels
+    return aggregates, hourly_aggregates, categories, unmatched, unmatched_labels
 
 
 def canonical_checksum(rows: list[dict[str, Any]], resource_id: str) -> str:
@@ -400,6 +420,7 @@ def persist(
     area_rows: list[dict[str, Any]],
     boundaries: dict[str, list[dict[str, Any]]],
     aggregates: Counter[tuple[str, str]],
+    hourly_aggregates: Counter[tuple[str, str, int]],
     categories: dict[str, str],
     unmatched: int,
     unmatched_labels: Counter[str],
@@ -585,6 +606,35 @@ def persist(
             ),
         )
 
+        temporal_rows: list[dict[str, object]] = []
+        for (code, slug, hour), value in sorted(hourly_aggregates.items()):
+            temporal_rows.append({
+                "area_id": f"es-madrid-neighbourhood:{code}",
+                "source_slug": SOURCE_SLUG,
+                "metric_slug": slug,
+                "period_start": period_start,
+                "period_end": period_end,
+                "hour_start": hour,
+                "value": value,
+                "unit": "count",
+                "provenance": {
+                    "source_month": month,
+                    "resource_id": resource_id,
+                    "measurement": "municipal_police_central_dispatch_incidents",
+                    "time_basis": "source_creation_hour_local",
+                    "geography_model": "source_assigned_neighbourhood_current_official_boundary",
+                },
+            })
+        db.stage(
+            run_id,
+            "temporal_observation",
+            temporal_rows,
+            lambda row: (
+                f"{row['area_id']}|{row['metric_slug']}|{row['period_start']}|"
+                f"{row['period_end']}|{row['hour_start']}|{row['unit']}"
+            ),
+        )
+
         quality_flags = [{
             "ingestion_run_id": run_id,
             "severity": "warning",
@@ -664,7 +714,7 @@ def main() -> int:
     boundaries, boundary_checksum = fetch_boundaries()
     log(f"Decoded {len(boundaries)} official Madrid TopoJSON neighbourhoods")
 
-    aggregates, categories, unmatched, unmatched_labels = validate_and_aggregate(
+    aggregates, hourly_aggregates, categories, unmatched, unmatched_labels = validate_and_aggregate(
         month,
         incident_rows,
         incident_fields,
@@ -683,6 +733,11 @@ def main() -> int:
         if match_incident_area(row, area_index) is not None
     )
     aggregate_total = sum(aggregates.values())
+    hourly_total = sum(hourly_aggregates.values())
+    if aggregate_total != hourly_total:
+        raise RuntimeError(
+            f"Madrid hourly aggregation mismatch: monthly={aggregate_total}, hourly={hourly_total}"
+        )
     if source_total != aggregate_total:
         raise RuntimeError(
             f"Madrid aggregation mismatch: matched source incidents={source_total}, aggregate={aggregate_total}"
@@ -700,7 +755,8 @@ def main() -> int:
     if args.dry_run:
         log(
             f"Dry run complete. Would persist 21 districts, 131 neighbourhoods, "
-            f"131 boundaries and {131 * len(categories):,} observations."
+            f"131 boundaries, {131 * len(categories):,} monthly observations and "
+            f"{len(hourly_aggregates):,} hourly observations."
         )
         return 0
 
@@ -711,6 +767,7 @@ def main() -> int:
         area_rows,
         boundaries,
         aggregates,
+        hourly_aggregates,
         categories,
         unmatched,
         unmatched_labels,

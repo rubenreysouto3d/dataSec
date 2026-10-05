@@ -136,6 +136,46 @@ create table if not exists public.area_activity_context_snapshots (
 create index if not exists area_activity_context_area_period_idx
   on public.area_activity_context_snapshots (area_id, period_start desc);
 
+-- Product capability manifest. This prevents React from encoding city-specific
+-- assumptions and lets the read model explain unavailable/research states.
+create table if not exists public.city_capabilities (
+  city_slug text not null references public.cities(slug) on delete cascade,
+  domain text not null,
+  operation text not null,
+  available boolean not null default false,
+  status text not null default 'unavailable'
+    check (status in ('live','pipeline_ready','research','unavailable')),
+  geography text[] not null default '{}',
+  freshness text,
+  source_slugs text[] not null default '{}',
+  notes text,
+  updated_at timestamptz not null default now(),
+  primary key (city_slug, domain, operation)
+);
+
+-- Source-preserving time dimension. Hour is the local creation hour supplied
+-- by the source, not an inferred event time.
+create table if not exists public.temporal_observations (
+  area_id text not null references public.areas(id) on delete cascade,
+  source_slug text not null references public.sources(slug),
+  metric_slug text not null references public.metrics(slug),
+  period_start date not null,
+  period_end date not null,
+  hour_start smallint not null check (hour_start between 0 and 23),
+  value numeric not null check (value >= 0),
+  unit text not null,
+  provenance jsonb not null default '{}'::jsonb,
+  primary key (
+    area_id, source_slug, metric_slug, period_start, period_end, hour_start, unit
+  )
+);
+
+create index if not exists temporal_observations_area_period_hour_idx
+  on public.temporal_observations (area_id, period_start desc, hour_start);
+
+create index if not exists temporal_observations_metric_period_hour_idx
+  on public.temporal_observations (metric_slug, period_start desc, hour_start);
+
 create table if not exists public.ingestion_runs (
   id text primary key,
   source_slug text not null references public.sources(slug),
@@ -453,6 +493,7 @@ to anon, authenticated, service_role;
 grant select, insert, update, delete on public.countries, public.cities, public.sources,
   public.areas, public.area_boundaries, public.metrics, public.observations,
   public.area_population_snapshots, public.area_activity_context_snapshots,
+  public.city_capabilities, public.temporal_observations,
   public.ingestion_runs, public.data_quality_flags
 to service_role;
 
@@ -470,6 +511,8 @@ alter table public.metrics enable row level security;
 alter table public.observations enable row level security;
 alter table public.area_population_snapshots enable row level security;
 alter table public.area_activity_context_snapshots enable row level security;
+alter table public.city_capabilities enable row level security;
+alter table public.temporal_observations enable row level security;
 alter table public.ingestion_runs enable row level security;
 alter table public.data_quality_flags enable row level security;
 
@@ -514,12 +557,22 @@ on public.area_activity_context_snapshots for select to anon, authenticated usin
 
 grant select on public.area_activity_context_snapshots to anon, authenticated;
 
+drop policy if exists "city capabilities public read" on public.city_capabilities;
+create policy "city capabilities public read"
+on public.city_capabilities for select to anon, authenticated using (true);
+
+drop policy if exists "temporal observations public read" on public.temporal_observations;
+create policy "temporal observations public read"
+on public.temporal_observations for select to anon, authenticated using (true);
+
+grant select on public.city_capabilities, public.temporal_observations to anon, authenticated;
+
 
 -- Run-scoped internal staging. Importers may upload validated product rows in
 -- several HTTP batches, but publication to browser-facing tables is atomic.
 create table if not exists public.ingestion_staging (
   ingestion_run_id text not null references public.ingestion_runs(id) on delete cascade,
-  entity_type text not null check (entity_type in ('metric','area','boundary','observation')),
+  entity_type text not null check (entity_type in ('metric','area','boundary','observation','temporal_observation')),
   item_key text not null,
   payload jsonb not null,
   created_at timestamptz not null default now(),
@@ -545,6 +598,7 @@ declare
   v_areas integer := 0;
   v_boundaries integer := 0;
   v_observations integer := 0;
+  v_temporal_observations integer := 0;
   v_rows integer := 0;
 begin
   select r.source_slug into v_source_slug
@@ -569,7 +623,7 @@ begin
   if exists (
     select 1 from public.ingestion_staging
     where ingestion_run_id = p_run_id
-      and entity_type in ('area','boundary','observation')
+      and entity_type in ('area','boundary','observation','temporal_observation')
       and coalesce(payload->>'source_slug','') <> v_source_slug
   ) then
     raise exception 'staged source does not match ingestion run source for %', p_run_id;
@@ -669,6 +723,31 @@ begin
     provenance=excluded.provenance;
   get diagnostics v_observations = row_count;
 
+  insert into public.temporal_observations (
+    area_id,source_slug,metric_slug,period_start,period_end,
+    hour_start,value,unit,provenance
+  )
+  select payload->>'area_id', payload->>'source_slug', payload->>'metric_slug',
+         (payload->>'period_start')::date, (payload->>'period_end')::date,
+         (payload->>'hour_start')::smallint, (payload->>'value')::numeric,
+         payload->>'unit', coalesce(payload->'provenance','{}'::jsonb)
+  from public.ingestion_staging
+  where ingestion_run_id=p_run_id and entity_type='temporal_observation'
+  on conflict (
+    area_id,source_slug,metric_slug,period_start,period_end,hour_start,unit
+  )
+  do update set
+    value=excluded.value,
+    provenance=excluded.provenance;
+  get diagnostics v_temporal_observations = row_count;
+
+  if v_source_slug='madrid-police-dispatch-incidents' and v_temporal_observations > 0 then
+    update public.city_capabilities
+    set available=true,status='live',updated_at=now(),
+        notes='Creation-hour evidence is published at municipal-neighbourhood grain; hour is dispatch creation time, not exact event time.'
+    where city_slug='madrid' and domain='incidents' and operation='time-of-day';
+  end if;
+
   update public.ingestion_runs
   set status='passed',
       finished_at=now(),
@@ -677,7 +756,8 @@ begin
         'published_metrics',v_metrics,
         'published_areas',v_areas,
         'published_boundaries',v_boundaries,
-        'published_observations',v_observations
+        'published_observations',v_observations,
+        'published_temporal_observations',v_temporal_observations
       )
   where id=p_run_id;
 
@@ -686,7 +766,8 @@ begin
   return jsonb_build_object(
     'run_id',p_run_id,'source_slug',v_source_slug,
     'metrics',v_metrics,'areas',v_areas,
-    'boundaries',v_boundaries,'observations',v_observations
+    'boundaries',v_boundaries,'observations',v_observations,
+    'temporal_observations',v_temporal_observations
   );
 end;
 $$;

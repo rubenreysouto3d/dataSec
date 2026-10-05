@@ -26,6 +26,12 @@ import { MAP_COLOR_BANDS } from "@/lib/map-filters";
 import { bandNumber } from "@/lib/map-view";
 import { readSaved, toggleSaved } from "@/lib/v2-saved";
 import type { NearbyCategory, NearbyPlace } from "@/lib/nearby-places";
+import {
+  placeLensLabels,
+  placeLensPurpose,
+  type PlaceContext,
+  type PlaceLens,
+} from "@/lib/place-context-contract";
 
 type PointSelection = { latitude:number; longitude:number; label:string };
 type Props = {
@@ -37,9 +43,10 @@ type Props = {
   harmTrends: CityHarmTrendSummary | null;
   initialId: string | null;
   initialPurpose: PlacePurpose;
+  initialLens: PlaceLens;
   initialPoint?: PointSelection | null;
 };
-type MapLayer = "incidents" | "trend" | "activity" | "night";
+type MapLayer = "context" | "incidents" | "trend" | "activity" | "night";
 type StreetSignal="theft"|"drugs"|"disorder"|"violence";
 type StreetHotspot = {
   id:string;latitude:number;longitude:number;street:string;total:number;
@@ -99,11 +106,12 @@ function percentileByArea(items:Array<{areaId:string;value:number|null}>){
 }
 
 export default function V2Research({
-  city,areas,metrics,signals,activityContexts,harmTrends,initialId,initialPurpose,initialPoint=null,
+  city,areas,metrics,signals,activityContexts,harmTrends,initialId,initialPurpose,initialLens,initialPoint=null,
 }:Props){
   const router=useRouter();
-  const [purpose,setPurpose]=useState<PlacePurpose>(initialPurpose);
-  const [layer,setLayer]=useState<MapLayer>("incidents");
+  const [lens,setLens]=useState<PlaceLens>(initialLens);
+  const purpose=placeLensPurpose[lens];
+  const [layer,setLayer]=useState<MapLayer>("context");
   const [selectedId,setSelectedId]=useState<string|null>(initialId);
   const [selectedPoint,setSelectedPoint]=useState<PointSelection|null>(initialPoint);
   const [query,setQuery]=useState("");
@@ -115,13 +123,14 @@ export default function V2Research({
   const [mapError,setMapError]=useState(false);
   const [nearby,setNearby]=useState<NearbyResponse|null>(null);
   const [nearbyState,setNearbyState]=useState<"idle"|"loading"|"ready"|"error">("idle");
-  const [streetContext,setStreetContext]=useState<StreetContextResponse|null>(null);
-  const [streetState,setStreetState]=useState<"idle"|"loading"|"ready"|"error">("idle");
+  const [placeContext,setPlaceContext]=useState<PlaceContext|null>(null);
+  const [contextState,setContextState]=useState<"idle"|"loading"|"ready"|"error">("idle");
   const [showStreet,setShowStreet]=useState(true);
   const [streetFilter,setStreetFilter]=useState<"all"|StreetSignal>("all");
   const [locating,setLocating]=useState(false);
   const [saved,setSaved]=useState(false);
   const [shareStatus,setShareStatus]=useState("");
+  void initialPurpose;
 
   const evidenceContext=useMemo(()=>createPlaceEvidenceContext(city,metrics,signals),[city,metrics,signals]);
   const areaById=useMemo(()=>new Map(areas.map(a=>[a.id,a])),[areas]);
@@ -149,6 +158,7 @@ export default function V2Research({
   const indicator=placeEvidenceLabel(city,purpose,evidenceContext.hasCityHarmSeries,"es");
   const source=placeEvidenceSource(city,"es");
   const mapValues=useMemo(()=>{
+    if(layer==="context")return new Map(areas.map(area=>[area.id,null]));
     if(layer==="activity")return new Map(areas.map(area=>[area.id,activityPercentiles.get(area.id)??null]));
     if(layer==="trend")return new Map(areas.map(area=>{
       const delta=trendByArea.get(area.id)?.percentChange;
@@ -203,38 +213,42 @@ export default function V2Research({
   },[selectedPoint]);
 
   useEffect(()=>{
-    if(!selectedPoint){setStreetContext(null);setStreetState("idle");return;}
+    if(!selectedPoint){setPlaceContext(null);setContextState("idle");return;}
     let cancelled=false;
-    setStreetState("loading");setStreetContext(null);
+    setContextState("loading");setPlaceContext(null);
     const params=new URLSearchParams({
       lat:String(selectedPoint.latitude),
       lng:String(selectedPoint.longitude),
+      label:selectedPoint.label,
+      lens,
     });
-    fetch("/v2/api/street-context?"+params.toString())
+    fetch("/v2/api/place-context?"+params.toString())
       .then(async response=>{
-        if(!response.ok&&response.status!==404)throw new Error("street context unavailable");
-        const value=(await response.json()) as StreetContextResponse;
+        if(!response.ok)throw new Error("place context unavailable");
+        const value=(await response.json()) as PlaceContext;
         if(cancelled)return;
-        if(value.city&&value.city!==city){
+        if(value.place.city!==city){
           const nextParams=new URLSearchParams({
-            view:purpose,
+            view:placeLensPurpose[lens],
+            lens,
             lat:String(selectedPoint.latitude),
             lng:String(selectedPoint.longitude),
             place:selectedPoint.label,
           });
-          router.push("/v2/explore/"+value.city+"?"+nextParams.toString());
+          router.push("/v2/explore/"+value.place.city+"?"+nextParams.toString());
           return;
         }
-        if(value.areaId&&areaById.has(value.areaId))setSelectedId(value.areaId);
-        setStreetContext(value);setStreetState("ready");
+        if(areaById.has(value.place.area.id))setSelectedId(value.place.area.id);
+        setPlaceContext(value);setContextState("ready");
       })
-      .catch(()=>{if(!cancelled)setStreetState("error");});
+      .catch(()=>{if(!cancelled)setContextState("error");});
     return()=>{cancelled=true;};
-  },[selectedPoint,city,purpose,router,areaById]);
+  },[selectedPoint,city,lens,router,areaById]);
 
   useEffect(()=>{
     const next=new URL(window.location.href);
     next.searchParams.set("view",purpose);
+    next.searchParams.set("lens",lens);
     if(selectedId)next.searchParams.set("area",selectedId);else next.searchParams.delete("area");
     if(selectedPoint){
       next.searchParams.set("lat",selectedPoint.latitude.toFixed(6));
@@ -249,7 +263,7 @@ export default function V2Research({
       :selectedId;
     setSaved(Boolean(key&&readSaved().some(x=>x.id===key&&x.purpose===purpose)));
     setShareStatus("");
-  },[purpose,selectedId,selectedPoint]);
+  },[purpose,lens,selectedId,selectedPoint]);
 
   function useCurrentLocation(){
     if(locating)return;
@@ -342,6 +356,7 @@ export default function V2Research({
     }));
   },[nearby,purpose]);
 
+  const streetContext=placeContext?.evidence.street??null;
   const visibleStreetHotspots=useMemo(()=>{
     const source=streetContext?.hotspots??[];
     if(streetFilter==="all")return source;
@@ -354,21 +369,9 @@ export default function V2Research({
       return level[a.concentration]-level[b.concentration]||a.distanceMeters-b.distanceMeters||b.total-a.total;
     }),[visibleStreetHotspots]);
 
-  const streetAdvice=useMemo(()=>{
-    const source=(streetContext?.hotspots??[]).filter(item=>item.repeated&&item.distanceMeters<=700);
-    const totals:Record<StreetSignal,number>={theft:0,drugs:0,disorder:0,violence:0};
-    for(const item of source){
-      for(const key of Object.keys(totals) as StreetSignal[])totals[key]+=item.signals[key];
-    }
-    const notes:string[]=[];
-    if(totals.theft>=15)notes.push("Presta especial atención a móvil, cartera y bolso.");
-    if(totals.violence>=15)notes.push("Hay concentración repetida de violencia registrada en el entorno.");
-    if(totals.disorder>=15)notes.push("Hay focos repetidos de desorden o conducta antisocial.");
-    if(totals.drugs>=8)notes.push("Aparece actividad de drogas registrada de forma repetida.");
-    return notes.slice(0,3);
-  },[streetContext]);
-
-  const layerCopy = layer==="trend"
+  const layerCopy = layer==="context"
+    ? {title:"Mapa base",detail:"sin convertir una métrica en veredicto general"}
+    : layer==="trend"
     ? {title:"Cambio reciente",detail:"bajando → subiendo en los últimos 6 meses"}
     : layer==="activity"
       ? {title:"Actividad urbana",detail:"menos → más hostelería por km²"}
@@ -389,57 +392,12 @@ export default function V2Research({
     }
     return counts;
   },[localStreetHotspots]);
-  const streetHeadline=streetState==="loading"
-    ?"Buscando señales cercanas…"
-    :streetState==="error"
-      ?"No puedo leer la calle ahora."
-      :streetContext?.availability==="area-only"
-        ?"Aquí solo puedo leer el barrio."
-        :streetAdvice[0]
-          ?streetAdvice[0]
-          :localStreetHotspots.length
-            ?"Hay señales cercanas en los datos recientes."
-            :"No aparecen focos repetidos claros cerca.";
   const streetSignalMeta:Array<{key:StreetSignal;label:string}>=[
     {key:"theft",label:"Hurtos"},
     {key:"drugs",label:"Drogas"},
     {key:"disorder",label:"Desorden"},
     {key:"violence",label:"Violencia"},
   ];
-
-  const zoneProfile = selected ? [
-    {
-      label:"REGISTROS",
-      value:evidence?.available&&relative?relativeLabels[relative-1]:"Sin lectura comparable",
-      detail:evidence?.period||"sin período",
-    },
-    {
-      label:"TENDENCIA 6M",
-      value:selectedTrend?.percentChange===null||selectedTrend?.percentChange===undefined
-        ?"Sin tendencia"
-        : selectedTrend.percentChange>20
-          ?"Subiendo"
-          : selectedTrend.percentChange<-20
-            ?"Bajando"
-            :"Estable",
-      detail:selectedTrend?.percentChange===null||selectedTrend?.percentChange===undefined
-        ?"sin serie suficiente"
-        :(selectedTrend.percentChange>0?"+":"")+fmt(selectedTrend.percentChange)+"%",
-    },
-    {
-      label:"ACTIVIDAD",
-      value:selectedActivityBand===null?"Sin lectura"
-        :selectedActivityBand>=4?"Alta"
-        :selectedActivityBand<=2?"Baja":"Intermedia",
-      detail:selectedActivityDensity===null?"sin contexto de hostelería":fmt(selectedActivityDensity)+" locales/km²",
-    },
-    ...(selectedSignal?.districtNightSafety!==null&&selectedSignal?.districtNightSafety!==undefined?[{
-      label:"NOCHE · DISTRITO",
-      value:selectedSignal.districtNightSafety>=7?"Percepción favorable"
-        :selectedSignal.districtNightSafety<=5.5?"Percepción baja":"Percepción intermedia",
-      detail:fmt(selectedSignal.districtNightSafety)+"/10 · "+(selectedSignal.districtName||"distrito"),
-    }]:[]),
-  ] : [];
 
   return <main className="atlas-app street-app">
     <section className="atlas-app-map street-map" aria-label={"Mapa de "+cityLabel(city)}>
@@ -511,10 +469,11 @@ export default function V2Research({
       </div>
 
       <details className="street-layer-menu">
-        <summary>Mapa · {layer==="incidents"?"Registros":layer==="trend"?"Cambio":layer==="activity"?"Actividad":"Noche"}</summary>
+        <summary>Mapa · {layer==="context"?"Base":layer==="incidents"?"Registros":layer==="trend"?"Cambio":layer==="activity"?"Actividad":"Noche"}</summary>
         <div className="street-layer-panel">
           <span>QUÉ QUIERES VER</span>
           <div>
+            <button type="button" className={layer==="context"?"active":""} onClick={()=>setLayer("context")}>Base</button>
             <button type="button" className={layer==="incidents"?"active":""} onClick={()=>setLayer("incidents")}>Registros</button>
             <button type="button" className={layer==="trend"?"active":""} onClick={()=>setLayer("trend")}>Cambio</button>
             <button type="button" className={layer==="activity"?"active":""} onClick={()=>setLayer("activity")}>Actividad</button>
@@ -558,17 +517,48 @@ export default function V2Research({
         </header>
         {shareStatus?<small className="street-share-status">{shareStatus}</small>:null}
 
-        <div className="street-context-switch" role="group" aria-label="Contexto de uso">
-          <button type="button" className={purpose==="visitor"?"active":""} onClick={()=>setPurpose("visitor")}>Estoy de viaje</button>
-          <button type="button" className={purpose==="resident"?"active":""} onClick={()=>setPurpose("resident")}>Quiero vivir aquí</button>
+        <div className="place-lenses" role="group" aria-label="Situación">
+          {(Object.keys(placeLensLabels) as PlaceLens[]).map(item=><button
+            type="button"
+            key={item}
+            className={lens===item?"active":""}
+            onClick={()=>setLens(item)}>
+            {placeLensLabels[item]}
+          </button>)}
         </div>
 
-        {selectedPoint?<section className="street-now">
-          <span className="street-eyebrow">AHORA, A TU ALREDEDOR</span>
-          <h2>{streetHeadline}</h2>
-          {streetAdvice.slice(1,3).map(note=><p key={note}>{note}</p>)}
+        {selectedPoint?<section className="place-context-read">
+          <div className="place-context-read-head">
+            <div>
+              <span className="street-eyebrow">QUÉ IMPORTA · {placeLensLabels[lens].toUpperCase()}</span>
+              <h2>{contextState==="loading"?"Leyendo este lugar…":contextState==="error"?"No puedo completar la lectura ahora":placeContext?.findings[0]?.statement||"Todavía no hay una conclusión principal defendible."}</h2>
+            </div>
+            {placeContext?<small>{placeContext.coverage.street==="available"?"calle + zona":"zona"} · {placeContext.place.area.name}</small>:null}
+          </div>
 
-          {streetContext?.availability==="street"?<>
+          {contextState==="error"?<p className="street-inline-error">El lugar sigue seleccionado, pero una de las fuentes necesarias no ha respondido.</p>:null}
+
+          {contextState==="ready"&&placeContext?<div className="place-findings">
+            {placeContext.findings.map((finding,index)=><article className={"place-finding "+finding.importance} key={finding.id}>
+              <div className="place-finding-index">{String(index+1).padStart(2,"0")}</div>
+              <div className="place-finding-body">
+                {index>0?<h3>{finding.statement}</h3>:null}
+                {finding.implication?<p>{finding.implication}</p>:null}
+                <footer>
+                  <span>{finding.geography.label}</span>
+                  <span>{finding.observedPeriod.start&&finding.observedPeriod.end
+                    ?finding.observedPeriod.start===finding.observedPeriod.end
+                      ?finding.observedPeriod.end
+                      :finding.observedPeriod.start+" → "+finding.observedPeriod.end
+                    :"sin período comparable"}</span>
+                  <span>{finding.confidence.level==="strong"?"evidencia sólida":finding.confidence.level==="limited"?"evidencia limitada":"contexto"}</span>
+                </footer>
+              </div>
+            </article>)}
+          </div>:null}
+
+          {streetContext?.availability==="street"?<details className="place-evidence-detail">
+            <summary>Ver focos cercanos publicados</summary>
             <div className="street-signal-row" role="group" aria-label="Filtrar señales cercanas">
               {streetSignalMeta.map(item=><button type="button" key={item.key}
                 className={streetFilter===item.key?"active":""}
@@ -578,9 +568,8 @@ export default function V2Research({
                 <b>{streetSignalCounts[item.key]||"—"}</b>
               </button>)}
             </div>
-
             <div className="street-hotspots">
-              {nearbyHotspots.slice(0,4).map(item=><div key={item.id} className={"street-hotspot "+item.concentration}>
+              {nearbyHotspots.slice(0,5).map(item=><div key={item.id} className={"street-hotspot "+item.concentration}>
                 <i data-kind={item.primary}/>
                 <div>
                   <strong>{item.locationKind==="anonymised-reference"?"Ubicación aproximada":item.street}</strong>
@@ -588,37 +577,33 @@ export default function V2Research({
                 </div>
                 <b>~{item.distanceMeters} m</b>
               </div>)}
-              {!nearbyHotspots.length&&streetState==="ready"?<p className="street-muted">No aparecen focos de esta categoría en la consulta cercana.</p>:null}
             </div>
-
             <button type="button" className="street-map-toggle" onClick={()=>setShowStreet(value=>!value)}>
               {showStreet?"Ocultar puntos del mapa":"Mostrar puntos en el mapa"}
             </button>
-
             <small className="street-data-note">
-              Ubicaciones policiales aproximadas y anonimizadas; no son alertas en tiempo real ni direcciones exactas.
-              {streetContext.latestMonth?" Datos hasta "+streetContext.latestMonth+".":""}
+              Puntos policiales aproximados y anonimizados; no son sucesos en tiempo real ni direcciones exactas.
             </small>
-          </>:streetState==="ready"&&streetContext?.availability==="area-only"?<div className="street-area-only">
-            <strong>Sin precisión fiable de calle.</strong>
-            <p>{streetContext.note||"La fuente disponible llega al barrio, no a una calle concreta."}</p>
-          </div>:streetState==="error"?<p className="street-inline-error">La capa de calle no está disponible ahora.</p>:null}
+          </details>:null}
+
+          {contextState==="ready"&&placeContext?<details className="place-evidence-detail">
+            <summary>Qué sabemos y qué falta</summary>
+            <div className="place-domain-list">
+              {placeContext.domains.map(domain=><div key={domain.id}>
+                <span className={"place-domain-status "+domain.status}>{domain.status==="observed"?"disponible":domain.status==="research"?"en integración":domain.status==="context"?"contexto":"no disponible"}</span>
+                <strong>{domain.label}</strong>
+                <p>{domain.summary}</p>
+              </div>)}
+            </div>
+            {placeContext.coverage.limitations.length?<div className="place-limitations">
+              {placeContext.coverage.limitations.map(item=><span key={item}>{item}</span>)}
+            </div>:null}
+          </details>:null}
         </section>:<section className="street-area-prompt">
-          <strong>{zoneProfile[0]?.value||"Zona localizada"}</strong>
-          <p>Has seleccionado un barrio. Para bajar a la calle, busca una dirección concreta o usa tu ubicación.</p>
+          <strong>{selected.name}</strong>
+          <p>Esto es una zona administrativa. Para obtener un contexto de lugar completo, busca una dirección o usa tu ubicación.</p>
           <button type="button" onClick={useCurrentLocation} disabled={locating}>⌖ Usar mi ubicación</button>
         </section>}
-
-        <details className="street-more">
-          <summary>Contexto de la zona</summary>
-          <div className="street-zone-grid">
-            {zoneProfile.map(item=><div key={item.label}>
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
-              <small>{item.detail}</small>
-            </div>)}
-          </div>
-        </details>
 
         {selectedPoint?<details className="street-more">
           <summary>Servicios cerca</summary>
@@ -644,7 +629,7 @@ export default function V2Research({
 
         <footer className="street-sheet-footer">
           <button type="button" onClick={()=>{
-            setSelectedId(null);setSelectedPoint(null);setQuery("");setNearby(null);setStreetContext(null);
+            setSelectedId(null);setSelectedPoint(null);setQuery("");setNearby(null);setPlaceContext(null);
           }}>Volver al mapa</button>
           <Link href="/v2/guide">Datos y límites</Link>
         </footer>

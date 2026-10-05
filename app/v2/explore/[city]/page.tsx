@@ -9,13 +9,14 @@ import {
   type CitySlug,
 } from "@/lib/data";
 import { locateAreaByCoordinates } from "@/lib/public-data-client";
+import { parsePlaceLens } from "@/lib/place-context";
 import V2Research from "./V2Research";
 
 export const dynamic = "force-dynamic";
 
 export default async function V2Explore({params,searchParams}:{
   params: Promise<{city:string}>;
-  searchParams: Promise<{view?:string;area?:string;lat?:string;lng?:string;place?:string}>;
+  searchParams: Promise<{view?:string;lens?:string;area?:string;lat?:string;lng?:string;place?:string}>;
 }) {
   const [{city},query]=await Promise.all([params,searchParams]);
   if(city!=="madrid"&&city!=="london")notFound();
@@ -71,5 +72,8 @@ export default async function V2Explore({params,searchParams}:{
     initialId={initialId}
     initialPoint={initialPoint}
     initialPurpose={query.view==="resident"?"resident":"visitor"}
+    initialLens={query.lens
+      ?parsePlaceLens(query.lens)
+      :query.view==="resident"?"living_here":"around_me"}
   />;
 }

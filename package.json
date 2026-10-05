@@ -13,7 +13,8 @@
     "check:place": "node scripts/check-place-evidence.cjs",
     "check:v2": "node scripts/check-product-v2.cjs",
     "check:report": "node scripts/check-location-report.cjs",
-    "check:choice": "node scripts/check-address-choice.cjs"
+    "check:choice": "node scripts/check-address-choice.cjs",
+    "check:context": "node scripts/check-place-context.cjs"
   },
   "dependencies": {
     "next": "16.3.6",
