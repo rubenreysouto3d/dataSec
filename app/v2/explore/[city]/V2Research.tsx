@@ -186,10 +186,6 @@ export default function V2Research({city,areas,metrics,signals,initialId,initial
             <strong>{selected?"Volver al mapa":"Elegir sobre el mapa"} ↗</strong>
             <small>{areas.length} zonas oficiales disponibles</small>
           </button>
-          {selected?<button type="button" onClick={()=>setTab("compare")}>
-            <strong>Comparar esta zona →</strong>
-            <small>Con otra de la misma ciudad</small>
-          </button>:null}
           <small>No mostramos una selección arbitraria de barrios como si fuesen recomendaciones.</small>
         </div>
         <div className="dv2-rail-city">
@@ -203,7 +199,7 @@ export default function V2Research({city,areas,metrics,signals,initialId,initial
 
       <div className="dv2-main">
         <nav className="dv2-viewnav" aria-label="Modos de exploración">
-          {([["overview","Panorama"],["map","Mapa"],["compare","Comparar"]] as const).map(([key,value])=>
+          {([["overview","Panorama"],["map","Mapa"]] as const).map(([key,value])=>
             <button type="button" key={key} aria-current={tab===key?"page":undefined}
               className={tab===key?"active":""} onClick={()=>setTab(key)}>{value}</button>)}
           <span className="dv2-viewnav-spacer"/>
@@ -243,9 +239,8 @@ export default function V2Research({city,areas,metrics,signals,initialId,initial
           </div>
           <aside className="dv2-next-panel">
             <span className="dv2-eyebrow">TU SIGUIENTE PASO</span><h3>¿Y ahora?</h3>
-            <p>{purpose==="visitor"?"Comprueba otra zona antes de decidir dónde alojarte.":"Contrasta otro barrio antes de sacar conclusiones."}</p>
-            <button type="button" className="dv2-button" onClick={()=>setTab("compare")}>Comparar otra zona →</button>
-            <button type="button" className="dv2-alt-button" onClick={()=>setTab("map")}>Explorar en el mapa ↗</button>
+            <p>{purpose==="visitor"?"Sitúa esta zona en el mapa y baja después a la dirección concreta que estés mirando.":"Sitúa el barrio en el mapa y comprueba después una dirección concreta si ya la tienes."}</p>
+            <button type="button" className="dv2-button" onClick={()=>setTab("map")}>Ver alrededor en el mapa →</button>
             <button type="button" className="dv2-alt-button" onClick={savePlace}>
               {saved?"✓ Guardado · Quitar":"＋ Guardar zona"}</button>
             <div className="dv2-next-fine"><strong>Sobre calles concretas</strong>

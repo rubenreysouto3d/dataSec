@@ -6,11 +6,16 @@ import { readSaved, toggleSaved } from "@/lib/v2-saved";
 import type { NearbyPlace, NearbyCategory } from "@/lib/nearby-places";
 
 type NearbyResponse = { places:NearbyPlace[]; attribution:string; completeness:string; distance:string };
-const sections: {key:NearbyCategory;name:string;icon:string}[] = [
+const visitorSections: {key:NearbyCategory;name:string;icon:string}[] = [
   {key:"transport",name:"Metro y tren",icon:"↗"},
   {key:"groceries",name:"Alimentación",icon:"⌂"},
   {key:"pharmacy",name:"Farmacias",icon:"+"},
   {key:"health",name:"Salud",icon:"+"},
+];
+const residentSections: {key:NearbyCategory;name:string;icon:string}[] = [
+  ...visitorSections,
+  {key:"education",name:"Colegios y escuelas",icon:"□"},
+  {key:"green",name:"Parques y juegos",icon:"○"},
 ];
 
 function osmLink(lat:number,lng:number) {
@@ -18,6 +23,7 @@ function osmLink(lat:number,lng:number) {
 }
 
 export function NearbyServices({point}:{point:ReportPoint}) {
+  const sections=point.view==="resident"?residentSections:visitorSections;
   const [state,setState]=useState<"idle"|"loading"|"ready"|"error">("idle");
   const [data,setData]=useState<NearbyResponse|null>(null);
   async function load() {
@@ -33,9 +39,11 @@ export function NearbyServices({point}:{point:ReportPoint}) {
     }catch{setState("error");}
   }
   return <section className="drep-amenities" aria-label="Servicios cercanos">
-    <header><div><span className="drep-eyebrow">02 / VIDA PRÁCTICA</span>
+    <header><div><span className="drep-eyebrow">01 / ALREDEDOR DEL PUNTO</span>
       <h2>¿Qué tienes alrededor?</h2></div><small>Información complementaria de OpenStreetMap</small></header>
-    <p>Busca establecimientos y estaciones cartografiados cerca del punto seleccionado. La distancia es aproximada en línea recta, no andando.</p>
+    <p>{point.view==="visitor"
+      ?"Transporte, comida, farmacia y salud cerca del punto seleccionado."
+      :"Transporte, compras, salud, colegios y espacios verdes cerca del punto seleccionado."} Las distancias son aproximadas en línea recta.</p>
     {state==="idle"&&<button type="button" className="drep-primary-action" onClick={load}>Consultar servicios cercanos ↗</button>}
     {state==="loading"&&<p role="status">Consultando los servicios disponibles…</p>}
     {state==="error"&&<div role="status" className="drep-unavailable"><strong>No hemos podido consultar el entorno.</strong>

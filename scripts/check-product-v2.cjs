@@ -31,7 +31,8 @@ assert.ok(home.includes("candidate.matchedPlace"), "Explicitly confirm the match
 const citiesPage=fs.readFileSync("app/v2/cities/page.tsx","utf8");
 assert.ok(citiesPage.includes("v2Cities") && home.includes("/v2/cities"),"Coverage has its own directory");
 assert.ok(workspace.includes("createPlaceEvidenceContext"), "Shared canonical observed indicators");
-assert.ok(workspace.includes('setTab("map")') && workspace.includes('setTab("compare")'));
+assert.ok(workspace.includes('setTab("map")'), "City flow must provide map exploration");
+assert.ok(!workspace.includes('["compare","Comparar"]'), "Zone comparison must not be a primary explorer mode");
 assert.ok(workspace.includes("toggleSaved"), "Meaningful saved workflow");
 const serverPage = fs.readFileSync("app/v2/explore/[city]/page.tsx","utf8");
 const boundaryRoute = fs.readFileSync("app/v2/api/boundaries/[city]/route.ts","utf8");
@@ -41,4 +42,4 @@ assert.ok(boundaryRoute.includes("getCityBoundaries"), "Dedicated optional geome
 
 assert.ok(workspace.includes("evidence.period"), "Observation period required for any evidence card");
 assert.ok(layout.includes("index: false"), "Do not index concept/test cities");
-console.log("DataSec v2 product contract: 17 assertions passed.");
+console.log("DataSec v2 product contract: 18 assertions passed.");
