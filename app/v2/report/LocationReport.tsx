@@ -30,7 +30,7 @@ const bandCopy = [
   "Entre los registros más altos de esta ciudad",
 ];
 
-export default function LocationReport({point,area,evidence,indicator,explanation,source,alternatives}:Props) {
+export default function LocationReport({point,area,evidence,indicator,explanation,source}:Props) {
   const purpose=point.view==="visitor"?"tu visita":"tu posible mudanza";
   const relative=bandNumber(evidence.percentile);
   const hasEvidence=evidence.available&&evidence.value!==null;
@@ -48,7 +48,7 @@ export default function LocationReport({point,area,evidence,indicator,explanatio
             :"Los registros disponibles están entre los más altos de la ciudad para este indicador.";
   const nextStep=point.view==="visitor"
     ?"Úsalo como contexto y comprueba ahora transporte, servicios y la ruta real hasta tu alojamiento."
-    :"Úsalo como una señal más y contrástala con servicios, transporte y otras direcciones que estés valorando.";
+    :"Úsalo como una señal más y comprueba servicios, transporte y cómo encaja el entorno en tu día a día.";
   return <main className="drep dv2-container" id="location-report">
     <div className="drep-breadcrumbs"><Link href="/v2">Inicio</Link><span>/</span>
       <span>Informe de ubicación</span><span className="drep-beta">VERSIÓN DE PRUEBA</span></div>
@@ -70,7 +70,6 @@ export default function LocationReport({point,area,evidence,indicator,explanatio
         <div className="drep-quick-actions">
           <ReportSave point={point} areaId={area.id} city={area.citySlug}/>
           <ReportShare point={point}/>
-          <Link className="drep-compare-link" href={choiceHref(point,null,point.view)}>Comparar con otra dirección ↗</Link>
         </div>
       </div>
     </div>
@@ -78,12 +77,15 @@ export default function LocationReport({point,area,evidence,indicator,explanatio
     <section className="drep-verdict" aria-label="Resumen de la ubicación">
       <span>EN 5 SEGUNDOS</span>
       <div><h2>{lead}</h2><p>{nextStep}</p></div>
-      <Link href={choiceHref(point,null,point.view)}>Comparar con otra dirección <span aria-hidden="true">↗</span></Link>
+      <Link href={"/v2/explore/"+area.citySlug+"?view="+point.view+"&area="+encodeURIComponent(area.id)}>
+        Ver esta zona en el mapa <span aria-hidden="true">↗</span>
+      </Link>
     </section>
 
     <div className="drep-layout">
       <div className="drep-content">
-        <div className="drep-question">
+        <NearbyServices point={point}/>
+        <div className="drep-question drep-question-after-nearby">
           <span>QUÉ RESPALDA ESA LECTURA</span>
           <h2>{point.view==="visitor"?"Datos de la zona, después el entorno real.":"Datos de la zona, después tu vida diaria."}</h2>
           <p>El punto está localizado dentro de una zona oficial. Sus registros describen esa zona,
@@ -116,8 +118,6 @@ export default function LocationReport({point,area,evidence,indicator,explanatio
             no se atribuyen estos registros a la dirección concreta.</small>
         </section>
 
-        <NearbyServices point={point}/>
-
         <section className="drep-caution">
           <div><span className="drep-eyebrow">03 / PRECISIÓN REAL</span>
             <h2>¿Y las calles de alrededor?</h2></div>
@@ -130,26 +130,6 @@ export default function LocationReport({point,area,evidence,indicator,explanatio
           </div>
         </section>
 
-        {alternatives.length>0&&<section className="drep-alternatives">
-          <div className="drep-section-top"><span>04 / ALTERNATIVAS</span><span>{area.parentName||"MISMA GEOGRAFÍA"}</span></div>
-          <h2>Contrasta otras zonas del mismo distrito</h2>
-          <p>Es el mismo indicador dentro de {cityName(area.citySlug)}.
-            Compara cifras solo cuando coincida también el período observado.</p>
-          <div className="drep-alt-list">{alternatives.slice(0,5).map(a=>{
-            const samePeriod=hasEvidence&&a.available&&a.period===evidence.period;
-            return <div className="drep-alt" key={a.id}>
-              <div><strong>{a.name}</strong><small>{samePeriod?"Mismo indicador y período":
-                a.available?"Otro período: comparación temporal limitada":"Sin observaciones suficientes"}</small></div>
-              <div className="drep-alt-right">
-                <span>{samePeriod?number(a.value):"—"}</span>
-                <Link href={"/v2/explore/"+area.citySlug+"?view="+point.view+"&area="+encodeURIComponent(a.id)}>
-                  Ver ficha ↗</Link>
-              </div>
-            </div>;
-          })}</div>
-          <Link className="drep-secondary-link" href={"/v2/explore/"+area.citySlug+"?view="+point.view+
-            "&area="+encodeURIComponent(area.id)}>Abrir el explorador de barrios →</Link>
-        </section>}
       </div>
 
       <aside className="drep-aside">
@@ -167,10 +147,12 @@ export default function LocationReport({point,area,evidence,indicator,explanatio
         </div>
         <div className="drep-next">
           <strong>¿Qué decisión puedes tomar?</strong>
-          <p>Contrasta ubicaciones, servicios y fuentes antes de {purpose}.
+          <p>Usa los datos de zona como contexto y el entorno inmediato para entender mejor este lugar.
             Este informe no certifica seguridad ni calidad de vida.</p>
-          <Link href="/v2">Investigar otra dirección →</Link>
-          <Link href="/v2/saved">Mis ubicaciones guardadas →</Link>
+          <Link href={"/v2/explore/"+area.citySlug+"?view="+point.view+"&area="+encodeURIComponent(area.id)}>Explorar esta zona →</Link>
+          <Link href="/v2">Buscar otro lugar →</Link>
+          <Link href="/v2/saved">Mis lugares guardados →</Link>
+          <Link href={choiceHref(point,null,point.view)}>Tengo dos sitios concretos que valorar →</Link>
         </div>
       </aside>
     </div>
