@@ -1,4 +1,4 @@
-# DataSec v2 — Product reset / decision-first direction
+> **SUPERSEDED — 2026-10-05.** This product direction is retained for history only. Do not use it as the current design/product brief. The canonical direction is [Product foundation reset](product-foundation-2026-10-05.md).\n\n# DataSec v2 — Product reset / decision-first direction
 Date: 2026-10-03. Status: isolated prototype for user evaluation, not a claim that Europe-wide data is live.
 
 ## Why Atlas is not the product

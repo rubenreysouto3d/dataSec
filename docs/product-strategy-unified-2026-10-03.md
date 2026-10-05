@@ -1,4 +1,4 @@
-# DataSec: producto unificado (3 octubre 2026)
+> **SUPERSEDED — 2026-10-05.** This product direction is retained for history only. Do not use it as the current design/product brief. The canonical direction is [Product foundation reset](product-foundation-2026-10-05.md).\n\n# DataSec: producto unificado (3 octubre 2026)
 
 **Estado:** propuesta estratégica documentada, no implementación ni autorización de publicar afirmaciones nuevas sobre seguridad.
 

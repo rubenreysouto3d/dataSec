@@ -1,4 +1,4 @@
-# DataSec interface direction
+> **SUPERSEDED — 2026-10-05.** This file documents the old neighbourhood-map visual system and must not drive new UI work. Product structure now follows [Product foundation reset](product-foundation-2026-10-05.md) and the project design/UX bible. Rebuild interaction fundamentals first; extract the new design system afterwards.\n\n# DataSec interface direction
 
 Updated: 2026-10-01
 
