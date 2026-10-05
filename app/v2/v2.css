@@ -1058,3 +1058,34 @@ body:has(.atlas-app){overflow:hidden;background:#e8e9e3}
   .atlas-layer-buttons{margin:5px 0 6px}
   .atlas-layer-buttons button{padding:4px 6px;font-size:7px}
 }
+
+.atlas-city-pulse{padding-top:34px}
+.atlas-city-pulse h1{max-width:none}
+.atlas-pulse-group{
+  margin-top:18px;border-top:1px solid #cbd2c9
+}
+.atlas-pulse-group>div{
+  display:flex;justify-content:space-between;gap:12px;align-items:baseline;
+  padding:9px 0 7px
+}
+.atlas-pulse-group>div span{
+  font:760 8px ui-monospace,Consolas,monospace;letter-spacing:.09em;color:#607266
+}
+.atlas-pulse-group>div small{font-size:8px;color:#849087;text-align:right}
+.atlas-pulse-group>button{
+  width:100%;border:0;border-top:1px solid #dce0da;background:transparent;
+  padding:10px 0;display:flex;justify-content:space-between;gap:14px;text-align:left;color:#20362b
+}
+.atlas-pulse-group>button:hover{background:#eceee7}
+.atlas-pulse-group>button strong{font-size:11px;line-height:1.25}
+.atlas-pulse-group>button b{
+  font:740 9px ui-monospace,Consolas,monospace;color:#6b786f;white-space:nowrap
+}
+@media(max-width:760px){
+  .atlas-city-pulse{padding:14px 15px 12px}
+  .atlas-city-pulse>p{display:none}
+  .atlas-city-pulse .atlas-pulse-group{margin-top:9px}
+  .atlas-city-pulse .atlas-pulse-group:nth-of-type(n+3){display:none}
+  .atlas-pulse-group>button{padding:7px 0}
+  .atlas-pulse-group>div{padding:6px 0 5px}
+}
