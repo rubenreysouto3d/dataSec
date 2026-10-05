@@ -2,7 +2,7 @@ import Link from "next/link";
 import { localeHref, tr, type Locale } from "@/lib/i18n";
 import type { CitySlug } from "@/lib/data";
 
-type PulseRow={areaId:string;name:string;change:number};
+type PulseRow={areaId:string;name:string;deltaRate:number};
 type CityPulse={
   slug:CitySlug;
   count:number;
@@ -19,8 +19,8 @@ type Props={
 };
 
 function cityName(slug:CitySlug){return slug==="madrid"?"Madrid":"London";}
-function signed(value:number){
-  return (value>0?"+":"")+new Intl.NumberFormat("es-ES",{maximumFractionDigits:0}).format(value)+"%";
+function signedRate(value:number){
+  return (value>0?"+":"")+new Intl.NumberFormat("es-ES",{maximumFractionDigits:1}).format(value)+"/10k";
 }
 
 export default function HomeGateway({locale,pulses,checkedLabel,available}:Props){
@@ -76,12 +76,12 @@ export default function HomeGateway({locale,pulses,checkedLabel,available}:Props
             <section>
               <div className="intel-list-title">
                 <span>{tr(locale,"RECENT RISES","SUBIDAS RECIENTES")}</span>
-                <small>{tr(locale,"latest 3 months vs previous 3","últimos 3 meses vs 3 anteriores")}</small>
+                <small>{tr(locale,"rate change /10k residents","cambio de tasa /10.000 hab.")}</small>
               </div>
               {city.rising.length?city.rising.map(row=><Link
                 href={"/v2/explore/"+city.slug+"?view=visitor&area="+encodeURIComponent(row.areaId)}
                 className="intel-row" key={row.areaId}>
-                <strong>{row.name}</strong><b>{signed(row.change)}</b>
+                <strong>{row.name}</strong><b>{signedRate(row.deltaRate)}</b>
               </Link>):<p className="intel-no-data">{city.comparable
                 ?tr(locale,"No material rise in this window.","Sin subidas materiales en esta ventana.")
                 :tr(locale,"Not enough comparable history yet.","Aún no hay historial comparable suficiente.")}</p>}
@@ -90,12 +90,12 @@ export default function HomeGateway({locale,pulses,checkedLabel,available}:Props
             <section>
               <div className="intel-list-title">
                 <span>{tr(locale,"RECENT FALLS","BAJADAS RECIENTES")}</span>
-                <small>{tr(locale,"same official signal","misma señal oficial")}</small>
+                <small>{tr(locale,"same official signal and denominator","misma señal oficial y denominador")}</small>
               </div>
               {city.falling.length?city.falling.map(row=><Link
                 href={"/v2/explore/"+city.slug+"?view=visitor&area="+encodeURIComponent(row.areaId)}
                 className="intel-row" key={row.areaId}>
-                <strong>{row.name}</strong><b>{signed(row.change)}</b>
+                <strong>{row.name}</strong><b>{signedRate(row.deltaRate)}</b>
               </Link>):<p className="intel-no-data">{city.comparable
                 ?tr(locale,"No material fall in this window.","Sin bajadas materiales en esta ventana.")
                 :tr(locale,"Not enough comparable history yet.","Aún no hay historial comparable suficiente.")}</p>}
