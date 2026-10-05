@@ -1,7 +1,7 @@
-import { redirect } from "next/navigation";
+import V2Start from "./V2Start";
 
-export const dynamic = "force-dynamic";
+export const dynamic="force-dynamic";
 
-export default function ProductHome() {
-  redirect("/v2/explore/madrid?view=visitor");
+export default function ProductHome(){
+  return <V2Start/>;
 }
