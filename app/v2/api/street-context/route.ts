@@ -54,6 +54,18 @@ function publicLocationLabel(value:string){
   };
 }
 
+function queryPolygon(latitude:number,longitude:number,radiusMeters=650){
+  const latDelta=radiusMeters/111320;
+  const cos=Math.max(.2,Math.cos(latitude*Math.PI/180));
+  const lngDelta=radiusMeters/(111320*cos);
+  return [
+    [latitude+latDelta,longitude-lngDelta],
+    [latitude+latDelta,longitude+lngDelta],
+    [latitude-latDelta,longitude+lngDelta],
+    [latitude-latDelta,longitude-lngDelta],
+  ].map(([lat,lng])=>lat.toFixed(5)+","+lng.toFixed(5)).join(":");
+}
+
 export async function GET(request:Request){
   const url=new URL(request.url);
   const latitude=Number(url.searchParams.get("lat"));
@@ -80,10 +92,12 @@ export async function GET(request:Request){
   }
 
   try{
-    // Quantise user coordinates before sending them to the external police API.
-    // ~0.001° is roughly 100 m and is enough for its 1-mile query radius.
+    // Quantise before sending the point to Police.UK, then query only the walking-scale
+    // area DataSec actually needs. Police.UK's lat/lng mode expands to a full 1-mile radius,
+    // which is both noisier for users and too large in dense central London.
     const lat=Number(latitude.toFixed(3));
     const lng=Number(longitude.toFixed(3));
+    const poly=queryPolygon(lat,lng);
 
     const updated=await fetch("https://data.police.uk/api/crime-last-updated",{
       headers:{"Accept":"application/json","User-Agent":"dataSec/0.5 (https://data-sec.vercel.app)"},
@@ -96,21 +110,23 @@ export async function GET(request:Request){
     if(!/^\d{4}-\d{2}$/.test(latest))throw new Error("invalid latest month");
     const months=[monthOffset(latest,-2),monthOffset(latest,-1),latest];
 
-    const responses=await Promise.all(months.map(async month=>{
+    const settled=await Promise.allSettled(months.map(async month=>{
       const endpoint=new URL("https://data.police.uk/api/crimes-street/all-crime");
-      endpoint.searchParams.set("lat",String(lat));
-      endpoint.searchParams.set("lng",String(lng));
+      endpoint.searchParams.set("poly",poly);
       endpoint.searchParams.set("date",month);
       const response=await fetch(endpoint.toString(),{
-        headers:{"Accept":"application/json","User-Agent":"dataSec/0.5 (https://data-sec.vercel.app)"},
-        next:{revalidate:43200},
-        signal:AbortSignal.timeout(14000),
+        headers:{"Accept":"application/json","User-Agent":"dataSec/0.6 (https://data-sec.vercel.app)"},
+        cache:"no-store",
+        signal:AbortSignal.timeout(12000),
       });
-      if(!response.ok)throw new Error("street crime unavailable");
+      if(!response.ok)throw new Error("street crime unavailable: "+response.status);
       const payload=await response.json();
       if(!Array.isArray(payload))throw new Error("unexpected street crime payload");
-      return payload as PoliceCrime[];
+      return {month,rows:payload as PoliceCrime[]};
     }));
+    const successful=settled.flatMap(result=>result.status==="fulfilled"?[result.value]:[]);
+    if(!successful.length)throw new Error("street crime unavailable for all requested months");
+    const successfulMonths=successful.map(item=>item.month);
 
     const grouped=new Map<string,{
       id:string;latitude:number;longitude:number;street:string;generic:boolean;
@@ -118,7 +134,7 @@ export async function GET(request:Request){
       months:Set<string>;
     }>();
 
-    for(const rows of responses){
+    for(const {rows} of successful){
       for(const row of rows){
         const signal=signalOf(String(row.category||""));
         if(!signal||!row.location)continue;
@@ -172,8 +188,10 @@ export async function GET(request:Request){
       areaId:covered.id,
       areaName:covered.name,
       latestMonth:latest,
-      months,
-      radius:"1 mile from an approximately 100 m-quantised query point",
+      months:successfulMonths,
+      requestedMonths:months,
+      queryArea:"approximately 650 m from an approximately 100 m-quantised query point",
+      partial:successfulMonths.length<months.length,
       locationPrecision:"Police.UK publishes anonymised approximate street locations, not exact incident addresses.",
       hotspots,
       categories:{
