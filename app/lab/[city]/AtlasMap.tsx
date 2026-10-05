@@ -5,6 +5,18 @@ import type { CityBoundary, Neighbourhood } from "@/lib/data";
 import { MAP_COLOR_BANDS } from "@/lib/map-filters";
 import { tr, type Locale } from "@/lib/i18n";
 
+type StreetHotspot = {
+  id:string;
+  latitude:number;
+  longitude:number;
+  street:string;
+  total:number;
+  primary:"theft"|"drugs"|"disorder"|"violence";
+  primaryLabel:string;
+  concentration:"low"|"medium"|"high";
+  months:number;
+  repeated:boolean;
+};
 type Props = {
   city: "madrid" | "london";
   boundaries: CityBoundary[];
@@ -12,6 +24,7 @@ type Props = {
   values: Map<string, number | null>;
   selectedId: string | null;
   selectedPoint?: { latitude:number; longitude:number; label:string } | null;
+  hotspots?: StreetHotspot[];
   onSelect: (id: string) => void;
   locale: Locale;
 };
@@ -35,7 +48,7 @@ function getBounds(items: CityBoundary[]): Bounds | null {
 }
 
 export default function AtlasMap({
-  city, boundaries, areas, values, selectedId, selectedPoint = null, onSelect, locale,
+  city, boundaries, areas, values, selectedId, selectedPoint = null, hotspots = [], onSelect, locale,
 }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
@@ -75,6 +88,20 @@ export default function AtlasMap({
   }), [boundaries, areaById, values]);
   const latestGeojson = useRef(geojson);
   latestGeojson.current = geojson;
+  const hotspotGeojson = useMemo(() => ({
+    type:"FeatureCollection" as const,
+    features:hotspots.map(item=>({
+      type:"Feature" as const,
+      properties:{
+        id:item.id,street:item.street,total:item.total,primary:item.primary,
+        primaryLabel:item.primaryLabel,concentration:item.concentration,months:item.months,
+        repeated:item.repeated?"sí":"no",
+      },
+      geometry:{type:"Point" as const,coordinates:[item.longitude,item.latitude]},
+    })),
+  }),[hotspots]);
+  const latestHotspotGeojson=useRef(hotspotGeojson);
+  latestHotspotGeojson.current=hotspotGeojson;
 
   useEffect(() => {
     let cancelled = false;
@@ -127,6 +154,18 @@ export default function AtlasMap({
             filter: ["==", ["get", "id"], ""],
             paint: { "line-color": "#172b31", "line-width": 3.7 },
           }, firstLabel);
+          map.addSource("atlas-hotspots",{type:"geojson",data:latestHotspotGeojson.current});
+          map.addLayer({
+            id:"atlas-hotspots",type:"circle",source:"atlas-hotspots",
+            paint:{
+              "circle-radius":["match",["get","concentration"],"high",11,"medium",8,6],
+              "circle-color":["match",["get","primary"],
+                "theft","#c47a32","drugs","#795b7c","disorder","#a55538","violence","#8f2f2f","#6d716d"],
+              "circle-opacity":.86,
+              "circle-stroke-color":"rgba(255,255,255,.92)",
+              "circle-stroke-width":1.6,
+            },
+          },firstLabel);
           map.on("click", "atlas-fill", (event: any) => {
             const id = event.features?.[0]?.properties?.id;
             if (typeof id === "string") onSelectRef.current(id);
@@ -140,6 +179,20 @@ export default function AtlasMap({
           map.on("mouseleave", "atlas-fill", () => {
             map.getCanvas().style.cursor = "";
             hoverPopup.remove();
+          });
+          const hotspotPopup=new lib.Popup({closeButton:false,closeOnClick:false,offset:13,className:"fx-map-hover"});
+          map.on("mouseenter","atlas-hotspots",()=>{map.getCanvas().style.cursor="pointer";});
+          map.on("mousemove","atlas-hotspots",(event:any)=>{
+            const props=event.features?.[0]?.properties;
+            if(!props)return;
+            const repeated=props.repeated==="sí"?" · repetido en varios meses":"";
+            hotspotPopup.setLngLat(event.lngLat)
+              .setText(String(props.street)+" · "+String(props.primaryLabel)+" · "+String(props.total)+" registros"+repeated)
+              .addTo(map);
+          });
+          map.on("mouseleave","atlas-hotspots",()=>{
+            map.getCanvas().style.cursor="";
+            hotspotPopup.remove();
           });
           map.fitBounds(wholeCityBounds, { padding: 32, duration: 0, maxZoom: city === "madrid" ? 12 : 11 });
           setReady(true);
@@ -165,6 +218,11 @@ export default function AtlasMap({
     if (!ready) return;
     mapRef.current?.getSource?.("atlas-areas")?.setData?.(geojson);
   }, [geojson, ready]);
+
+  useEffect(()=>{
+    if(!ready)return;
+    mapRef.current?.getSource?.("atlas-hotspots")?.setData?.(hotspotGeojson);
+  },[hotspotGeojson,ready]);
 
 
   useEffect(() => {
