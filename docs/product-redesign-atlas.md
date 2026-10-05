@@ -1,4 +1,4 @@
-# DataSec Atlas — product redesign candidate (2026-10-02)
+> **SUPERSEDED — 2026-10-05.** This product direction is retained for history only. Do not use it as the current design/product brief. The canonical direction is [Product foundation reset](product-foundation-2026-10-05.md).\n\n# DataSec Atlas — product redesign candidate (2026-10-02)
 
 > **Product-direction update, 2026-10-03:** Atlas remains an interaction prototype, not the overarching product strategy. The unified web/PWA/extension/widget user journey and monetisation assumptions are defined in [Unified product strategy](product-strategy-unified-2026-10-03.md). Do not launch Atlas as a separate product or treat its layout as the final experience.\n\n**State:** independent, `noindex` prototype at `/lab/madrid` and `/lab/london`. It does **not** silently replace the current site. This is a new interaction architecture, not a fourth CSS refresh of the existing city explorer.
 
