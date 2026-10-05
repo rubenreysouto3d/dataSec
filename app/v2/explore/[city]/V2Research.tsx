@@ -269,6 +269,20 @@ export default function V2Research({
         ? {title:"Percepción nocturna",detail:"mejor → peor percepción del distrito"}
         : {title:indicator,detail:"menos → más registros relativos dentro de "+cityLabel(city)};
 
+  const risingAreas=useMemo(()=>[...(harmTrends?.areas??[])]
+    .filter(item=>item.percentChange!==null&&Number.isFinite(item.percentChange))
+    .sort((a,b)=>(b.percentChange??0)-(a.percentChange??0)).slice(0,3),[harmTrends]);
+  const fallingAreas=useMemo(()=>[...(harmTrends?.areas??[])]
+    .filter(item=>item.percentChange!==null&&Number.isFinite(item.percentChange))
+    .sort((a,b)=>(a.percentChange??0)-(b.percentChange??0)).slice(0,3),[harmTrends]);
+  const activeAreas=useMemo(()=>areas.map(area=>{
+    const activity=activityByArea.get(area.id);
+    const metric=metricByArea.get(area.id);
+    const density=activity&&metric&&metric.areaKm2>0?activity.openHostelry/metric.areaKm2:null;
+    return {areaId:area.id,density};
+  }).filter((item):item is {areaId:string;density:number}=>item.density!==null&&Number.isFinite(item.density))
+    .sort((a,b)=>b.density-a.density).slice(0,3),[areas,activityByArea,metricByArea]);
+
   const zoneProfile = selected ? [
     {
       label:"REGISTROS",
@@ -384,15 +398,35 @@ export default function V2Research({
     </section>
 
     <aside className={"atlas-drawer "+(selected?"has-selection":"")} aria-live="polite">
-      {!selected?<div className="atlas-empty">
-        <span className="atlas-kicker">DATASEC / {cityLabel(city).toUpperCase()}</span>
-        <h1>Muévete por el mapa.</h1>
-        <p>Toca una zona o busca un lugar concreto. Aquí aparecerá únicamente lo que sabemos de ese punto y de su entorno.</p>
-        <div className="atlas-empty-steps">
-          <span><b>1</b> Busca o toca</span>
-          <span><b>2</b> Lee el contexto</span>
-          <span><b>3</b> Sigue explorando</span>
-        </div>
+      {!selected?<div className="atlas-empty atlas-city-pulse">
+        <span className="atlas-kicker">DATASEC / {cityLabel(city).toUpperCase()} / AHORA</span>
+        <h1>Qué está cambiando.</h1>
+        <p>Empieza por una señal de ciudad o busca un sitio concreto. Ninguna lista equivale a “mejor” o “peor” barrio.</p>
+
+        {risingAreas.length?<section className="atlas-pulse-group">
+          <div><span>SUBIDAS RECIENTES</span><small>últimos 3 meses vs. 3 anteriores</small></div>
+          {risingAreas.map(item=><button type="button" key={item.areaId} onClick={()=>selectArea(item.areaId)}>
+            <strong>{areaById.get(item.areaId)?.name||item.areaId}</strong>
+            <b>{item.percentChange!==null?(item.percentChange>0?"+":"")+fmt(item.percentChange)+"%":"—"}</b>
+          </button>)}
+        </section>:null}
+
+        {fallingAreas.length?<section className="atlas-pulse-group">
+          <div><span>BAJADAS RECIENTES</span><small>misma señal y ventana</small></div>
+          {fallingAreas.map(item=><button type="button" key={item.areaId} onClick={()=>selectArea(item.areaId)}>
+            <strong>{areaById.get(item.areaId)?.name||item.areaId}</strong>
+            <b>{item.percentChange!==null?fmt(item.percentChange)+"%":"—"}</b>
+          </button>)}
+        </section>:null}
+
+        {activeAreas.length?<section className="atlas-pulse-group">
+          <div><span>MÁS ACTIVIDAD</span><small>hostelería abierta por km²</small></div>
+          {activeAreas.map(item=><button type="button" key={item.areaId} onClick={()=>selectArea(item.areaId)}>
+            <strong>{areaById.get(item.areaId)?.name||item.areaId}</strong>
+            <b>{fmt(item.density)}/km²</b>
+          </button>)}
+        </section>:null}
+
         <div className="atlas-empty-bottom">
           <Link href="/v2/guide">Datos y límites →</Link>
           <Link href="/v2/cities">Cobertura →</Link>
