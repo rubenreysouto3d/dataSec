@@ -112,7 +112,7 @@ export async function GET(request:Request){
     }));
 
     const grouped=new Map<string,{
-      id:string;latitude:number;longitude:number;street:string;
+      id:string;latitude:number;longitude:number;street:string;generic:boolean;
       signals:Record<HotspotSignal,number>;
       months:Set<string>;
     }>();
