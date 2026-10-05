@@ -586,6 +586,48 @@ alter table public.ingestion_staging enable row level security;
 revoke all on public.ingestion_staging from anon, authenticated;
 grant select, insert, update, delete on public.ingestion_staging to service_role;
 
+create or replace function public.refresh_madrid_time_capability()
+returns void
+language plpgsql
+security definer
+set search_path=''
+as $
+declare
+  v_latest_observation date;
+  v_latest_temporal date;
+  v_temporal_months integer;
+  v_ready boolean;
+begin
+  select max(period_start) into v_latest_observation
+  from public.observations
+  where source_slug='madrid-police-dispatch-incidents';
+
+  select max(period_start), count(distinct period_start)
+  into v_latest_temporal, v_temporal_months
+  from public.temporal_observations
+  where source_slug='madrid-police-dispatch-incidents';
+
+  v_ready := v_latest_observation is not null
+    and v_latest_temporal is not null
+    and v_latest_temporal >= v_latest_observation
+    and v_temporal_months >= 3;
+
+  update public.city_capabilities
+  set available=v_ready,
+      status=case when v_ready then 'live' else 'pipeline_ready' end,
+      updated_at=now(),
+      notes=case when v_ready
+        then 'Creation-hour evidence is published through the latest Madrid dispatch month at municipal-neighbourhood grain; hour is dispatch creation time, not exact event time.'
+        else 'The source contains creation hour and the pipeline is publishing/backfilling it; the capability stays unavailable until at least three months exist and temporal coverage reaches the latest published dispatch month.'
+      end
+  where city_slug='madrid' and domain='incidents' and operation='time-of-day';
+end;
+$;
+
+revoke all on function public.refresh_madrid_time_capability()
+from public, anon, authenticated;
+grant execute on function public.refresh_madrid_time_capability() to service_role;
+
 create or replace function public.publish_ingestion_run(p_run_id text)
 returns jsonb
 language plpgsql
@@ -742,10 +784,7 @@ begin
   get diagnostics v_temporal_observations = row_count;
 
   if v_source_slug='madrid-police-dispatch-incidents' and v_temporal_observations > 0 then
-    update public.city_capabilities
-    set available=true,status='live',updated_at=now(),
-        notes='Creation-hour evidence is published at municipal-neighbourhood grain; hour is dispatch creation time, not exact event time.'
-    where city_slug='madrid' and domain='incidents' and operation='time-of-day';
+    perform public.refresh_madrid_time_capability();
   end if;
 
   update public.ingestion_runs
