@@ -31,7 +31,6 @@ const bandCopy = [
 ];
 
 export default function LocationReport({point,area,evidence,indicator,explanation,source}:Props) {
-  const purpose=point.view==="visitor"?"tu visita":"tu posible mudanza";
   const relative=bandNumber(evidence.percentile);
   const hasEvidence=evidence.available&&evidence.value!==null;
   const nextView=point.view==="visitor"?"resident":"visitor";
