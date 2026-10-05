@@ -40,6 +40,27 @@ type Props = {
   initialPoint?: PointSelection | null;
 };
 type MapLayer = "incidents" | "trend" | "activity" | "night";
+type StreetSignal="theft"|"drugs"|"disorder"|"violence";
+type StreetHotspot = {
+  id:string;latitude:number;longitude:number;street:string;total:number;
+  primary:StreetSignal;primaryLabel:string;
+  concentration:"low"|"medium"|"high";months:number;repeated:boolean;
+  signals:Record<StreetSignal,number>;
+  distanceMeters:number;
+  locationKind:"street-reference"|"anonymised-reference";
+  localRank:number;
+};
+type StreetContextResponse = {
+  availability:"street"|"area-only"|"unsupported";
+  city?:"madrid"|"london";
+  areaId?:string;
+  areaName?:string;
+  latestMonth?:string;
+  months?:string[];
+  locationPrecision?:string;
+  note?:string;
+  hotspots:StreetHotspot[];
+};
 type NearbyResponse = {
   places: NearbyPlace[];
   attribution: string;
@@ -94,6 +115,11 @@ export default function V2Research({
   const [mapError,setMapError]=useState(false);
   const [nearby,setNearby]=useState<NearbyResponse|null>(null);
   const [nearbyState,setNearbyState]=useState<"idle"|"loading"|"ready"|"error">("idle");
+  const [streetContext,setStreetContext]=useState<StreetContextResponse|null>(null);
+  const [streetState,setStreetState]=useState<"idle"|"loading"|"ready"|"error">("idle");
+  const [showStreet,setShowStreet]=useState(true);
+  const [streetFilter,setStreetFilter]=useState<"all"|StreetSignal>("all");
+  const [locating,setLocating]=useState(false);
   const [saved,setSaved]=useState(false);
   const [shareStatus,setShareStatus]=useState("");
 
@@ -177,6 +203,36 @@ export default function V2Research({
   },[selectedPoint]);
 
   useEffect(()=>{
+    if(!selectedPoint){setStreetContext(null);setStreetState("idle");return;}
+    let cancelled=false;
+    setStreetState("loading");setStreetContext(null);
+    const params=new URLSearchParams({
+      lat:String(selectedPoint.latitude),
+      lng:String(selectedPoint.longitude),
+    });
+    fetch("/v2/api/street-context?"+params.toString())
+      .then(async response=>{
+        if(!response.ok&&response.status!==404)throw new Error("street context unavailable");
+        const value=(await response.json()) as StreetContextResponse;
+        if(cancelled)return;
+        if(value.city&&value.city!==city){
+          const nextParams=new URLSearchParams({
+            view:purpose,
+            lat:String(selectedPoint.latitude),
+            lng:String(selectedPoint.longitude),
+            place:selectedPoint.label,
+          });
+          router.push("/v2/explore/"+value.city+"?"+nextParams.toString());
+          return;
+        }
+        if(value.areaId&&areaById.has(value.areaId))setSelectedId(value.areaId);
+        setStreetContext(value);setStreetState("ready");
+      })
+      .catch(()=>{if(!cancelled)setStreetState("error");});
+    return()=>{cancelled=true;};
+  },[selectedPoint,city,purpose,router,areaById]);
+
+  useEffect(()=>{
     const next=new URL(window.location.href);
     next.searchParams.set("view",purpose);
     if(selectedId)next.searchParams.set("area",selectedId);else next.searchParams.delete("area");
@@ -194,6 +250,31 @@ export default function V2Research({
     setSaved(Boolean(key&&readSaved().some(x=>x.id===key&&x.purpose===purpose)));
     setShareStatus("");
   },[purpose,selectedId,selectedPoint]);
+
+  function useCurrentLocation(){
+    if(locating)return;
+    if(typeof navigator==="undefined"||!navigator.geolocation){
+      setGeoError("Este navegador no permite obtener la ubicación.");
+      return;
+    }
+    setLocating(true);setGeoError("");
+    navigator.geolocation.getCurrentPosition(
+      position=>{
+        const point={
+          latitude:position.coords.latitude,
+          longitude:position.coords.longitude,
+          label:"Tu ubicación aproximada",
+        };
+        setSelectedPoint(point);setQuery("Tu ubicación");setFocused(false);setCandidate(null);
+        setLocating(false);setShowStreet(true);
+      },
+      ()=>{
+        setGeoError("No hemos podido usar tu ubicación. Puedes buscar una calle o lugar manualmente.");
+        setLocating(false);
+      },
+      {enableHighAccuracy:false,timeout:10000,maximumAge:300000},
+    );
+  }
 
   function selectArea(id:string){
     setSelectedId(id);setSelectedPoint(null);setQuery("");setFocused(false);
@@ -261,6 +342,32 @@ export default function V2Research({
     }));
   },[nearby,purpose]);
 
+  const visibleStreetHotspots=useMemo(()=>{
+    const source=streetContext?.hotspots??[];
+    if(streetFilter==="all")return source;
+    return source.filter(item=>item.signals[streetFilter]>0);
+  },[streetContext,streetFilter]);
+
+  const nearbyHotspots=useMemo(()=>[...visibleStreetHotspots]
+    .sort((a,b)=>{
+      const level={high:0,medium:1,low:2};
+      return level[a.concentration]-level[b.concentration]||a.distanceMeters-b.distanceMeters||b.total-a.total;
+    }),[visibleStreetHotspots]);
+
+  const streetAdvice=useMemo(()=>{
+    const source=(streetContext?.hotspots??[]).filter(item=>item.repeated&&item.distanceMeters<=700);
+    const totals:Record<StreetSignal,number>={theft:0,drugs:0,disorder:0,violence:0};
+    for(const item of source){
+      for(const key of Object.keys(totals) as StreetSignal[])totals[key]+=item.signals[key];
+    }
+    const notes:string[]=[];
+    if(totals.theft>=15)notes.push("Presta especial atención a móvil, cartera y bolso.");
+    if(totals.violence>=15)notes.push("Hay concentración repetida de violencia registrada en el entorno.");
+    if(totals.disorder>=15)notes.push("Hay focos repetidos de desorden o conducta antisocial.");
+    if(totals.drugs>=8)notes.push("Aparece actividad de drogas registrada de forma repetida.");
+    return notes.slice(0,3);
+  },[streetContext]);
+
   const layerCopy = layer==="trend"
     ? {title:"Cambio reciente",detail:"bajando → subiendo en los últimos 6 meses"}
     : layer==="activity"
@@ -326,6 +433,7 @@ export default function V2Research({
         values={mapValues}
         selectedId={selectedId}
         selectedPoint={selectedPoint}
+        hotspots={showStreet?visibleStreetHotspots:[]}
         onSelect={selectArea}
         locale="es"
       />:<div className="atlas-app-map-loading" role="status">
@@ -343,6 +451,9 @@ export default function V2Research({
           <button type="button" className={purpose==="visitor"?"active":""} onClick={()=>setPurpose("visitor")}>Viaje</button>
           <button type="button" className={purpose==="resident"?"active":""} onClick={()=>setPurpose("resident")}>Vivir</button>
         </div>
+        <button type="button" className="atlas-locate" onClick={useCurrentLocation} disabled={locating}>
+          {locating?"Localizando…":"◎ Mi ubicación"}
+        </button>
         <Link className="atlas-saved-link" href="/v2/saved">Guardados</Link>
       </div>
 
@@ -389,6 +500,9 @@ export default function V2Research({
           <button type="button" className={layer==="activity"?"active":""} onClick={()=>setLayer("activity")}>Actividad</button>
           {city==="madrid"?<button type="button" className={layer==="night"?"active":""} onClick={()=>setLayer("night")}>Noche</button>:null}
         </div>
+        {streetContext?.availability==="street"?<button type="button" className={"atlas-street-toggle "+(showStreet?"active":"")} onClick={()=>setShowStreet(value=>!value)}>
+          {showStreet?"● Focos de calle visibles":"○ Mostrar focos de calle"}
+        </button>:null}
         <strong>{layerCopy.title}</strong>
         <div className="atlas-layer-scale" aria-label="Escala relativa">
           {MAP_COLOR_BANDS.map(band=><i key={band.max} style={{background:band.color}}/>)}
@@ -401,7 +515,11 @@ export default function V2Research({
       {!selected?<div className="atlas-empty atlas-city-pulse">
         <span className="atlas-kicker">DATASEC / {cityLabel(city).toUpperCase()} / AHORA</span>
         <h1>Qué está cambiando.</h1>
-        <p>Empieza por una señal de ciudad o busca un sitio concreto. Ninguna lista equivale a “mejor” o “peor” barrio.</p>
+        <p>Empieza por una señal de ciudad, busca un sitio concreto o abre el mapa desde donde estás. Ninguna lista equivale a “mejor” o “peor” barrio.</p>
+        <button type="button" className="atlas-here-cta" onClick={useCurrentLocation} disabled={locating}>
+          {locating?"Localizando…":"◎ Ver qué tengo alrededor ahora"}
+        </button>
+        {geoError?<p className="atlas-search-error" role="alert">{geoError}</p>:null}
 
         {risingAreas.length?<section className="atlas-pulse-group">
           <div><span>SUBIDAS RECIENTES</span><small>últimos 3 meses vs. 3 anteriores</small></div>
@@ -465,6 +583,43 @@ export default function V2Research({
             {selectedActivity?<p>La actividad usa establecimientos abiertos/hostelería del contexto municipal disponible; no describe comportamiento de personas.</p>:null}
           </details>
         </section>
+
+        {selectedPoint?<section className="atlas-street-context">
+          <div className="atlas-section-title">
+            <div><span>EN LA CALLE</span><h2>Focos cercanos</h2></div>
+            {streetState==="loading"?<small>Consultando…</small>:null}
+          </div>
+          {streetState==="error"?<p className="atlas-inline-error">No se ha podido consultar la capa de calle ahora.</p>:null}
+          {streetState==="ready"&&streetContext?.availability==="area-only"?<div className="atlas-street-unavailable">
+            <strong>Esta ciudad no publica precisión de calle suficiente.</strong>
+            <p>{streetContext.note||"La lectura disponible llega a la zona administrativa."}</p>
+          </div>:null}
+          {streetState==="ready"&&streetContext?.availability==="street"?<>
+            {streetAdvice.length?<div className="atlas-street-advice">
+              <span>QUÉ MERECE ATENCIÓN AQUÍ</span>
+              {streetAdvice.map(note=><strong key={note}>{note}</strong>)}
+            </div>:null}
+            <div className="atlas-street-filters" role="group" aria-label="Filtrar focos cercanos">
+              <button type="button" className={streetFilter==="all"?"active":""} onClick={()=>setStreetFilter("all")}>Todo</button>
+              <button type="button" className={streetFilter==="theft"?"active":""} onClick={()=>setStreetFilter("theft")}><i data-kind="theft"/>Hurtos</button>
+              <button type="button" className={streetFilter==="drugs"?"active":""} onClick={()=>setStreetFilter("drugs")}><i data-kind="drugs"/>Drogas</button>
+              <button type="button" className={streetFilter==="disorder"?"active":""} onClick={()=>setStreetFilter("disorder")}><i data-kind="disorder"/>Desorden</button>
+              <button type="button" className={streetFilter==="violence"?"active":""} onClick={()=>setStreetFilter("violence")}><i data-kind="violence"/>Violencia</button>
+            </div>
+            {nearbyHotspots.length?<div className="atlas-hotspot-list">
+              {nearbyHotspots.slice(0,10).map(item=><div key={item.id} className={"atlas-hotspot "+item.concentration}>
+                <i data-kind={item.primary}/>
+                <div><strong>{item.locationKind==="anonymised-reference"?"Referencia anonimizada: ":"En torno a "}{item.street}</strong>
+                  <span>{item.primaryLabel}{item.repeated?" · repetido en varios meses":""}</span></div>
+                <b>~{item.distanceMeters} m</b>
+              </div>)}
+            </div>:<p className="atlas-inline-note">No aparecen concentraciones de esta categoría en la consulta cercana.</p>}
+            <p className="atlas-street-note">
+              Son ubicaciones policiales anonimizadas y aproximadas, no sucesos en tiempo real ni direcciones exactas. “Hurtos” incluye hurto a personas y robo; la fuente no separa específicamente carterismo.
+              {streetContext.latestMonth?" Último mes: "+streetContext.latestMonth+".":""}
+            </p>
+          </>:null}
+        </section>:null}
 
         {selectedPoint?<section className="atlas-nearby">
           <div className="atlas-section-title">
