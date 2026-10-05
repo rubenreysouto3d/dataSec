@@ -54,5 +54,14 @@ assert.ok(workspace.includes("atlas-layer-buttons"),
   "Users must be able to switch the question the map is answering");
 assert.ok(workspace.includes("atlas-city-pulse"),
   "The empty state must surface live city context instead of an instructional blank state");
+assert.ok(workspace.includes("navigator.geolocation") && workspace.includes("Mi ubicación"),
+  "The spatial app must support explicit on-site location use");
+assert.ok(workspace.includes("/v2/api/street-context") && workspace.includes("streetFilter"),
+  "Exact points must expose filterable street context where the source supports it");
+const streetRoute=fs.readFileSync("app/v2/api/street-context/route.ts","utf8");
+assert.ok(streetRoute.includes("data.police.uk/api/crimes-street/all-crime"),
+  "London street context must come from the official Police.UK API");
+assert.ok(streetRoute.includes('availability:"area-only"'),
+  "Cities without street-grain source data must not fabricate street hotspots");
 assert.ok(layout.includes("index: false"), "Do not index concept/test cities");
 console.log("DataSec v2 product contract: spatial-app assertions passed.");
