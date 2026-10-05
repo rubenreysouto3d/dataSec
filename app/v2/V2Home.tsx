@@ -8,6 +8,7 @@ import { locationReportHref } from "@/lib/location-report";
 
 type Area = { id:string;name:string;parentName:string|null;citySlug:"madrid"|"london" };
 type Purpose = "visitor"|"resident";
+
 function norm(value:string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
 }
@@ -19,84 +20,100 @@ export default function V2Home({areas,available}:{areas:Area[];available:boolean
   const [candidate,setCandidate]=useState<Awaited<ReturnType<typeof resolvePlaceToArea>>>(null);
   const [loading,setLoading]=useState(false);
   const [error,setError]=useState("");
+
   const matches=useMemo(()=>{
     const q=norm(query);
     if(q.length<2)return [];
     return areas.filter(a=>norm(a.name+" "+(a.parentName||"")+" "+a.citySlug).includes(q)).slice(0,4);
   },[areas,query]);
+
   async function searchAddress(){
     if(query.trim().length<5||loading)return;
     setLoading(true);setError("");setCandidate(null);
     try{
       const match=await resolvePlaceToArea(query.trim());
       if(match)setCandidate(match);
-      else setError("No encontramos una dirección compatible en Madrid o Londres. Indica calle, número y ciudad.");
-    }catch{setError("La consulta de direcciones no está disponible ahora.");}
-    finally{setLoading(false);}
+      else setError("No encontramos esa dirección en las ciudades cubiertas. Añade calle, número y ciudad.");
+    }catch{
+      setError("La búsqueda de direcciones no está disponible ahora.");
+    }finally{
+      setLoading(false);
+    }
   }
-  return <main className="d3-home dv2-container">
-    <div className="d3-hero">
-      <span className="dv2-eyebrow">DATASEC / DECIDE CON EL LUGAR DELANTE</span>
-      <h1>Una dirección.<br/><em>Lo que cambia tu decisión.</em></h1>
-      <p>Compara dos sitios o comprueba uno. Datos de la zona y lo que tienes realmente alrededor.</p>
-      <div className="d3-purpose" role="group" aria-label="Tu objetivo">
-        <button type="button" className={purpose==="visitor"?"active":""} aria-pressed={purpose==="visitor"}
-          onClick={()=>{setPurpose("visitor");setCandidate(null);}}>Voy de viaje</button>
-        <button type="button" className={purpose==="resident"?"active":""} aria-pressed={purpose==="resident"}
-          onClick={()=>{setPurpose("resident");setCandidate(null);}}>Quiero mudarme</button>
-      </div>
-    </div>
 
-    <section className="d3-actions" aria-label="Qué necesitas hacer">
-      <Link href={"/v2/choose?view="+purpose} className="d3-primary-card">
-        <span>01 / DOS OPCIONES</span>
-        <h2>¿Cuál me conviene más?</h2>
-        <p>Contrasta dos direcciones con el mismo criterio y ve primero las diferencias que sí pueden comprobarse.</p>
-        <strong>Comparar dos ubicaciones <span aria-hidden="true">↗</span></strong>
-      </Link>
-      <div className="d3-search-card" id="buscar">
-        <span>02 / UNA DIRECCIÓN</span>
-        <h2>¿Qué hay alrededor?</h2>
-        <label htmlFor="d3-search">Calle y número, ciudad</label>
-        <div className="d3-search-line"><input id="d3-search" type="search" value={query}
-          onChange={e=>{setQuery(e.target.value);setCandidate(null);setError("");}}
-          disabled={!available} placeholder="Ej.: Puerta del Sol 1, Madrid"
-          onKeyDown={e=>{if(e.key==="Enter")void searchAddress();}}/>
+  return <main className="place-home dv2-container">
+    <section className="place-home-main">
+      <span className="dv2-eyebrow">DATASEC / BUSCA UN SITIO CONCRETO</span>
+      <h1>Dime dónde.<br/><em>Luego vemos qué importa.</em></h1>
+      <p>Una dirección, hotel o lugar concreto. Te mostramos qué sabemos de su zona y qué tienes alrededor, sin convertirlo todo en una nota absurda.</p>
+
+      <div className="place-purpose" role="group" aria-label="Para qué quieres comprobar el lugar">
+        <button type="button" className={purpose==="visitor"?"active":""} aria-pressed={purpose==="visitor"}
+          onClick={()=>{setPurpose("visitor");setCandidate(null);}}>
+          Voy de viaje
+        </button>
+        <button type="button" className={purpose==="resident"?"active":""} aria-pressed={purpose==="resident"}
+          onClick={()=>{setPurpose("resident");setCandidate(null);}}>
+          Quiero vivir aquí
+        </button>
+      </div>
+
+      <div className="place-search" id="buscar">
+        <label htmlFor="place-search-input">Dirección, hotel o lugar</label>
+        <div className="place-search-row">
+          <input id="place-search-input" type="search" value={query}
+            onChange={e=>{setQuery(e.target.value);setCandidate(null);setError("");}}
+            disabled={!available}
+            placeholder="Ej.: Puerta del Sol 1, Madrid"
+            onKeyDown={e=>{if(e.key==="Enter")void searchAddress();}}/>
           <button type="button" disabled={!available||loading||query.trim().length<5}
-            onClick={searchAddress}>{loading?"Buscando…":"Buscar ↗"}</button></div>
-        {candidate?<div className="d3-candidate" role="status">
-          <small>CONFIRMA QUE ES TU UBICACIÓN</small>
+            onClick={searchAddress}>{loading?"Buscando…":"Comprobar lugar →"}</button>
+        </div>
+
+        {candidate?<div className="place-candidate" role="status">
+          <small>UBICACIÓN ENCONTRADA</small>
           <strong>{candidate.matchedPlace}</strong>
           {candidate.locationKind==="specific"
             ? <button type="button" onClick={()=>router.push(locationReportHref({
-              latitude:candidate.latitude,longitude:candidate.longitude,
-              label:candidate.matchedPlace,view:purpose,
-            }))}>Abrir informe de esta ubicación →</button>
-            : <p>El resultado es demasiado amplio para informar sobre una dirección.
-              Indica una calle y un número.</p>}
+                latitude:candidate.latitude,longitude:candidate.longitude,
+                label:candidate.matchedPlace,view:purpose,
+              }))}>Ver qué sabemos de este sitio →</button>
+            : <p>El resultado es demasiado amplio. Añade una calle y número para abrir un informe de ubicación.</p>}
         </div>:null}
-        {error&&<p role="alert" className="d3-error">{error}</p>}
-        {!available&&<p role="status">Los datos no están disponibles. No mostramos ubicaciones de prueba como reales.</p>}
-        {matches.length>0&&<div className="d3-areamatches"><small>También puedes explorar barrios:</small>
+
+        {error&&<p role="alert" className="place-error">{error}</p>}
+        {!available&&<p role="status" className="place-error">Los datos no están disponibles ahora.</p>}
+
+        {matches.length>0&&<div className="place-area-hints">
+          <small>Si buscabas una zona:</small>
           {matches.map(a=><Link key={a.id} href={"/v2/explore/"+a.citySlug+"?view="+purpose+
-            "&area="+encodeURIComponent(a.id)}>{a.name} · {a.citySlug==="madrid"?"Madrid":"Londres"} ↗</Link>)}</div>}
-        <p className="d3-provider">La consulta de dirección se realiza solo al pulsar Buscar.
-          Se utiliza un geocodificador externo de prueba.</p>
+            "&area="+encodeURIComponent(a.id)}>{a.name} · {a.citySlug==="madrid"?"Madrid":"Londres"} ↗</Link>)}
+        </div>}
       </div>
-      <Link href={"/v2/cities?view="+purpose} className="d3-explore-card">
-        <span>03 / AÚN NO SÉ DÓNDE</span>
-        <h2>Explorar zonas.</h2>
-        <p>Empieza por una ciudad y baja a barrios antes de buscar una dirección concreta.</p>
-        <strong>Explorar cobertura <span aria-hidden="true">↗</span></strong>
-      </Link>
+
+      <div className="place-example">
+        <span>¿Quieres ver cómo funciona?</span>
+        <Link href={locationReportHref({
+          latitude:40.4169,longitude:-3.7034,label:"Puerta del Sol, Madrid",view:purpose,
+        })}>Abrir ejemplo: Puerta del Sol ↗</Link>
+      </div>
     </section>
-    <section className="d3-live-example" aria-label="Probar la herramienta">
-      <div><span>PRUEBA DIRECTA</span><strong>Sol vs. Bilbao, Madrid</strong>
-        <p>Abre una comparación completa sin escribir nada.</p></div>
-      <Link href={"/v2/choose?view="+purpose+
-        "&alat=40.416900&alng=-3.703400&aplace=Puerta+del+Sol%2C+Madrid"+
-        "&blat=40.428970&blng=-3.702720&bplace=Glorieta+de+Bilbao%2C+Madrid"}>
-          Comparar Sol y Bilbao ↗</Link>
-    </section>
+
+    <aside className="place-home-secondary">
+      <div>
+        <span className="dv2-eyebrow">SI AÚN NO TIENES DIRECCIÓN</span>
+        <h2>Explora primero la ciudad.</h2>
+        <p>Usa el mapa para entender zonas y después baja a un punto concreto.</p>
+      </div>
+      <div className="place-city-links">
+        <Link href={"/v2/explore/madrid?view="+purpose}><strong>Madrid</strong><span>Abrir mapa ↗</span></Link>
+        <Link href={"/v2/explore/london?view="+purpose}><strong>Londres</strong><span>Abrir mapa ↗</span></Link>
+      </div>
+      <div className="place-secondary-links">
+        <Link href="/v2/saved">Lugares guardados →</Link>
+        <Link href="/v2/cities">Cobertura →</Link>
+        <Link href="/v2/guide">Qué datos usamos →</Link>
+      </div>
+    </aside>
   </main>;
 }
