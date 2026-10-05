@@ -142,12 +142,12 @@ export default function AtlasMap({
                 1, MAP_COLOR_BANDS[0].color, 2, MAP_COLOR_BANDS[1].color,
                 3, MAP_COLOR_BANDS[2].color, 4, MAP_COLOR_BANDS[3].color,
                 5, MAP_COLOR_BANDS[4].color, "#b8c1c2"],
-              "fill-opacity": 0.74,
+              "fill-opacity": 0.34,
             },
           }, firstLabel);
           map.addLayer({
             id: "atlas-edges", type: "line", source: "atlas-areas",
-            paint: { "line-color": "rgba(255,255,255,.88)", "line-width": 1.05 },
+            paint: { "line-color": "rgba(255,255,255,.62)", "line-width": .8 },
           }, firstLabel);
           map.addLayer({
             id: "atlas-focus", type: "line", source: "atlas-areas",
@@ -158,12 +158,12 @@ export default function AtlasMap({
           map.addLayer({
             id:"atlas-hotspots",type:"circle",source:"atlas-hotspots",
             paint:{
-              "circle-radius":["match",["get","concentration"],"high",11,"medium",8,6],
+              "circle-radius":["match",["get","concentration"],"high",8,"medium",6,4.5],
               "circle-color":["match",["get","primary"],
                 "theft","#c47a32","drugs","#795b7c","disorder","#a55538","violence","#8f2f2f","#6d716d"],
-              "circle-opacity":.86,
+              "circle-opacity":.82,
               "circle-stroke-color":"rgba(255,255,255,.92)",
-              "circle-stroke-width":1.6,
+              "circle-stroke-width":1.2,
             },
           },firstLabel);
           map.on("click", "atlas-fill", (event: any) => {
@@ -249,8 +249,8 @@ export default function AtlasMap({
     if (!map?.getLayer?.("atlas-focus")) return;
     map.setFilter("atlas-focus", ["==", ["get", "id"], selectedId ?? ""]);
     const selectedBounds = selectedId ? boundsById.get(selectedId) : null;
-    if (selectedBounds) map.fitBounds(selectedBounds, { padding: 75, duration: 430, maxZoom: 13 });
-  }, [selectedId, boundsById, ready]);
+    if (selectedBounds && !selectedPoint) map.fitBounds(selectedBounds, { padding: 75, duration: 430, maxZoom: 13 });
+  }, [selectedId, selectedPoint, boundsById, ready]);
 
   return (
     <div className="atlas-geography">

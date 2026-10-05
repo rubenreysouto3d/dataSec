@@ -47,9 +47,10 @@ function publicLocationLabel(value:string){
     "Police Station","Hospital","Nightclub","Further/higher Educational Building",
     "Conference/exhibition Centre","Theatre/concert Hall","Parking Area","Shopping Area",
   ]);
+  const isGeneric=generic.has(cleaned);
   return {
-    label:cleaned,
-    generic:generic.has(cleaned),
+    label:isGeneric?"Ubicación aproximada":cleaned,
+    generic:isGeneric,
   };
 }
 

@@ -33,6 +33,8 @@ assert.ok(workspace.includes("resolvePlaceToArea") && workspace.includes("candid
   "Exact place search belongs to the spatial workspace");
 assert.ok(workspace.includes("createPlaceEvidenceContext"), "Shared canonical observed indicators");
 assert.ok(workspace.includes("<AtlasMap"), "The map is the persistent application surface");
+assert.ok(workspace.includes("street-topbar") && workspace.includes("street-search"),
+  "The explorer must expose one compact search/location command bar");
 assert.ok(workspace.includes("selectedPoint={selectedPoint}"), "Exact places remain inside the map workspace");
 assert.ok(workspace.includes('/v2/api/nearby'), "Exact points enrich the same workspace with nearby context");
 assert.ok(!workspace.includes("type Tab"), "The main city experience must not regress to page-like tabs");
@@ -50,11 +52,11 @@ assert.ok(workspace.includes('type MapLayer = "incidents" | "trend" | "activity"
   "The map must expose independent urban-context layers");
 assert.ok(workspace.includes("harmTrends") && workspace.includes("activityContexts"),
   "The workspace must use recent change and urban activity, not only incident percentiles");
-assert.ok(workspace.includes("atlas-layer-buttons"),
-  "Users must be able to switch the question the map is answering");
-assert.ok(workspace.includes("atlas-city-pulse"),
-  "The empty state must surface live city context instead of an instructional blank state");
-assert.ok(workspace.includes("navigator.geolocation") && workspace.includes("Mi ubicación"),
+assert.ok(workspace.includes("street-layer-menu"),
+  "Map layers must stay available without dominating the primary interface");
+assert.ok(workspace.includes("street-sheet") && workspace.includes("street-idle"),
+  "The empty state must remain inside the single contextual map sheet");
+assert.ok(workspace.includes("navigator.geolocation") && workspace.includes("Estoy aquí"),
   "The spatial app must support explicit on-site location use");
 assert.ok(workspace.includes("/v2/api/street-context") && workspace.includes("streetFilter"),
   "Exact points must expose filterable street context where the source supports it");
