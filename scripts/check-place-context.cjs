@@ -19,6 +19,8 @@ assert.ok(!/safetyScore|overallScore|dangerScore/.test(context),
 
 assert.ok(data.includes('"city_capabilities"'),"Read model must expose city capability manifests");
 assert.ok(data.includes('"temporal_observations"'),"Read model must expose temporal observations");
+assert.ok(context.includes("madridPersonalHarmMetricSlugs"),
+  "Time-of-day findings must use the reviewed Madrid safety taxonomy, not all dispatch activity");
 
 assert.ok(madrid.includes("parse_creation_hour"),"Madrid ingestion must preserve the source creation hour");
 assert.ok(madrid.includes('"temporal_observation"'),"Madrid ingestion must stage temporal evidence atomically");
