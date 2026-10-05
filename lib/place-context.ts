@@ -17,84 +17,13 @@ import {
 import { locateAreaByCoordinates } from "@/lib/public-data-client";
 import { getStreetContext, type StreetContext, type StreetSignal } from "@/lib/street-context";
 
-export type PlaceLens =
-  | "choosing_stay"
-  | "arriving_late"
-  | "around_me"
-  | "tonight"
-  | "living_here"
-  | "living_with_family";
-
-export type EvidenceConfidenceLevel = "strong" | "limited" | "contextual";
-
-export type EvidenceConfidence = {
-  level: EvidenceConfidenceLevel;
-  reasons: string[];
-};
-
-export type PlaceFinding = {
-  id: string;
-  domain: "incidents" | "after_dark" | "mobility" | "daily_life" | "coverage";
-  importance: "info" | "notice" | "attention" | "official-alert";
-  statement: string;
-  implication?: string;
-  observedPeriod: { start: string | null; end: string | null };
-  geography: {
-    kind: "approximate_point" | "neighbourhood" | "district" | "unknown";
-    label: string;
-    precisionNote?: string;
-  };
-  confidence: EvidenceConfidence;
-  evidence: Array<{
-    source: string;
-    metric?: string;
-    value?: number;
-    unit?: string;
-    note?: string;
-  }>;
-  methodVersion: string;
-};
-
-export type DomainEvidence = {
-  id: string;
-  label: string;
-  status: "observed" | "context" | "not_available" | "research";
-  summary: string;
-  sourceSlugs: string[];
-};
-
-export type PlaceContext = {
-  place: {
-    label: string;
-    coordinate: { latitude: number; longitude: number };
-    city: CitySlug;
-    area: {
-      id: string;
-      name: string;
-      parentName: string | null;
-      areaType: string;
-    };
-  };
-  lens: PlaceLens;
-  capabilities: CityCapability[];
-  findings: PlaceFinding[];
-  domains: DomainEvidence[];
-  evidence: {
-    latestMonthlySummary: MonthlySummary | null;
-    areaMetric: CityMapMetric | null;
-    temporal: {
-      available: boolean;
-      months: string[];
-      byHour: Array<{ hour: number; count: number }>;
-    };
-    street: StreetContext;
-  };
-  coverage: {
-    street: "available" | "area_only" | "unsupported";
-    timeOfDay: "available" | "pipeline_ready" | "unavailable";
-    limitations: string[];
-  };
-};
+import type {
+  DomainEvidence,
+  EvidenceConfidence,
+  PlaceContext,
+  PlaceFinding,
+  PlaceLens,
+} from "@/lib/place-context-contract";
 
 const validLenses = new Set<PlaceLens>([
   "choosing_stay","arriving_late","around_me","tonight","living_here","living_with_family",
