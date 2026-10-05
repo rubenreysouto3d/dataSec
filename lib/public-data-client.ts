@@ -186,9 +186,7 @@ type NominatimResult = {
 
 const GEOCODER_URL = "https://nominatim.openstreetmap.org/search";
 
-export async function resolvePlaceToArea(
-  query: string,
-): Promise<{
+export type PlaceCandidate = {
   id: string;
   name: string;
   citySlug: "london" | "madrid";
@@ -196,9 +194,14 @@ export async function resolvePlaceToArea(
   latitude: number;
   longitude: number;
   locationKind: "specific" | "broad";
-} | null> {
+};
+
+export async function searchPlaceCandidates(query: string): Promise<PlaceCandidate[]> {
+  const value=query.trim();
+  if(value.length<3)return [];
+
   const params = new URLSearchParams({
-    q: query,
+    q: value,
     format: "jsonv2",
     limit: "5",
     countrycodes: "gb,es",
@@ -206,31 +209,36 @@ export async function resolvePlaceToArea(
   });
 
   const response = await fetch(`${GEOCODER_URL}?${params.toString()}`, {
-    headers: {
-      Accept: "application/json",
-    },
+    headers: { Accept: "application/json" },
   });
-  if (!response.ok) {
-    throw new Error(`Geocoder HTTP ${response.status}`);
-  }
+  if (!response.ok) throw new Error(`Geocoder HTTP ${response.status}`);
 
   const results = (await response.json()) as NominatimResult[];
-  for (const result of results) {
-    const latitude = Number(result.lat);
-    const longitude = Number(result.lon);
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
+  const resolved=await Promise.all(results.map(async result=>{
+    const latitude=Number(result.lat);
+    const longitude=Number(result.lon);
+    if(!Number.isFinite(latitude)||!Number.isFinite(longitude))return null;
+    const area=await locateAreaByCoordinates(latitude,longitude);
+    if(!area)return null;
+    return {
+      ...area,
+      matchedPlace:result.display_name,
+      latitude,
+      longitude,
+      locationKind:["city","town","municipality","county","state","country","suburb","quarter","neighbourhood"]
+        .includes(result.addresstype??"")?"broad" as const:"specific" as const,
+    };
+  }));
 
-    const area = await locateAreaByCoordinates(latitude, longitude);
-    if (area) {
-      return {
-        ...area,
-        matchedPlace: result.display_name,
-        latitude,
-        longitude,
-        locationKind: ["city", "town", "municipality", "county", "state", "country", "suburb", "quarter", "neighbourhood"].includes(result.addresstype ?? "") ? "broad" : "specific",
-      };
-    }
+  const distinct=new Map<string,PlaceCandidate>();
+  for(const candidate of resolved){
+    if(!candidate)continue;
+    const key=candidate.citySlug+"|"+candidate.latitude.toFixed(5)+"|"+candidate.longitude.toFixed(5);
+    if(!distinct.has(key))distinct.set(key,candidate);
   }
+  return [...distinct.values()];
+}
 
-  return null;
+export async function resolvePlaceToArea(query: string): Promise<PlaceCandidate | null> {
+  return (await searchPlaceCandidates(query))[0]??null;
 }
