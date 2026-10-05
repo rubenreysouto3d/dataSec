@@ -99,6 +99,17 @@ export default function V2Research({
 
   const evidenceContext=useMemo(()=>createPlaceEvidenceContext(city,metrics,signals),[city,metrics,signals]);
   const areaById=useMemo(()=>new Map(areas.map(a=>[a.id,a])),[areas]);
+  const metricByArea=useMemo(()=>new Map(metrics.map(metric=>[metric.areaId,metric])),[metrics]);
+  const activityByArea=useMemo(()=>new Map(activityContexts.map(item=>[item.areaId,item])),[activityContexts]);
+  const trendByArea=useMemo(()=>new Map((harmTrends?.areas??[]).map(item=>[item.areaId,item])),[harmTrends]);
+  const signalByArea=useMemo(()=>new Map(signals.map(item=>[item.areaId,item])),[signals]);
+  const activityPercentiles=useMemo(()=>percentileByArea(areas.map(area=>{
+    const activity=activityByArea.get(area.id);
+    const metric=metricByArea.get(area.id);
+    const density=activity&&metric&&metric.areaKm2>0?activity.openHostelry/metric.areaKm2:null;
+    return {areaId:area.id,value:density};
+  })),[areas,activityByArea,metricByArea]);
+
   const selected=selectedId?areaById.get(selectedId)||null:null;
   const evidence=selected?evidenceContext.read(selected.id,purpose):null;
   const relative=evidence?bandNumber(evidence.percentile):null;
@@ -111,16 +122,6 @@ export default function V2Research({
   const selectedActivityBand=selected?bandNumber(activityPercentiles.get(selected.id)??null):null;
   const indicator=placeEvidenceLabel(city,purpose,evidenceContext.hasCityHarmSeries,"es");
   const source=placeEvidenceSource(city,"es");
-  const metricByArea=useMemo(()=>new Map(metrics.map(metric=>[metric.areaId,metric])),[metrics]);
-  const activityByArea=useMemo(()=>new Map(activityContexts.map(item=>[item.areaId,item])),[activityContexts]);
-  const trendByArea=useMemo(()=>new Map((harmTrends?.areas??[]).map(item=>[item.areaId,item])),[harmTrends]);
-  const signalByArea=useMemo(()=>new Map(signals.map(item=>[item.areaId,item])),[signals]);
-  const activityPercentiles=useMemo(()=>percentileByArea(areas.map(area=>{
-    const activity=activityByArea.get(area.id);
-    const metric=metricByArea.get(area.id);
-    const density=activity&&metric&&metric.areaKm2>0?activity.openHostelry/metric.areaKm2:null;
-    return {areaId:area.id,value:density};
-  })),[areas,activityByArea,metricByArea]);
   const mapValues=useMemo(()=>{
     if(layer==="activity")return new Map(areas.map(area=>[area.id,activityPercentiles.get(area.id)??null]));
     if(layer==="trend")return new Map(areas.map(area=>{
