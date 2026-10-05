@@ -4,6 +4,7 @@ import urllib.error
 from unittest.mock import patch
 
 from scripts.ingest_madrid import (
+    PERSONAL_HARM_METRIC_SLUGS,
     build_area_index,
     fetch_json,
     geojson_geometry_polygons,
@@ -84,6 +85,11 @@ class MadridSourceTests(unittest.TestCase):
             parse_creation_hour("24:00")
         with self.assertRaises(RuntimeError):
             parse_creation_hour("")
+
+    def test_hourly_publication_is_explicitly_scoped(self):
+        self.assertIn("madrid-dispatch-reyertas-agresiones", PERSONAL_HARM_METRIC_SLUGS)
+        self.assertIn("madrid-dispatch-robos-con-violencia-intimidacion", PERSONAL_HARM_METRIC_SLUGS)
+        self.assertNotIn("madrid-dispatch-ruidos-molestos", PERSONAL_HARM_METRIC_SLUGS)
 
 
 
