@@ -40,11 +40,14 @@ type Props = {
   initialPoint?: PointSelection | null;
 };
 type MapLayer = "incidents" | "trend" | "activity" | "night";
+type StreetSignal="theft"|"drugs"|"disorder"|"violence";
 type StreetHotspot = {
   id:string;latitude:number;longitude:number;street:string;total:number;
-  primary:"theft"|"drugs"|"disorder"|"violence";primaryLabel:string;
-  intensity:"low"|"medium"|"high";months:number;repeated:boolean;
-  signals:Record<"theft"|"drugs"|"disorder"|"violence",number>;
+  primary:StreetSignal;primaryLabel:string;
+  concentration:"low"|"medium"|"high";months:number;repeated:boolean;
+  signals:Record<StreetSignal,number>;
+  distanceMeters:number;
+  locationKind:"street-reference"|"anonymised-reference";
   localRank:number;
 };
 type StreetContextResponse = {
@@ -115,6 +118,7 @@ export default function V2Research({
   const [streetContext,setStreetContext]=useState<StreetContextResponse|null>(null);
   const [streetState,setStreetState]=useState<"idle"|"loading"|"ready"|"error">("idle");
   const [showStreet,setShowStreet]=useState(true);
+  const [streetFilter,setStreetFilter]=useState<"all"|StreetSignal>("all");
   const [locating,setLocating]=useState(false);
   const [saved,setSaved]=useState(false);
   const [shareStatus,setShareStatus]=useState("");
@@ -248,8 +252,9 @@ export default function V2Research({
   },[purpose,selectedId,selectedPoint]);
 
   function useCurrentLocation(){
-    if(locating||typeof navigator==="undefined"||!navigator.geolocation){
-      if(!navigator?.geolocation)setGeoError("Este navegador no permite obtener la ubicación.");
+    if(locating)return;
+    if(typeof navigator==="undefined"||!navigator.geolocation){
+      setGeoError("Este navegador no permite obtener la ubicación.");
       return;
     }
     setLocating(true);setGeoError("");
@@ -337,6 +342,32 @@ export default function V2Research({
     }));
   },[nearby,purpose]);
 
+  const visibleStreetHotspots=useMemo(()=>{
+    const source=streetContext?.hotspots??[];
+    if(streetFilter==="all")return source;
+    return source.filter(item=>item.signals[streetFilter]>0);
+  },[streetContext,streetFilter]);
+
+  const nearbyHotspots=useMemo(()=>[...visibleStreetHotspots]
+    .sort((a,b)=>{
+      const level={high:0,medium:1,low:2};
+      return level[a.concentration]-level[b.concentration]||a.distanceMeters-b.distanceMeters||b.total-a.total;
+    }),[visibleStreetHotspots]);
+
+  const streetAdvice=useMemo(()=>{
+    const source=(streetContext?.hotspots??[]).filter(item=>item.repeated&&item.distanceMeters<=700);
+    const totals:Record<StreetSignal,number>={theft:0,drugs:0,disorder:0,violence:0};
+    for(const item of source){
+      for(const key of Object.keys(totals) as StreetSignal[])totals[key]+=item.signals[key];
+    }
+    const notes:string[]=[];
+    if(totals.theft>=15)notes.push("Presta especial atención a móvil, cartera y bolso.");
+    if(totals.violence>=15)notes.push("Hay concentración repetida de violencia registrada en el entorno.");
+    if(totals.disorder>=15)notes.push("Hay focos repetidos de desorden o conducta antisocial.");
+    if(totals.drugs>=8)notes.push("Aparece actividad de drogas registrada de forma repetida.");
+    return notes.slice(0,3);
+  },[streetContext]);
+
   const layerCopy = layer==="trend"
     ? {title:"Cambio reciente",detail:"bajando → subiendo en los últimos 6 meses"}
     : layer==="activity"
@@ -402,7 +433,7 @@ export default function V2Research({
         values={mapValues}
         selectedId={selectedId}
         selectedPoint={selectedPoint}
-        hotspots={showStreet?(streetContext?.hotspots??[]):[]}
+        hotspots={showStreet?visibleStreetHotspots:[]}
         onSelect={selectArea}
         locale="es"
       />:<div className="atlas-app-map-loading" role="status">
@@ -566,22 +597,27 @@ export default function V2Research({
             </div>
           </>:null}
           {streetState==="ready"&&streetContext?.availability==="street"?<>
-            <div className="atlas-street-legend">
-              <span><i data-kind="theft"/>Hurto/robo</span>
-              <span><i data-kind="drugs"/>Drogas</span>
-              <span><i data-kind="disorder"/>Desorden</span>
-              <span><i data-kind="violence"/>Violencia</span>
+            {streetAdvice.length?<div className="atlas-street-advice">
+              <span>QUÉ MERECE ATENCIÓN AQUÍ</span>
+              {streetAdvice.map(note=><strong key={note}>{note}</strong>)}
+            </div>:null}
+            <div className="atlas-street-filters" role="group" aria-label="Filtrar focos cercanos">
+              <button type="button" className={streetFilter==="all"?"active":""} onClick={()=>setStreetFilter("all")}>Todo</button>
+              <button type="button" className={streetFilter==="theft"?"active":""} onClick={()=>setStreetFilter("theft")}><i data-kind="theft"/>Hurtos</button>
+              <button type="button" className={streetFilter==="drugs"?"active":""} onClick={()=>setStreetFilter("drugs")}><i data-kind="drugs"/>Drogas</button>
+              <button type="button" className={streetFilter==="disorder"?"active":""} onClick={()=>setStreetFilter("disorder")}><i data-kind="disorder"/>Desorden</button>
+              <button type="button" className={streetFilter==="violence"?"active":""} onClick={()=>setStreetFilter("violence")}><i data-kind="violence"/>Violencia</button>
             </div>
-            {streetContext.hotspots.length?<div className="atlas-hotspot-list">
-              {streetContext.hotspots.slice(0,8).map(item=><div key={item.id} className={"atlas-hotspot "+item.intensity}>
+            {nearbyHotspots.length?<div className="atlas-hotspot-list">
+              {nearbyHotspots.slice(0,10).map(item=><div key={item.id} className={"atlas-hotspot "+item.concentration}>
                 <i data-kind={item.primary}/>
-                <div><strong>{item.street}</strong>
+                <div><strong>{item.locationKind==="anonymised-reference"?"Referencia anonimizada: ":"En torno a "}{item.street}</strong>
                   <span>{item.primaryLabel}{item.repeated?" · repetido en varios meses":""}</span></div>
-                <b>{item.total}</b>
+                <b>~{item.distanceMeters} m</b>
               </div>)}
-            </div>:<p className="atlas-inline-note">No aparecen concentraciones repetidas de estas categorías en la consulta cercana.</p>}
+            </div>:<p className="atlas-inline-note">No aparecen concentraciones de esta categoría en la consulta cercana.</p>}
             <p className="atlas-street-note">
-              Son ubicaciones policiales anonimizadas y aproximadas, no sucesos en tiempo real ni direcciones exactas.
+              Son ubicaciones policiales anonimizadas y aproximadas, no sucesos en tiempo real ni direcciones exactas. “Hurtos” incluye hurto a personas y robo; la fuente no separa específicamente carterismo.
               {streetContext.latestMonth?" Último mes: "+streetContext.latestMonth+".":""}
             </p>
           </>:null}
