@@ -46,7 +46,7 @@ type Props = {
   initialLens: PlaceLens;
   initialPoint?: PointSelection | null;
 };
-type MapLayer = "incidents" | "trend" | "activity" | "night";
+type MapLayer = "context" | "incidents" | "trend" | "activity" | "night";
 type StreetSignal="theft"|"drugs"|"disorder"|"violence";
 type StreetHotspot = {
   id:string;latitude:number;longitude:number;street:string;total:number;
@@ -111,7 +111,7 @@ export default function V2Research({
   const router=useRouter();
   const [lens,setLens]=useState<PlaceLens>(initialLens);
   const purpose=placeLensPurpose[lens];
-  const [layer,setLayer]=useState<MapLayer>("incidents");
+  const [layer,setLayer]=useState<MapLayer>("context");
   const [selectedId,setSelectedId]=useState<string|null>(initialId);
   const [selectedPoint,setSelectedPoint]=useState<PointSelection|null>(initialPoint);
   const [query,setQuery]=useState("");
@@ -158,6 +158,7 @@ export default function V2Research({
   const indicator=placeEvidenceLabel(city,purpose,evidenceContext.hasCityHarmSeries,"es");
   const source=placeEvidenceSource(city,"es");
   const mapValues=useMemo(()=>{
+    if(layer==="context")return new Map(areas.map(area=>[area.id,null]));
     if(layer==="activity")return new Map(areas.map(area=>[area.id,activityPercentiles.get(area.id)??null]));
     if(layer==="trend")return new Map(areas.map(area=>{
       const delta=trendByArea.get(area.id)?.percentChange;
@@ -368,7 +369,9 @@ export default function V2Research({
       return level[a.concentration]-level[b.concentration]||a.distanceMeters-b.distanceMeters||b.total-a.total;
     }),[visibleStreetHotspots]);
 
-  const layerCopy = layer==="trend"
+  const layerCopy = layer==="context"
+    ? {title:"Mapa base",detail:"sin convertir una métrica en veredicto general"}
+    : layer==="trend"
     ? {title:"Cambio reciente",detail:"bajando → subiendo en los últimos 6 meses"}
     : layer==="activity"
       ? {title:"Actividad urbana",detail:"menos → más hostelería por km²"}
@@ -466,10 +469,11 @@ export default function V2Research({
       </div>
 
       <details className="street-layer-menu">
-        <summary>Mapa · {layer==="incidents"?"Registros":layer==="trend"?"Cambio":layer==="activity"?"Actividad":"Noche"}</summary>
+        <summary>Mapa · {layer==="context"?"Base":layer==="incidents"?"Registros":layer==="trend"?"Cambio":layer==="activity"?"Actividad":"Noche"}</summary>
         <div className="street-layer-panel">
           <span>QUÉ QUIERES VER</span>
           <div>
+            <button type="button" className={layer==="context"?"active":""} onClick={()=>setLayer("context")}>Base</button>
             <button type="button" className={layer==="incidents"?"active":""} onClick={()=>setLayer("incidents")}>Registros</button>
             <button type="button" className={layer==="trend"?"active":""} onClick={()=>setLayer("trend")}>Cambio</button>
             <button type="button" className={layer==="activity"?"active":""} onClick={()=>setLayer("activity")}>Actividad</button>
