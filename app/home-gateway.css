@@ -150,3 +150,75 @@ body:has(.home-gateway){margin:0;background:#eef2ee}
 .hg-match a{background:#163e39;color:#fff;border-radius:6px;font-weight:720;font-size:11px;
   text-align:center;padding:9px;margin-top:6px}
 .hg-address-lookup>p{padding:7px 0!important;color:#914e32!important}
+
+/* PUBLIC WEB INDEX
+   Discovery and city context live here; the interactive investigation tool lives in /v2. */
+.web-index{
+  width:min(1180px,calc(100% - 56px));margin:0 auto;padding:72px 0 90px;color:#17231d
+}
+.web-index-hero{max-width:860px;padding:24px 0 58px}
+.web-index-kicker{
+  font:760 9px ui-monospace,Consolas,monospace;letter-spacing:.12em;color:#64766b
+}
+.web-index-hero h1{
+  font-size:clamp(48px,7vw,92px);line-height:.95;letter-spacing:-.08em;
+  margin:15px 0 19px;max-width:950px
+}
+.web-index-hero p{
+  max-width:720px;font-size:15px;line-height:1.65;color:#68766d
+}
+.web-index-actions{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-top:26px}
+.web-index-actions a{font-size:12px;font-weight:760;color:#355847}
+.web-index-primary{
+  display:inline-flex;padding:12px 15px;background:#18352b;color:#fff!important;border:1px solid #18352b
+}
+.web-index-cities{
+  display:grid;grid-template-columns:1fr 1fr;border:1px solid #c8d0c7;background:#f6f6f1
+}
+.web-index-city{padding:26px 28px;min-width:0}
+.web-index-city+ .web-index-city{border-left:1px solid #c8d0c7}
+.web-index-city header{
+  display:flex;justify-content:space-between;gap:12px;
+  font:740 9px ui-monospace,Consolas,monospace;letter-spacing:.08em;color:#6d7a71
+}
+.web-index-city h2{
+  font-size:clamp(38px,5vw,66px);letter-spacing:-.07em;line-height:1;margin:25px 0 8px
+}
+.web-index-city>p{font-size:11px;color:#718078;margin-bottom:26px}
+.web-index-city nav{display:flex;flex-direction:column;border-top:1px solid #cfd6cd}
+.web-index-city nav a{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:14px 0;border-bottom:1px solid #d8ddd6;color:#29483a!important
+}
+.web-index-city nav a:hover{padding-left:6px}
+.web-index-city nav strong{font-size:12px}
+.web-index-city nav span{font-size:14px}
+.web-index-paths{
+  margin-top:18px;display:grid;grid-template-columns:repeat(3,1fr);border:1px solid #ced5cc
+}
+.web-index-paths>div{padding:21px;border-right:1px solid #d5dbd3}
+.web-index-paths>div:last-child{border-right:0}
+.web-index-paths>div>span{
+  font:740 9px ui-monospace,Consolas,monospace;color:#77847b
+}
+.web-index-paths strong{display:block;font-size:17px;line-height:1.2;margin:14px 0 8px}
+.web-index-paths p{font-size:10px;line-height:1.6;color:#748077;min-height:49px}
+.web-index-paths a{display:inline-block;margin-top:10px;font-size:10px;font-weight:760;color:#365b47}
+.web-index-status{
+  display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap;
+  margin-top:24px;padding-top:14px;border-top:1px solid #d1d7cf;
+  font:700 9px ui-monospace,Consolas,monospace;color:#7a877f
+}
+@media(max-width:760px){
+  .web-index{width:calc(100% - 28px);padding:35px 0 60px}
+  .web-index-hero{padding-bottom:35px}
+  .web-index-hero h1{font-size:clamp(45px,13vw,68px)}
+  .web-index-hero p{font-size:12px}
+  .web-index-cities{grid-template-columns:1fr}
+  .web-index-city{padding:20px}
+  .web-index-city+ .web-index-city{border-left:0;border-top:1px solid #c8d0c7}
+  .web-index-paths{grid-template-columns:1fr}
+  .web-index-paths>div{border-right:0;border-bottom:1px solid #d5dbd3}
+  .web-index-paths>div:last-child{border-bottom:0}
+  .web-index-paths p{min-height:0}
+}

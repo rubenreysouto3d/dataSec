@@ -1007,3 +1007,85 @@ body:has(.atlas-app){overflow:hidden;background:#e8e9e3}
   .atlas-nearby-grid{grid-template-columns:1fr}
   .atlas-nearby-grid>section{border-right:0}
 }
+
+/* URBAN REALITY MODEL
+   The map exposes distinct questions instead of pretending one score explains a place. */
+.atlas-layer-buttons{
+  display:flex;flex-wrap:wrap;gap:4px;margin:8px 0 9px
+}
+.atlas-layer-buttons button{
+  border:1px solid #b6c0b6;background:#f7f7f1;color:#516158;
+  padding:6px 8px;font-size:8px;font-weight:760
+}
+.atlas-layer-buttons button.active{
+  background:#173b2c;border-color:#173b2c;color:#fff
+}
+.atlas-reality{
+  padding:19px 22px;border-bottom:1px solid #cbd1c8;background:#f7f6ef
+}
+.atlas-reality-grid{
+  display:grid;grid-template-columns:1fr 1fr;border:1px solid #ced4cc
+}
+.atlas-reality-grid>div{
+  min-height:92px;padding:11px;border-right:1px solid #d9ddd7;border-bottom:1px solid #d9ddd7;
+  display:flex;flex-direction:column;justify-content:flex-start
+}
+.atlas-reality-grid>div:nth-child(2n){border-right:0}
+.atlas-reality-grid>div:nth-last-child(-n+2){border-bottom:0}
+.atlas-reality-grid span{
+  font:750 8px ui-monospace,Consolas,monospace;letter-spacing:.08em;color:#6b796f
+}
+.atlas-reality-grid strong{
+  display:block;font-size:14px;line-height:1.15;letter-spacing:-.025em;margin-top:10px;color:#20392e
+}
+.atlas-reality-grid small{
+  display:block;margin-top:5px;font-size:8px;line-height:1.4;color:#7a857d
+}
+.atlas-reality details{
+  margin-top:12px;border-top:1px solid #d7dcd4;padding-top:9px
+}
+.atlas-reality summary{
+  cursor:pointer;font-size:9px;font-weight:760;color:#52675a
+}
+.atlas-reality details p,.atlas-reality details a{
+  display:block;font-size:8px;line-height:1.5;color:#748178;margin-top:7px
+}
+.atlas-reality details a{text-decoration:underline;text-underline-offset:3px}
+@media(max-width:760px){
+  .atlas-reality{padding:13px 15px}
+  .atlas-reality-grid>div{min-height:76px;padding:9px}
+  .atlas-reality-grid strong{font-size:12px;margin-top:7px}
+  .atlas-layer-buttons{margin:5px 0 6px}
+  .atlas-layer-buttons button{padding:4px 6px;font-size:7px}
+}
+
+.atlas-city-pulse{padding-top:34px}
+.atlas-city-pulse h1{max-width:none}
+.atlas-pulse-group{
+  margin-top:18px;border-top:1px solid #cbd2c9
+}
+.atlas-pulse-group>div{
+  display:flex;justify-content:space-between;gap:12px;align-items:baseline;
+  padding:9px 0 7px
+}
+.atlas-pulse-group>div span{
+  font:760 8px ui-monospace,Consolas,monospace;letter-spacing:.09em;color:#607266
+}
+.atlas-pulse-group>div small{font-size:8px;color:#849087;text-align:right}
+.atlas-pulse-group>button{
+  width:100%;border:0;border-top:1px solid #dce0da;background:transparent;
+  padding:10px 0;display:flex;justify-content:space-between;gap:14px;text-align:left;color:#20362b
+}
+.atlas-pulse-group>button:hover{background:#eceee7}
+.atlas-pulse-group>button strong{font-size:11px;line-height:1.25}
+.atlas-pulse-group>button b{
+  font:740 9px ui-monospace,Consolas,monospace;color:#6b786f;white-space:nowrap
+}
+@media(max-width:760px){
+  .atlas-city-pulse{padding:14px 15px 12px}
+  .atlas-city-pulse>p{display:none}
+  .atlas-city-pulse .atlas-pulse-group{margin-top:9px}
+  .atlas-city-pulse .atlas-pulse-group:nth-of-type(n+3){display:none}
+  .atlas-pulse-group>button{padding:7px 0}
+  .atlas-pulse-group>div{padding:6px 0 5px}
+}

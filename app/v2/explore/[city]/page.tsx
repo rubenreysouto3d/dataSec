@@ -1,6 +1,13 @@
 import Link from "next/link";
 import { notFound, unstable_rethrow } from "next/navigation";
-import { getCityMapMetrics, getCitySafetySignals, getNeighbourhoods, type CitySlug } from "@/lib/data";
+import {
+  getCityActivityContexts,
+  getCityHarmTrends,
+  getCityMapMetrics,
+  getCitySafetySignals,
+  getNeighbourhoods,
+  type CitySlug,
+} from "@/lib/data";
 import { locateAreaByCoordinates } from "@/lib/public-data-client";
 import V2Research from "./V2Research";
 
@@ -17,17 +24,24 @@ export default async function V2Explore({params,searchParams}:{
   let areas: Awaited<ReturnType<typeof getNeighbourhoods>>=[];
   let metrics: Awaited<ReturnType<typeof getCityMapMetrics>>=[];
   let signals: Awaited<ReturnType<typeof getCitySafetySignals>>=[];
+  let activityContexts: Awaited<ReturnType<typeof getCityActivityContexts>>=[];
+  let harmTrends: Awaited<ReturnType<typeof getCityHarmTrends>>=null;
   let initialId:string|null=null;
   let initialPoint:{latitude:number;longitude:number;label:string}|null=null;
 
   try{
     areas=await getNeighbourhoods(slug);
     const ids=areas.map(a=>a.id);
-    [metrics,signals]=await (async()=>{
-      const cityMetrics=await getCityMapMetrics(slug,ids);
-      const citySignals=await getCitySafetySignals(slug,ids,cityMetrics);
-      return [cityMetrics,citySignals] as const;
-    })();
+    const cityMetrics=await getCityMapMetrics(slug,ids);
+    const [citySignals,cityActivity,cityTrends]=await Promise.all([
+      getCitySafetySignals(slug,ids,cityMetrics),
+      getCityActivityContexts(ids),
+      getCityHarmTrends(slug,ids,cityMetrics),
+    ]);
+    metrics=cityMetrics;
+    signals=citySignals;
+    activityContexts=cityActivity;
+    harmTrends=cityTrends;
 
     initialId=areas.some(a=>a.id===query.area)?query.area||null:null;
 
@@ -52,6 +66,8 @@ export default async function V2Explore({params,searchParams}:{
     areas={areas}
     metrics={metrics}
     signals={signals}
+    activityContexts={activityContexts}
+    harmTrends={harmTrends}
     initialId={initialId}
     initialPoint={initialPoint}
     initialPurpose={query.view==="resident"?"resident":"visitor"}
