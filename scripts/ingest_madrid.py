@@ -43,6 +43,8 @@ BOUNDARY_URL = (
 SOURCE_SLUG = "madrid-police-dispatch-incidents"
 CITY_SLUG = "madrid"
 COUNTRY_CODE = "ES"
+PERSONAL_HARM_CATEGORY_PATH = pathlib.Path(__file__).resolve().parents[1] / "data" / "sources" / "madrid-personal-harm-categories.json"
+PERSONAL_HARM_METRIC_SLUGS = frozenset(json.loads(PERSONAL_HARM_CATEGORY_PATH.read_text(encoding="utf-8")))
 
 SPANISH_MONTHS = {
     "enero": 1,
@@ -390,9 +392,10 @@ def validate_and_aggregate(
             ] += 1
             continue
         code = str(area["COD_BAR"]).strip()
-        hour = parse_creation_hour(row.get("Hora de creacion"))
         aggregates[(code, slug)] += count
-        hourly_aggregates[(code, slug, hour)] += count
+        if slug in PERSONAL_HARM_METRIC_SLUGS:
+            hour = parse_creation_hour(row.get("Hora de creacion"))
+            hourly_aggregates[(code, slug, hour)] += count
 
     if len(categories) < 5:
         raise RuntimeError(f"Implausibly low Madrid category count: {len(categories)}")
@@ -734,10 +737,15 @@ def main() -> int:
         if match_incident_area(row, area_index) is not None
     )
     aggregate_total = sum(aggregates.values())
+    expected_hourly_total = sum(
+        value for (_code, slug), value in aggregates.items()
+        if slug in PERSONAL_HARM_METRIC_SLUGS
+    )
     hourly_total = sum(hourly_aggregates.values())
-    if aggregate_total != hourly_total:
+    if expected_hourly_total != hourly_total:
         raise RuntimeError(
-            f"Madrid hourly aggregation mismatch: monthly={aggregate_total}, hourly={hourly_total}"
+            "Madrid reviewed-hour aggregation mismatch: "
+            f"expected={expected_hourly_total}, hourly={hourly_total}"
         )
     if source_total != aggregate_total:
         raise RuntimeError(
@@ -757,7 +765,7 @@ def main() -> int:
         log(
             f"Dry run complete. Would persist 21 districts, 131 neighbourhoods, "
             f"131 boundaries, {131 * len(categories):,} monthly observations and "
-            f"{len(hourly_aggregates):,} hourly observations."
+            f"{len(hourly_aggregates):,} reviewed personal-harm hourly observations."
         )
         return 0
 
