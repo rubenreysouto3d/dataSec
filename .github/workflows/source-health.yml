@@ -1,20 +1,7 @@
 name: source-health
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "scripts/check-police-contract.mjs"
-      - "scripts/check-london-population-contract.py"
-      - "scripts/check-madrid-contract.mjs"
-      - "scripts/check-madrid-population-contract.mjs"
-      - "scripts/check-madrid-activity-contract.mjs"
-      - "data/sources/london.json"
-      - "data/sources/madrid.json"
-      - ".github/workflows/source-health.yml"
   workflow_dispatch:
-  schedule:
-    - cron: "17 6 * * *"
 
 permissions:
   contents: read
