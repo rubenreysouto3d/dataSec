@@ -3,10 +3,6 @@ name: backfill-madrid
 # Historic files may omit district names; the ingester only falls back on unique neighbourhood names.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/backfill-madrid.yml"
   workflow_dispatch:
     inputs:
       count:
