@@ -1,13 +1,6 @@
 name: ingest-madrid-activity-context
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "scripts/ingest_madrid_activity.py"
-      - ".github/workflows/ingest-madrid-activity.yml"
-  schedule:
-    - cron: "37 6 5,20 * *"
   workflow_dispatch:
     inputs:
       month:
