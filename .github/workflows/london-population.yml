@@ -1,11 +1,6 @@
 name: london-population
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "scripts/ingest_london_population.py"
-      - ".github/workflows/london-population.yml"
   workflow_dispatch:
     inputs:
       persist:
@@ -13,6 +8,7 @@ on:
         required: true
         default: false
         type: boolean
+
 
 permissions:
   contents: read
