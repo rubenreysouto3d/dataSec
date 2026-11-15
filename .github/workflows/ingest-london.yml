@@ -1,8 +1,6 @@
 name: ingest-london
 
 on:
-  schedule:
-    - cron: "17 5 5,20 * *"
   workflow_dispatch:
     inputs:
       month:
